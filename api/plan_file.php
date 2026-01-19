@@ -15,9 +15,7 @@ $row = $stmt->fetch();
 
 if (!$row) error_response('Plan not found', 404);
 
-$plansDir = storage_dir('plans');
-$path = rtrim($plansDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $row['filename'];
-
+$path = storage_path('plans/' . $row['filename']);
 if (!is_file($path)) error_response('File missing on server', 404);
 
 $size = filesize($path);
@@ -31,6 +29,7 @@ header('Accept-Ranges: bytes');
 $start = 0;
 $end = $size - 1;
 
+// Basic Range support
 if (isset($_SERVER['HTTP_RANGE']) && preg_match('/bytes=(\d+)-(\d*)/', $_SERVER['HTTP_RANGE'], $m)) {
   $start = (int)$m[1];
   if ($m[2] !== '') $end = (int)$m[2];
