@@ -12,9 +12,11 @@ $pdo = db();
 $stmt = $pdo->prepare('SELECT id, name, filename, revision, created_at FROM plans WHERE id=?');
 $stmt->execute([$plan_id]);
 $plan = $stmt->fetch();
+
 if (!$plan) error_response('Plan not found', 404);
 
-// Provide a safe URL for PDF streaming
-$plan['pdf_url'] = base_url() . '/api/plan_file.php?plan_id=' . (int)$plan_id;
+// Safe streaming URL
+$pdf_url = base_url() . '/api/plan_file.php?plan_id=' . (int)$plan_id;
+$plan['pdf_url'] = $pdf_url;
 
-json_response(['ok' => true, 'plan' => $plan, 'pdf_url' => $plan['pdf_url']]);
+json_response(['ok' => true, 'plan' => $plan, 'pdf_url' => $pdf_url]);
