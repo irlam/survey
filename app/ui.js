@@ -2,12 +2,11 @@
 // Assumes these endpoints exist:
 // - GET  /api/list_plans.php
 // - POST /api/upload_plan.php (multipart/form-data)
-// - GET  /api/get_plan.php?plan_id=123
+// - GET  /api/get_plan.php?plan_id=123 (should return pdf_url OR plan.pdf_url)
 
 function $(id) { return document.getElementById(id); }
 
 function setViewerOpen(isOpen) {
-  // index.html defines this helper; safe fallback:
   if (typeof window.setViewerOpen === 'function') window.setViewerOpen(isOpen);
   document.body.classList.toggle('viewer-open', !!isOpen);
 }
@@ -37,8 +36,8 @@ async function apiPostForm(url, formData) {
 
 function fmtDate(dt) {
   if (!dt) return '';
-  // dt is expected like "2026-01-19 10:12:00"
-  return dt.replace('T', ' ').slice(0, 16);
+  // expected: "YYYY-MM-DD HH:MM:SS"
+  return String(dt).slice(0, 16);
 }
 
 function plansListItem(plan) {
@@ -61,7 +60,7 @@ function plansListItem(plan) {
   const meta = document.createElement('div');
   meta.className = 'meta';
   const rev = plan.revision ? `Rev ${plan.revision}` : 'No rev';
-  meta.textContent = `${rev} • ${fmtDate(plan.uploaded_at)}`;
+  meta.textContent = `${rev} • ${fmtDate(plan.created_at)}`;
 
   left.appendChild(title);
   left.appendChild(meta);
@@ -123,12 +122,9 @@ function bindCloseButtons() {
     });
   }
 
-  // The rail button exists in index.html; it already hides viewer, but we keep this as a safety
   const railClose = document.getElementById('railCloseViewer');
   if (railClose) {
-    railClose.addEventListener('click', () => {
-      showViewerUI(false);
-    });
+    railClose.addEventListener('click', () => showViewerUI(false));
   }
 }
 
@@ -138,16 +134,22 @@ async function openPlan(planId) {
     const plan = data.plan;
 
     $('viewerTitle').textContent = plan?.name ? plan.name : `Plan #${planId}`;
-    $('viewerMeta').textContent = plan?.revision ? `Revision: ${plan.revision}` : '';
+    $('viewerMeta').textContent =
+      `${plan?.revision ? `Revision: ${plan.revision} • ` : ''}${plan?.created_at ? `Uploaded: ${fmtDate(plan.created_at)}` : ''}`;
 
-    // Reset viewer UI placeholders (real PDF.js wiring should happen in viewer.js)
+    // pdf_url can be returned as top-level or inside plan
+    const pdfUrl = data.pdf_url || plan?.pdf_url || '(missing pdf_url)';
+
+    // Reset viewer placeholders (real PDF.js wiring comes next in viewer.js)
     $('pageBadge').textContent = 'Page 1 / 1';
     $('pageInput').value = '1';
     $('zoomBadge').textContent = '100%';
-    $('pdfContainer').innerHTML = `<div class="card" style="margin:12px;">
-      <div class="meta">Viewer stub ready. Next step: wire PDF.js render in <code>/app/viewer.js</code> using <code>pdf_url</code> from the API.</div>
-      <div class="meta" style="margin-top:8px;">PDF URL: <span class="badge cyan">${data.pdf_url || '(missing pdf_url)'}</span></div>
-    </div>`;
+    $('pdfContainer').innerHTML = `
+      <div class="card" style="margin:12px;">
+        <div class="meta">Viewer stub ready. Next step: wire PDF.js render in <code>/app/viewer.js</code> using <code>pdf_url</code> from the API.</div>
+        <div class="meta" style="margin-top:8px;">PDF URL: <span class="badge cyan">${pdfUrl}</span></div>
+      </div>
+    `;
 
     showViewerUI(true);
     toast('Plan opened', 1200);
@@ -218,7 +220,6 @@ export function renderPlansScreen() {
   bindRefresh();
   bindCloseButtons();
 
-  // If opened with ?plan_id=... auto-open
   const params = new URLSearchParams(location.search);
   const pid = params.get('plan_id');
   if (pid) {
