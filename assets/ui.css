@@ -1,5 +1,5 @@
 /* Dark Neon UI — mobile-first baseline (Survey / DefectTracker vibe)
-   Keep it lightweight: glow only on primary/active elements.
+   Lightweight: glow only on primary/active elements.
 */
 
 :root{
@@ -42,10 +42,24 @@ h1,h2,h3{ margin:0; }
 small, .muted { color: var(--muted); }
 
 /* Layout helpers */
-.container{ padding: 12px; max-width: 1100px; margin: 0 auto; }
+.container{ padding: 12px; max-width: 1200px; margin: 0 auto; }
 .row{ display:flex; gap:10px; align-items:center; }
 .col{ display:flex; flex-direction:column; gap:10px; }
 .spacer{ flex:1; }
+
+/* App layout */
+.app-shell{
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Main content area – switches to grid on tablets */
+.main-grid{
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
 
 /* App bar */
 .appbar{
@@ -113,7 +127,6 @@ small, .muted { color: var(--muted); }
   user-select:none;
   -webkit-tap-highlight-color: transparent;
 }
-
 .btn:active{ transform: translateY(1px); }
 
 .btn-primary{
@@ -194,6 +207,7 @@ input:focus, select:focus, textarea:focus{
   color: var(--accent2);
   text-decoration:none;
 }
+.list-item a:hover{ text-decoration: underline; }
 
 .meta{
   font-size: 0.86rem;
@@ -224,6 +238,11 @@ input:focus, select:focus, textarea:focus{
   border: 1px solid rgba(0,229,255,0.18);
   background: rgba(12,18,32,0.55);
   box-shadow: 0 0 22px rgba(0,229,255,0.10);
+}
+
+#pdfContainer{
+  position: relative;
+  touch-action: pan-x pan-y;
 }
 
 #pdfContainer canvas{
@@ -284,4 +303,45 @@ a:hover{ text-decoration: underline; }
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce){
   * { transition: none !important; animation: none !important; }
+}
+
+/* ---------- Landscape tablet layout ----------
+   - Two columns: left plans panel, right viewer panel
+   - When a plan is opened, collapse the plans panel to a slim rail
+   Toggle by setting body class "viewer-open" (we do it in index.html script).
+*/
+@media (min-width: 900px) and (orientation: landscape){
+  .main-grid{
+    grid-template-columns: 380px 1fr;
+    align-items: start;
+  }
+
+  /* Make viewer feel bigger on tablets */
+  .viewer-wrap{
+    min-height: calc(100vh - 190px);
+  }
+
+  /* Collapse behaviour when viewing */
+  body.viewer-open .main-grid{
+    grid-template-columns: 72px 1fr;
+  }
+  body.viewer-open #plansCard{
+    padding: 10px;
+  }
+  body.viewer-open #plansCard .card-title,
+  body.viewer-open #plansCard form,
+  body.viewer-open #plansList{
+    display: none;
+  }
+  body.viewer-open #plansRail{
+    display: flex;
+  }
+}
+
+/* Plans rail (only shown in tablet landscape + viewer-open) */
+#plansRail{
+  display:none;
+  flex-direction:column;
+  gap:10px;
+  align-items:stretch;
 }
