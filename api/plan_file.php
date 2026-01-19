@@ -1,5 +1,4 @@
 <?php
-// Milestone 2: Stream plan PDF safely (supports Range for PDF.js performance)
 require_once __DIR__ . '/config-util.php';
 require_once __DIR__ . '/db.php';
 
@@ -9,13 +8,13 @@ $plan_id = safe_int($_GET['plan_id'] ?? null);
 if (!$plan_id) error_response('Missing or invalid plan_id', 400);
 
 $pdo = db();
-$stmt = $pdo->prepare('SELECT id, filename FROM plans WHERE id=?');
+$stmt = $pdo->prepare('SELECT id, file_path FROM plans WHERE id=?');
 $stmt->execute([$plan_id]);
 $row = $stmt->fetch();
 
 if (!$row) error_response('Plan not found', 404);
 
-$path = storage_path('plans/' . $row['filename']);
+$path = storage_path($row['file_path']);
 if (!is_file($path)) error_response('File missing on server', 404);
 
 $size = filesize($path);
@@ -29,7 +28,7 @@ header('Accept-Ranges: bytes');
 $start = 0;
 $end = $size - 1;
 
-// Basic Range support
+// Range support (helps PDF.js)
 if (isset($_SERVER['HTTP_RANGE']) && preg_match('/bytes=(\d+)-(\d*)/', $_SERVER['HTTP_RANGE'], $m)) {
   $start = (int)$m[1];
   if ($m[2] !== '') $end = (int)$m[2];
@@ -46,7 +45,6 @@ if (isset($_SERVER['HTTP_RANGE']) && preg_match('/bytes=(\d+)-(\d*)/', $_SERVER[
 }
 
 $length = $end - $start + 1;
-
 header("Content-Length: {$length}");
 header("Content-Range: bytes {$start}-{$end}/{$size}");
 
