@@ -1,50 +1,67 @@
 <?php
-// Milestone 2: Stream plan PDF file stub
+// Milestone 2: Stream plan PDF safely (supports Range for PDF.js performance)
 require_once __DIR__ . '/config-util.php';
 require_once __DIR__ . '/db.php';
+
 require_method('GET');
+
 $plan_id = safe_int($_GET['plan_id'] ?? null);
-if (!$plan_id) {
-	http_response_code(400); echo 'Missing plan_id'; exit;
-}
+if (!$plan_id) error_response('Missing or invalid plan_id', 400);
+
 $pdo = db();
-$stmt = $pdo->prepare('SELECT filename FROM plans WHERE id=?');
+$stmt = $pdo->prepare('SELECT id, filename FROM plans WHERE id=?');
 $stmt->execute([$plan_id]);
 $row = $stmt->fetch();
-if (!$row) {
-	http_response_code(404); echo 'Plan not found'; exit;
-}
-$file = storage_dir('plans/' . $row['filename']);
-if (!is_file($file)) {
-	http_response_code(404); echo 'File not found'; exit;
-}
-$size = filesize($file);
+
+if (!$row) error_response('Plan not found', 404);
+
+$plansDir = storage_dir('plans');
+$path = rtrim($plansDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $row['filename'];
+
+if (!is_file($path)) error_response('File missing on server', 404);
+
+$size = filesize($path);
+$fp = fopen($path, 'rb');
+if (!$fp) error_response('Unable to open file', 500);
+
 header('Content-Type: application/pdf');
-header('Content-Disposition: inline; filename="plan.pdf"');
+header('Content-Disposition: inline; filename="plan_' . (int)$plan_id . '.pdf"');
 header('Accept-Ranges: bytes');
-if (isset($_SERVER['HTTP_RANGE'])) {
-	$range = $_SERVER['HTTP_RANGE'];
-	if (preg_match('/bytes=(\d+)-(\d*)/', $range, $m)) {
-		$start = intval($m[1]);
-		$end = ($m[2] !== '') ? intval($m[2]) : $size-1;
-		if ($start > $end || $end >= $size) {
-			http_response_code(416); exit;
-		}
-		header('HTTP/1.1 206 Partial Content');
-		header("Content-Range: bytes $start-$end/$size");
-		header('Content-Length: ' . ($end-$start+1));
-		$fp = fopen($file, 'rb');
-		fseek($fp, $start);
-		$to_send = $end-$start+1;
-		while ($to_send > 0 && !feof($fp)) {
-			$chunk = fread($fp, min(8192, $to_send));
-			echo $chunk;
-			$to_send -= strlen($chunk);
-		}
-		fclose($fp);
-		exit;
-	}
+
+$start = 0;
+$end = $size - 1;
+
+if (isset($_SERVER['HTTP_RANGE']) && preg_match('/bytes=(\d+)-(\d*)/', $_SERVER['HTTP_RANGE'], $m)) {
+  $start = (int)$m[1];
+  if ($m[2] !== '') $end = (int)$m[2];
+  if ($end > $size - 1) $end = $size - 1;
+
+  if ($start < 0 || $start > $end) {
+    header('HTTP/1.1 416 Range Not Satisfiable');
+    header("Content-Range: bytes */{$size}");
+    fclose($fp);
+    exit;
+  }
+
+  header('HTTP/1.1 206 Partial Content');
 }
-header('Content-Length: ' . $size);
-readfile($file);
+
+$length = $end - $start + 1;
+
+header("Content-Length: {$length}");
+header("Content-Range: bytes {$start}-{$end}/{$size}");
+
+fseek($fp, $start);
+
+$chunk = 8192;
+while (!feof($fp) && $length > 0) {
+  $read = ($length > $chunk) ? $chunk : $length;
+  $buf = fread($fp, $read);
+  if ($buf === false) break;
+  echo $buf;
+  flush();
+  $length -= strlen($buf);
+}
+
+fclose($fp);
 exit;
