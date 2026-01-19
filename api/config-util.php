@@ -2,65 +2,63 @@
 // api/config-util.php
 
 function load_config(): array {
-    $file = __DIR__ . '/config.php';
-    if (!file_exists($file)) {
-        $file = __DIR__ . '/config.sample.php';
-    }
-    $cfg = require $file;
-    return is_array($cfg) ? $cfg : [];
+  $file = __DIR__ . '/config.php';
+  if (!file_exists($file)) {
+    $file = __DIR__ . '/config.sample.php';
+  }
+  $cfg = require $file;
+  return is_array($cfg) ? $cfg : [];
 }
 
 function project_root(): string {
-    // /api is inside repo root
-    return realpath(__DIR__ . '/..') ?: dirname(__DIR__);
+  return realpath(__DIR__ . '/..') ?: dirname(__DIR__);
 }
 
 function base_url(): string {
-    $cfg = load_config();
-    if (!empty($cfg['base_url'])) {
-        return rtrim((string)$cfg['base_url'], '/');
-    }
+  $cfg = load_config();
+  if (!empty($cfg['base_url'])) {
+    return rtrim((string)$cfg['base_url'], '/');
+  }
 
-    $proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-    $host  = $_SERVER['HTTP_HOST'] ?? 'localhost';
+  $proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+  $host  = $_SERVER['HTTP_HOST'] ?? 'localhost';
 
-    // IMPORTANT: do NOT append /api. Default to site root.
-    $basePath = '';
-    if (!empty($cfg['base_path'])) {
-        $basePath = '/' . trim((string)$cfg['base_path'], '/');
-    }
+  // Default to site root. If you deploy in a subfolder, set base_path in config.
+  $basePath = '';
+  if (!empty($cfg['base_path'])) {
+    $basePath = '/' . trim((string)$cfg['base_path'], '/');
+  }
 
-    return $proto . '://' . $host . $basePath;
+  return $proto . '://' . $host . $basePath;
 }
 
 function ensure_dir(string $dir): void {
-    if ($dir === '') return;
-    if (!is_dir($dir)) {
-        mkdir($dir, 0775, true);
-    }
+  if ($dir === '') return;
+  if (!is_dir($dir)) {
+    mkdir($dir, 0775, true);
+  }
 }
 
 function resolve_storage_path(): string {
-    $cfg = load_config();
-    $root = project_root();
+  $cfg  = load_config();
+  $root = project_root();
 
-    $path = $cfg['storage_path'] ?? 'storage';
+  $path = $cfg['storage_path'] ?? 'storage';
 
-    // If absolute path, use as-is; otherwise resolve relative to repo root
-    $isAbsolute = is_string($path) && (
-        str_starts_with($path, '/') ||
-        preg_match('/^[A-Za-z]:\\\\/', $path) === 1
-    );
+  // Absolute path?
+  $isAbsolute = is_string($path) && (
+    str_starts_with($path, '/') ||
+    preg_match('/^[A-Za-z]:\\\\/', $path) === 1
+  );
 
-    $full = $isAbsolute
-        ? (string)$path
-        : ($root . DIRECTORY_SEPARATOR . trim((string)$path, "/\\"));
+  $full = $isAbsolute
+    ? (string)$path
+    : ($root . DIRECTORY_SEPARATOR . trim((string)$path, "/\\"));
 
-    // Fallback if something weird happens
-    if (!$full) $full = $root . DIRECTORY_SEPARATOR . 'storage';
+  if (!$full) $full = $root . DIRECTORY_SEPARATOR . 'storage';
 
-    ensure_dir($full);
-    return $full;
+  ensure_dir($full);
+  return $full;
 }
 
 /**
@@ -68,13 +66,13 @@ function resolve_storage_path(): string {
  * Example: storage_dir('plans') => /abs/.../storage/plans
  */
 function storage_dir(string $subdir = ''): string {
-    $base = resolve_storage_path();
-    $dir = rtrim($base, "/\\");
-    if ($subdir !== '') {
-        $dir .= DIRECTORY_SEPARATOR . trim($subdir, "/\\");
-    }
-    ensure_dir($dir);
-    return $dir;
+  $base = resolve_storage_path();
+  $dir = rtrim($base, "/\\");
+  if ($subdir !== '') {
+    $dir .= DIRECTORY_SEPARATOR . trim($subdir, "/\\");
+  }
+  ensure_dir($dir);
+  return $dir;
 }
 
 /**
@@ -82,8 +80,8 @@ function storage_dir(string $subdir = ''): string {
  * Example: storage_path('plans/file.pdf') => /abs/.../storage/plans/file.pdf
  */
 function storage_path(string $relative): string {
-    $base = resolve_storage_path();
-    $full = rtrim($base, "/\\") . DIRECTORY_SEPARATOR . ltrim($relative, "/\\");
-    ensure_dir(dirname($full));
-    return $full;
+  $base = resolve_storage_path();
+  $full = rtrim($base, "/\\") . DIRECTORY_SEPARATOR . ltrim($relative, "/\\");
+  ensure_dir(dirname($full));
+  return $full;
 }
