@@ -113,7 +113,7 @@ function showPDF(planId) {
 	}
 
 	function openIssueDrawer(issue) {
-		// Minimal drawer for editing/creating issues
+		// Minimal drawer for editing/creating issues and photos
 		const app = document.getElementById('app');
 		app.insertAdjacentHTML('beforeend', `
 			<div id="issueDrawer" style="position:fixed;bottom:0;left:0;width:100vw;background:#232347;color:#00ffe7;padding:1em;box-shadow:0 -2px 16px #00ffe7;z-index:10;">
@@ -124,6 +124,12 @@ function showPDF(planId) {
 					${issue.id ? '<button type="button" id="deleteBtn">Delete</button>' : ''}
 					<button type="button" id="closeBtn">Close</button>
 				</form>
+				<div id="photoGrid" style="margin-top:1em;"></div>
+				<form id="photoUploadForm" enctype="multipart/form-data" style="margin-top:1em;">
+					<input type="file" name="file" accept="image/*" required />
+					<button type="submit">Upload Photo</button>
+				</form>
+				<button id="exportReportBtn" style="margin-top:1em;">Export Report</button>
 			</div>
 		`);
 		const form = document.getElementById('issueForm');
@@ -139,7 +145,7 @@ function showPDF(planId) {
 				description: form.description.value,
 				status: 'open'
 			};
-			const res = await fetch('/api/save_issue.php', {
+			await fetch('/api/save_issue.php', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(fd)
@@ -160,6 +166,62 @@ function showPDF(planId) {
 		}
 		document.getElementById('closeBtn').onclick = () => {
 			document.getElementById('issueDrawer').remove();
+		};
+		// Photo grid
+		loadPhotos(issue.plan_id);
+		async function loadPhotos(plan_id) {
+			const grid = document.getElementById('photoGrid');
+			const res = await fetch(`/api/list_photos.php?plan_id=${plan_id}`);
+			if (!res.ok) { grid.innerHTML = 'Failed to load photos'; return; }
+			const data = await res.json();
+			grid.innerHTML = '';
+			for (const photo of data.photos) {
+				const img = document.createElement('img');
+				img.src = `/storage/photos/${photo.filename}`;
+				img.style.width = '64px';
+				img.style.height = '64px';
+				img.style.objectFit = 'cover';
+				img.style.margin = '4px';
+				img.title = photo.filename;
+				const delBtn = document.createElement('button');
+				delBtn.textContent = '🗑';
+				delBtn.onclick = async () => {
+					await fetch('/api/delete_photo.php', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ id: photo.id, plan_id })
+					});
+					loadPhotos(plan_id);
+				};
+				const wrap = document.createElement('div');
+				wrap.style.display = 'inline-block';
+				wrap.appendChild(img);
+				wrap.appendChild(delBtn);
+				grid.appendChild(wrap);
+			}
+		}
+		// Photo upload
+		document.getElementById('photoUploadForm').onsubmit = async (e) => {
+			e.preventDefault();
+			const fd = new FormData(e.target);
+			fd.append('plan_id', issue.plan_id);
+			fd.append('issue_id', issue.id || '');
+			await fetch('/api/upload_photo.php', { method: 'POST', body: fd });
+			loadPhotos(issue.plan_id);
+			e.target.reset();
+		};
+		// Export report
+		document.getElementById('exportReportBtn').onclick = async () => {
+			const res = await fetch('/api/export_report.php', {
+				method: 'POST',
+				body: new URLSearchParams({ plan_id: issue.plan_id })
+			});
+			if (res.ok) {
+				const data = await res.json();
+				window.open(`/storage/exports/${data.filename}`);
+			} else {
+				alert('Export failed');
+			}
 		};
 	}
 
