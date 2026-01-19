@@ -1,22 +1,164 @@
-<!-- Milestone 2: Plans library and PDF.js viewer stub -->
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Survey PDF Editor</title>
+
+  <!-- Icons & PWA -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#39FF14">
+
+  <link rel="icon" href="/favicon.ico">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+
+  <!-- Optional: Windows tiles + Safari pinned tab -->
+  <meta name="msapplication-config" content="/browserconfig.xml">
+  <meta name="msapplication-TileColor" content="#070A0F">
+  <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#39FF14">
+
   <link rel="stylesheet" href="/assets/ui.css">
 </head>
+
 <body>
-  <header class="toolbar" style="position:sticky;top:0;z-index:100;background:#232347;color:#00ffe7;display:flex;align-items:center;gap:8px;padding:8px;">
-    <button id="menuBtn" style="min-width:44px;min-height:44px;background:#232347;color:#00ffe7;border:1px solid #00ffe7;border-radius:6px;">☰</button>
-    <h1 style="margin:0;font-size:1.2em;">Survey PDF Editor</h1>
+  <!-- App bar -->
+  <header class="appbar">
+    <button id="menuBtn" class="btn btn-ghost btn-icon" aria-label="Menu">☰</button>
+    <div class="appbar-title">Survey PDF Editor</div>
+    <div class="spacer"></div>
+    <span id="netDot" class="status-dot" title="Network status"></span>
   </header>
-  <div id="app">Loading...</div>
+
+  <!-- Main -->
+  <main class="container">
+    <!-- Plans list / upload -->
+    <section class="card" id="plansCard">
+      <div class="card-title">
+        <span class="accent">Plans</span>
+        <span class="badge cyan" id="plansCount">0</span>
+      </div>
+
+      <div class="col" style="margin-top:10px;">
+        <form id="uploadForm" class="col" enctype="multipart/form-data" autocomplete="off">
+          <input class="input" type="file" name="file" id="planFile" accept="application/pdf" required>
+          <div class="row">
+            <input class="input" type="text" name="name" id="planName" placeholder="Plan name (optional)">
+            <input class="input" type="text" name="revision" id="planRev" placeholder="Rev (optional)" style="max-width:140px;">
+          </div>
+          <div class="row">
+            <button class="btn btn-primary" type="submit" id="uploadBtn">Upload plan</button>
+            <button class="btn btn-ghost" type="button" id="refreshBtn">Refresh</button>
+            <div class="spacer"></div>
+            <span class="meta" id="uploadHint">PDF only</span>
+          </div>
+        </form>
+
+        <ul class="list" id="plansList" aria-label="Plans list"></ul>
+      </div>
+    </section>
+
+    <!-- Viewer -->
+    <section class="card" id="viewerCard" style="margin-top:12px; display:none;">
+      <div class="row" style="justify-content:space-between;">
+        <div class="card-title">
+          <span class="accent" id="viewerTitle">Viewer</span>
+          <span class="badge purple" id="pageBadge">Page 1 / 1</span>
+        </div>
+        <div class="row">
+          <button class="btn btn-ghost" id="closeViewerBtn" type="button">Close</button>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="row" style="margin-top:10px; flex-wrap:wrap;">
+        <button class="btn btn-ghost" id="prevPageBtn" type="button">◀</button>
+        <button class="btn btn-ghost" id="nextPageBtn" type="button">▶</button>
+
+        <span class="meta" style="padding:0 6px;">Page</span>
+        <input class="input" id="pageInput" type="number" min="1" step="1" value="1" style="max-width:90px;">
+        <button class="btn btn-ghost" id="goPageBtn" type="button">Go</button>
+
+        <div class="spacer"></div>
+
+        <button class="btn btn-ghost" id="zoomOutBtn" type="button">−</button>
+        <span class="badge cyan" id="zoomBadge">100%</span>
+        <button class="btn btn-ghost" id="zoomInBtn" type="button">+</button>
+      </div>
+
+      <!-- Canvas wrap -->
+      <div class="viewer-wrap" style="margin-top:10px;">
+        <div id="pdfContainer" style="position:relative; touch-action: pan-x pan-y;">
+          <!-- PDF.js will insert canvas here -->
+        </div>
+      </div>
+
+      <div class="meta" style="margin-top:10px;" id="viewerMeta"></div>
+    </section>
+  </main>
+
+  <!-- Drawer (future menu) -->
+  <aside class="drawer" id="menuDrawer" aria-hidden="true">
+    <div class="drawer-header">
+      <div class="card-title"><span class="accent">Menu</span></div>
+      <div class="spacer"></div>
+      <button class="btn btn-ghost btn-icon" id="closeMenuBtn" aria-label="Close">✕</button>
+    </div>
+
+    <div class="col">
+      <a class="btn btn-ghost" href="/" onclick="return closeMenu()">Plans</a>
+      <a class="btn btn-ghost" href="/exports.html">Exports</a>
+      <a class="btn btn-ghost" href="/help.html">Help</a>
+      <div class="card" style="margin-top:10px;">
+        <div class="meta">
+          This menu will expand as tools/milestones are added.
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Toast -->
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <!-- App logic -->
   <script type="module" src="/app/app.js"></script>
+
   <script>
-    document.getElementById('menuBtn').onclick = () => {
-      alert('Menu coming soon');
+    // Minimal UI helpers (keep app.js as main logic)
+    const drawer = document.getElementById('menuDrawer');
+    const toastEl = document.getElementById('toast');
+    const netDot = document.getElementById('netDot');
+
+    function setNetDot() {
+      const online = navigator.onLine;
+      netDot.className = 'status-dot ' + (online ? 'ok' : 'bad');
+      netDot.title = online ? 'Online' : 'Offline';
+    }
+    window.addEventListener('online', setNetDot);
+    window.addEventListener('offline', setNetDot);
+    setNetDot();
+
+    function openMenu() {
+      drawer.classList.add('open');
+      drawer.setAttribute('aria-hidden', 'false');
+    }
+    function closeMenu() {
+      drawer.classList.remove('open');
+      drawer.setAttribute('aria-hidden', 'true');
+      return false;
+    }
+
+    document.getElementById('menuBtn').addEventListener('click', openMenu);
+    document.getElementById('closeMenuBtn').addEventListener('click', closeMenu);
+
+    // Simple toast hook for app.js to call if desired:
+    window.toast = function (msg, ms = 2200) {
+      toastEl.textContent = msg;
+      toastEl.style.display = 'block';
+      clearTimeout(window.__toastT);
+      window.__toastT = setTimeout(() => toastEl.style.display = 'none', ms);
     };
   </script>
 </body>
