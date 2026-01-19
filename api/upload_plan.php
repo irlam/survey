@@ -31,22 +31,21 @@ if ($mime !== 'application/pdf') {
   error_response('Only PDF files allowed', 415, ['mime' => $mime]);
 }
 
-// Name defaults to filename without extension
+// Default name: original filename without .pdf
 $origName = $file['name'] ?? 'plan.pdf';
 $origBase = preg_replace('/\.pdf$/i', '', $origName);
 $name = safe_string($_POST['name'] ?? $origBase, 255);
 
-// Revision should be string (Rev A, P03 etc.)
+// Revision as string (Rev A, P03, etc.)
 $revision = safe_string($_POST['revision'] ?? '', 50);
 if ($revision === '') $revision = null;
 
-// Generate random filename
+// Random filename
 $rand = bin2hex(random_bytes(12));
 $filename = "plan_{$rand}.pdf";
 
-// Ensure dir exists and build destination path safely
-$plansDir = storage_dir('plans'); // MUST be a directory
-$dest = rtrim($plansDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $filename;
+// Destination (creates storage/plans automatically)
+$dest = storage_path('plans/' . $filename);
 
 if (!move_uploaded_file($file['tmp_name'], $dest)) {
   error_response('Failed to store file', 500);
@@ -65,5 +64,6 @@ json_response([
     'name' => $name,
     'filename' => $filename,
     'revision' => $revision,
+    'created_at' => date('Y-m-d H:i:s')
   ]
 ], 201);
