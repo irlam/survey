@@ -1,18 +1,29 @@
+/* Milestone 1: Dark neon baseline, mobile-first */
 body {
 	font-family: system-ui, sans-serif;
 	margin: 0;
-	background: #f9f9f9;
+	background: #181825;
+	color: #e0e0ff;
 }
-h1 { font-size: 1.3em; margin: 1em 0 0.5em 0; }
+h1 { font-size: 1.3em; margin: 1em 0 0.5em 0; color: #00ffe7; text-shadow: 0 0 8px #00ffe7; }
 form, ul { margin: 1em 0; }
 input, button {
 	font-size: 1em;
 	min-width: 44px;
 	min-height: 44px;
 	margin-bottom: 0.5em;
+	background: #232347;
+	color: #00ffe7;
+	border: 1px solid #00ffe7;
+	border-radius: 6px;
+	box-shadow: 0 0 8px #00ffe744;
+}
+input::placeholder {
+	color: #7fffd4;
 }
 ul { list-style: none; padding: 0; }
 li { margin-bottom: 0.5em; }
-a { text-decoration: none; color: #0074d9; }
-button { border-radius: 6px; border: 1px solid #ccc; background: #fff; }
-#pdfContainer canvas { width: 100%; height: auto; display: block; margin: 0 auto; }
+a { text-decoration: none; color: #00ffe7; text-shadow: 0 0 4px #00ffe7; }
+button { background: #232347; color: #00ffe7; border: 1px solid #00ffe7; border-radius: 6px; box-shadow: 0 0 8px #00ffe744; }
+button:active { background: #00ffe7; color: #181825; }
+#pdfContainer canvas { width: 100%; height: auto; display: block; margin: 0 auto; box-shadow: 0 0 16px #00ffe7; background: #232347; }
