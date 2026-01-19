@@ -1,5 +1,4 @@
 <?php
-// Milestone 2: Get plan metadata + pdf_url
 require_once __DIR__ . '/config-util.php';
 require_once __DIR__ . '/db.php';
 
@@ -9,13 +8,16 @@ $plan_id = safe_int($_GET['plan_id'] ?? null);
 if (!$plan_id) error_response('Missing or invalid plan_id', 400);
 
 $pdo = db();
-$stmt = $pdo->prepare('SELECT id, name, filename, revision, created_at FROM plans WHERE id=?');
+$stmt = $pdo->prepare('
+  SELECT id, name, revision, file_path, sha1, uploaded_at
+  FROM plans
+  WHERE id=?
+');
 $stmt->execute([$plan_id]);
 $plan = $stmt->fetch();
 
 if (!$plan) error_response('Plan not found', 404);
 
-// Safe streaming URL
 $pdf_url = base_url() . '/api/plan_file.php?plan_id=' . (int)$plan_id;
 $plan['pdf_url'] = $pdf_url;
 
