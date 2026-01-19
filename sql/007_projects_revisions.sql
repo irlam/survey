@@ -1,0 +1,21 @@
+-- 007_projects_revisions.sql
+CREATE TABLE IF NOT EXISTS projects (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS drawings (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    project_id INT NOT NULL,
+    plan_id INT NOT NULL,
+    ordering INT DEFAULT 0,
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (plan_id) REFERENCES plans(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS revisions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    drawing_id INT NOT NULL,
+    state_json TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (drawing_id) REFERENCES drawings(id) ON DELETE CASCADE
+);

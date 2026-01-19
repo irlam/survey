@@ -1,0 +1,8 @@
+-- 006_audit.sql
+CREATE TABLE IF NOT EXISTS audit (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    actor VARCHAR(255),
+    action VARCHAR(255),
+    details TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
