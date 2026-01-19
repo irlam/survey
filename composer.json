@@ -1,0 +1,11 @@
+{
+    "require": {
+        "setasign/fpdf": "^1.8",
+        "setasign/fpdi": "^2.3"
+    },
+    "config": {
+        "platform": {
+            "php": "8.0"
+        }
+    }
+}

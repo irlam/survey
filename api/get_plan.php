@@ -1,0 +1,13 @@
+<?php
+// Milestone 2: Get plan metadata endpoint stub
+require_once __DIR__ . '/config-util.php';
+require_once __DIR__ . '/db.php';
+require_method('GET');
+$plan_id = safe_int($_GET['plan_id'] ?? null);
+if (!$plan_id) error_response('Missing or invalid plan_id', 400);
+$pdo = db();
+$stmt = $pdo->prepare('SELECT id, name, filename, revision, created_at FROM plans WHERE id=?');
+$stmt->execute([$plan_id]);
+$plan = $stmt->fetch();
+if (!$plan) error_response('Plan not found', 404);
+json_response(['ok'=>true, 'plan'=>$plan]);

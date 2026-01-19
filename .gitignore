@@ -1,0 +1,15 @@
+/storage/**
+!/storage/.gitkeep
+!/storage/plans/.gitkeep
+!/storage/photos/.gitkeep
+!/storage/files/.gitkeep
+!/storage/exports/.gitkeep
+!/storage/tmp/.gitkeep
+/api/config.php
+# OS/editor junk
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*.bak
+*.tmp
