@@ -1,0 +1,9 @@
+-- 005_exports.sql
+CREATE TABLE IF NOT EXISTS exports (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    plan_id INT,
+    filename VARCHAR(255) NOT NULL,
+    type VARCHAR(32),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (plan_id) REFERENCES plans(id) ON DELETE CASCADE
+);

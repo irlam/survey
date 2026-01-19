@@ -8,7 +8,16 @@
   <link rel="stylesheet" href="/assets/ui.css">
 </head>
 <body>
+  <header class="toolbar" style="position:sticky;top:0;z-index:100;background:#232347;color:#00ffe7;display:flex;align-items:center;gap:8px;padding:8px;">
+    <button id="menuBtn" style="min-width:44px;min-height:44px;background:#232347;color:#00ffe7;border:1px solid #00ffe7;border-radius:6px;">☰</button>
+    <h1 style="margin:0;font-size:1.2em;">Survey PDF Editor</h1>
+  </header>
   <div id="app">Loading...</div>
   <script src="/app/app.js"></script>
+  <script>
+    document.getElementById('menuBtn').onclick = () => {
+      alert('Menu coming soon');
+    };
+  </script>
 </body>
 </html>
