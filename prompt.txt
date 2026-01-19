@@ -1,4 +1,4 @@
-# prompt.txt — survey.defecttracker.uk (Plesk shared hosting) — Fresh repo build (Composer + MySQL) — Mobile-first Survey PDF Editor
+# prompt.txt — survey.defecttracker.uk (Plesk shared hosting) — Fresh repo build (Composer + MySQL) — Mobile-first Survey PDF Editor (Dark Neon Theme)
 
 You are a coding agent working inside a NEW repository: https://github.com/irlam/survey
 Deployment target: https://survey.defecttracker.uk/ on **Plesk shared hosting** (PHP 8.x), with a **MySQL/MariaDB** database.
@@ -15,7 +15,59 @@ Primary device: **Android tablet / mobile Chrome**. Desktop is secondary.
 - Storage folders must be writable and **never committed** (keep `.gitkeep` only).
 - Work in **small commits** with clear messages.
 - After each milestone, update `docs/milestones.md` status table and add evidence links.
-- Mobile UX: touch targets >= 44px; minimal typing; fast.
+
+## Mobile UX rules (MUST)
+- Target: Android tablet / mobile Chrome first; desktop is secondary.
+- Touch targets >= 44px height; generous spacing; no tiny icons.
+- Default font size 16px; avoid dense UI; keep forms short.
+- Sticky top app bar with a single primary action per screen (Upload / Add Issue / Export / Sync).
+- Right-side drawer for editors on tablet (issues/photos/files), modal fallback on small screens.
+- Use bottom sheet or drawer for secondary panels (issue list, filters) so the viewer stays usable.
+- Always show network state (Online/Offline) and sync status when offline features exist.
+- Prevent accidental actions:
+  - Add Issue mode must be an explicit toggle
+  - confirm deletes
+- Performance:
+  - keep DOM light, avoid heavy shadows everywhere
+  - render only pins for the current page
+  - lazy-load thumbnails
+- Accessibility:
+  - visible focus states
+  - respects prefers-reduced-motion
+  - good contrast
+
+## UI Theme (MUST): Dark Neon
+Implement a consistent “dark neon” theme across the entire app and tools.
+
+- Create /assets/ui.css with CSS variables:
+  --bg, --panel, --panel2, --text, --muted, --border,
+  --accent (neon green), --accent2 (neon cyan), --accent3 (neon purple),
+  --danger, --warn, --ok, --shadow, --glow
+
+- Apply theme to:
+  index.html (plans library + viewer)
+  issue drawer/editor + lists
+  tools pages (/tools/*)
+  exports.html + help.html
+
+- Build reusable components (plain HTML/CSS):
+  .appbar (sticky, backdrop blur)
+  .btn, .btn-primary, .btn-ghost, .btn-danger
+  .chip, .badge, .card, .input, .select
+  .drawer (right-side on tablet)
+  .toast (bottom, neon border)
+
+- Interaction styling:
+  subtle neon glow on active/primary elements
+  hover/focus/active states
+  keyboard focus visible
+  no glow spam (performance)
+  respects prefers-reduced-motion
+
+Suggested palette:
+  --bg:#070A0F; --panel:#0C1220; --panel2:#101A2E;
+  --text:#E7ECFF; --muted:#A7B0D6; --border:rgba(255,255,255,0.08);
+  --accent:#39FF14; --accent2:#00E5FF; --accent3:#B026FF;
 
 ---
 
@@ -187,9 +239,11 @@ Deliver:
 - ping endpoint
 - sql/001_init.sql with plans table (minimum)
 - README setup
+- Dark neon UI baseline: create assets/ui.css and apply to index/help (at least)
 
 Acceptance:
 - GET /api/ping.php returns ok:true and storage writable.
+- UI loads with dark neon theme styles applied.
 
 ---
 
@@ -302,7 +356,7 @@ Acceptance:
 
 # Commit strategy (strict)
 Small commits like:
-- “Milestone 1: config util + db helper + ping”
+- “Milestone 1: config util + db helper + ping + neon ui baseline”
 - “Milestone 2: plans upload/list/get”
 - “Milestone 2: PDF.js viewer mobile controls”
 - “Milestone 3: overlay coordinate mapping”
