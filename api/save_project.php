@@ -15,27 +15,26 @@ if ($name === '') error_response('Missing name', 400);
 $pdo = db();
 
 if ($id) {
-  // Update existing project
   $chk = $pdo->prepare('SELECT id FROM projects WHERE id=?');
   $chk->execute([$id]);
   if (!$chk->fetch()) error_response('Project not found', 404);
 
-  $stmt = $pdo->prepare('UPDATE projects SET name=?, updated_at=NOW() WHERE id=?');
+  // Only update name; keep created_at as original
+  $stmt = $pdo->prepare('UPDATE projects SET name=? WHERE id=?');
   $stmt->execute([$name, $id]);
 
-  $out = $pdo->prepare('SELECT * FROM projects WHERE id=?');
+  $out = $pdo->prepare('SELECT id, name, created_at FROM projects WHERE id=?');
   $out->execute([$id]);
   $project = $out->fetch();
 
   json_response(['ok' => true, 'project' => $project, 'updated' => true], 200);
 } else {
-  // Create new project
-  $stmt = $pdo->prepare('INSERT INTO projects (name, created_at, updated_at) VALUES (?, NOW(), NOW())');
+  $stmt = $pdo->prepare('INSERT INTO projects (name) VALUES (?)');
   $stmt->execute([$name]);
 
   $new_id = (int)$pdo->lastInsertId();
 
-  $out = $pdo->prepare('SELECT * FROM projects WHERE id=?');
+  $out = $pdo->prepare('SELECT id, name, created_at FROM projects WHERE id=?');
   $out->execute([$new_id]);
   $project = $out->fetch();
 
