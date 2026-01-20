@@ -1,12 +1,13 @@
 // app/viewer.js
-// In-app PDF.js viewer wired to your current index.html markup
+// In-app PDF.js viewer wired to viewer.html markup
 
 let pdfDoc = null;
 let currentPage = 1;
 let totalPages = 0;
-let scale = 1.0;          // user zoom multiplier
-let fitScale = 1.0;       // computed each render
-let fitMode = true;       // start in fit mode
+
+let userZoom = 1.0;   // 1.0 = 100% of fit scale
+let fitScale = 1.0;   // computed each render
+let fitMode = true;   // keep fit mode for tablet/mobile
 
 function qs(sel) { return document.querySelector(sel); }
 
@@ -35,11 +36,7 @@ function setBadges() {
   if (pageInput && totalPages) pageInput.value = String(currentPage);
 
   const zoomBadge = qs('#zoomBadge');
-  if (zoomBadge) {
-    // show the *effective* scale (fitScale * userScale)
-    const effective = fitScale * scale;
-    zoomBadge.textContent = `${Math.round(effective * 100)}%`;
-  }
+  if (zoomBadge) zoomBadge.textContent = `${Math.round(userZoom * 100)}%`;
 }
 
 function ensurePdfJsConfigured() {
@@ -64,18 +61,17 @@ function ensureCanvas() {
   return canvas;
 }
 
-function getStageWidth() {
+function stageWidth() {
   const stage = qs('#pdfStage');
   if (!stage) return window.innerWidth;
-  // Use container width (minus a little padding)
   return Math.max(320, stage.clientWidth - 16);
 }
 
-async function fetchPlan(planId) {
+async function apiGetPlan(planId) {
   const res = await fetch(`/api/get_plan.php?plan_id=${encodeURIComponent(planId)}`, { credentials: 'same-origin' });
-  const text = await res.text();
+  const txt = await res.text();
   let data;
-  try { data = JSON.parse(text); } catch { throw new Error(`get_plan invalid JSON: ${text}`); }
+  try { data = JSON.parse(txt); } catch { throw new Error(`get_plan invalid JSON: ${txt}`); }
   if (!res.ok || !data.ok) throw new Error(data.error || `get_plan failed: HTTP ${res.status}`);
   return data;
 }
@@ -103,17 +99,14 @@ async function renderPage(pageNo) {
   setStatus(`Rendering page ${pageNo}…`);
   const page = await pdfDoc.getPage(pageNo);
 
-  // compute fitScale based on stage width
-  const stageW = getStageWidth();
+  // Fit-to-width is base; userZoom scales around it
+  const w = stageWidth();
   const v1 = page.getViewport({ scale: 1.0 });
-  fitScale = stageW / v1.width;
+  fitScale = w / v1.width;
 
-  // effective scale
-  const effectiveScale = fitMode ? fitScale * scale : scale;
-
+  const effectiveScale = fitMode ? (fitScale * userZoom) : userZoom;
   const viewport = page.getViewport({ scale: effectiveScale });
 
-  // HiDPI
   const dpr = window.devicePixelRatio || 1;
   canvas.width = Math.floor(viewport.width * dpr);
   canvas.height = Math.floor(viewport.height * dpr);
@@ -121,7 +114,6 @@ async function renderPage(pageNo) {
   canvas.style.height = `${Math.floor(viewport.height)}px`;
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
   await page.render({ canvasContext: ctx, viewport }).promise;
 
   setStatus('');
@@ -135,7 +127,17 @@ async function goToPage(n) {
   await renderPage(currentPage);
 }
 
-function bindUi() {
+function showViewerShell(on) {
+  // viewer.html always shows it, but you might want to toggle message/state
+  // Keep as a hook for later if you hide/show panels
+  const shell = qs('.viewerShell');
+  if (shell) shell.style.display = on ? '' : '';
+}
+
+function bindUiOnce() {
+  if (window.__viewerBound) return;
+  window.__viewerBound = true;
+
   const prevBtn = qs('#btnPrev');
   const nextBtn = qs('#btnNext');
   const goBtn = qs('#btnGo');
@@ -143,6 +145,7 @@ function bindUi() {
   const zoomOut = qs('#btnZoomOut');
   const zoomIn = qs('#btnZoomIn');
   const fitBtn = qs('#btnFit');
+  const closeBtn = qs('#btnCloseViewer');
 
   if (prevBtn) prevBtn.onclick = () => goToPage(currentPage - 1);
   if (nextBtn) nextBtn.onclick = () => goToPage(currentPage + 1);
@@ -164,54 +167,81 @@ function bindUi() {
 
   if (zoomOut) {
     zoomOut.onclick = async () => {
-      // keep fit mode on, just reduce user zoom
-      scale = Math.max(0.25, scale - 0.25);
+      userZoom = Math.max(0.25, userZoom - 0.25);
       await renderPage(currentPage);
     };
   }
   if (zoomIn) {
     zoomIn.onclick = async () => {
-      scale = Math.min(5.0, scale + 0.25);
-      await renderPage(currentPage);
-    };
-  }
-  if (fitBtn) {
-    fitBtn.onclick = async () => {
-      // toggle fit mode
-      fitMode = true;
-      scale = 1.0;
+      userZoom = Math.min(5.0, userZoom + 0.25);
       await renderPage(currentPage);
     };
   }
 
-  // Re-render on resize (especially important for tablet landscape)
+  if (fitBtn) {
+    fitBtn.onclick = async () => {
+      fitMode = true;
+      userZoom = 1.0;
+      await renderPage(currentPage);
+    };
+  }
+
+  if (closeBtn) {
+    closeBtn.onclick = () => {
+      const u = new URL(window.location.href);
+      u.searchParams.delete('plan_id');
+      history.pushState({}, '', u.pathname);
+      setTitle('Select a plan');
+      setStatus('');
+      // Clear canvas (optional)
+      const c = qs('#pdfContainer');
+      if (c) c.innerHTML = '';
+      pdfDoc = null;
+      totalPages = 0;
+      currentPage = 1;
+      userZoom = 1.0;
+      setBadges();
+    };
+  }
+
   window.addEventListener('resize', () => {
     if (pdfDoc) renderPage(currentPage);
   });
 }
 
+// Public: open a plan from the sidebar button
+export async function openPlanInApp(planId) {
+  const u = new URL(window.location.href);
+  u.searchParams.set('plan_id', String(planId));
+  history.pushState({}, '', u.toString());
+  await startViewer();
+}
+
+// Public: start viewer based on current URL plan_id
 export async function startViewer() {
+  bindUiOnce();
+
   const planId = getPlanIdFromUrl();
   if (!planId) {
-    setStatus('Select a plan to view');
+    showViewerShell(true);
+    setTitle('Select a plan');
+    setStatus('');
+    setBadges();
     return;
   }
 
-  bindUi();
+  showViewerShell(true);
 
   try {
-    const data = await fetchPlan(planId);
-
-    // support both styles:
-    // { ok:true, plan:{...}, pdf_url:"..." }
+    const data = await apiGetPlan(planId);
     const plan = data.plan || {};
     const pdfUrl = data.pdf_url || plan.pdf_url || `/api/plan_file.php?plan_id=${planId}`;
 
     setTitle(plan.name || `Plan ${planId}`);
 
-    // Start in fit mode, 100%
+    // Start in fit mode for mobile/tablets
     fitMode = true;
-    scale = 1.0;
+    userZoom = 1.0;
 
     await loadPdf(pdfUrl);
     await renderPage(1);
