@@ -158,8 +158,29 @@ input:focus{border-color: rgba(0,255,231,.5); box-shadow: 0 0 0 3px rgba(0,255,2
   display:flex; align-items:center; justify-content:space-between; gap:10px;
   margin-bottom:10px;
 }
-.viewerTitle{display:flex; align-items:center; gap:10px; min-width:0}
-#planTitle{font-weight:900; color: var(--neon); text-shadow: 0 0 10px rgba(0,255,231,.35);}
+.viewerTitle{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-width:0;
+  flex-wrap:wrap;            /* <-- allow badge to wrap on tablets */
+}
+
+#planTitle{
+  font-weight:900;
+  color: var(--neon);
+  text-shadow: 0 0 10px rgba(0,255,231,.35);
+  flex: 1 1 auto;            /* <-- stop title hogging all space */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modeBadge{
+  flex: 0 0 auto;            /* <-- prevent badge collapsing */
+}
+
 
 .viewerControls{
   display:flex; gap:8px; align-items:center; flex-wrap:wrap;
