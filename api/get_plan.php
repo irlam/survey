@@ -18,7 +18,10 @@ $plan = $stmt->fetch();
 
 if (!$plan) error_response('Plan not found', 404);
 
-$pdf_url = base_url() . '/api/plan_file.php?plan_id=' . (int)$plan_id;
-$plan['pdf_url'] = $pdf_url;
+$pdf_url = base_url() . '/api/plan_file.php?plan_id=' . $plan_id;
 
-json_response(['ok' => true, 'plan' => $plan, 'pdf_url' => $pdf_url]);
+json_response([
+  'ok' => true,
+  'plan' => $plan,
+  'pdf_url' => $pdf_url
+]);
