@@ -1,13 +1,16 @@
 // app/viewer.js
-// In-app PDF.js viewer wired to viewer.html markup
+// PDF.js viewer + overlay layer + Add Issue Mode (pins only, no DB save yet)
 
 let pdfDoc = null;
 let currentPage = 1;
 let totalPages = 0;
 
-let userZoom = 1.0;   // 1.0 = 100% of fit scale
-let fitScale = 1.0;   // computed each render
-let fitMode = true;   // keep fit mode for tablet/mobile
+let userZoom = 1.0;
+let fitScale = 1.0;
+let fitMode = true;
+
+let addIssueMode = false;
+let tempPins = []; // {page, x_norm, y_norm, label}
 
 function qs(sel) { return document.querySelector(sel); }
 
@@ -28,6 +31,12 @@ function setTitle(text) {
   if (el) el.textContent = text || 'Plan';
 }
 
+function setModeBadge() {
+  const b = qs('#modeBadge');
+  if (!b) return;
+  b.style.display = addIssueMode ? '' : 'none';
+}
+
 function setBadges() {
   const pageBadge = qs('#pageBadge');
   if (pageBadge) pageBadge.textContent = totalPages ? `Page ${currentPage} / ${totalPages}` : 'Page - / -';
@@ -44,27 +53,42 @@ function ensurePdfJsConfigured() {
   window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/vendor/pdfjs/pdf.worker.min.js';
 }
 
-function ensureCanvas() {
-  const container = qs('#pdfContainer');
-  if (!container) throw new Error('Missing #pdfContainer in HTML');
-
-  let canvas = container.querySelector('canvas');
-  if (!canvas) {
-    canvas = document.createElement('canvas');
-    canvas.id = 'pdfCanvas';
-    canvas.style.display = 'block';
-    canvas.style.margin = '0 auto';
-    canvas.style.background = '#0b1220';
-    container.innerHTML = '';
-    container.appendChild(canvas);
-  }
-  return canvas;
-}
-
 function stageWidth() {
   const stage = qs('#pdfStage');
   if (!stage) return window.innerWidth;
   return Math.max(320, stage.clientWidth - 16);
+}
+
+function ensureWrapAndOverlay() {
+  const container = qs('#pdfContainer');
+  if (!container) throw new Error('Missing #pdfContainer');
+
+  let wrap = container.querySelector('.pdfWrap');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.className = 'pdfWrap';
+    container.innerHTML = '';
+    container.appendChild(wrap);
+  }
+
+  let canvas = wrap.querySelector('canvas');
+  if (!canvas) {
+    canvas = document.createElement('canvas');
+    canvas.id = 'pdfCanvas';
+    wrap.appendChild(canvas);
+  }
+
+  let overlay = wrap.querySelector('.pdfOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.className = 'pdfOverlay';
+    wrap.appendChild(overlay);
+  }
+
+  // enable tap when in add mode
+  overlay.style.pointerEvents = addIssueMode ? 'auto' : 'none';
+
+  return { wrap, canvas, overlay };
 }
 
 async function apiGetPlan(planId) {
@@ -90,16 +114,33 @@ async function loadPdf(pdfUrl) {
   setBadges();
 }
 
+function clearOverlay(overlay) {
+  overlay.innerHTML = '';
+}
+
+function renderPinsForPage(overlay, viewportWidth, viewportHeight) {
+  clearOverlay(overlay);
+
+  const pins = tempPins.filter(p => p.page === currentPage);
+  for (const p of pins) {
+    const el = document.createElement('div');
+    el.className = 'pin';
+    el.textContent = p.label;
+    el.style.left = `${p.x_norm * viewportWidth}px`;
+    el.style.top = `${p.y_norm * viewportHeight}px`;
+    overlay.appendChild(el);
+  }
+}
+
 async function renderPage(pageNo) {
   if (!pdfDoc) return;
 
-  const canvas = ensureCanvas();
+  const { wrap, canvas, overlay } = ensureWrapAndOverlay();
   const ctx = canvas.getContext('2d');
 
   setStatus(`Rendering page ${pageNo}…`);
   const page = await pdfDoc.getPage(pageNo);
 
-  // Fit-to-width is base; userZoom scales around it
   const w = stageWidth();
   const v1 = page.getViewport({ scale: 1.0 });
   fitScale = w / v1.width;
@@ -107,17 +148,28 @@ async function renderPage(pageNo) {
   const effectiveScale = fitMode ? (fitScale * userZoom) : userZoom;
   const viewport = page.getViewport({ scale: effectiveScale });
 
+  // HiDPI
   const dpr = window.devicePixelRatio || 1;
   canvas.width = Math.floor(viewport.width * dpr);
   canvas.height = Math.floor(viewport.height * dpr);
   canvas.style.width = `${Math.floor(viewport.width)}px`;
   canvas.style.height = `${Math.floor(viewport.height)}px`;
 
+  // IMPORTANT: wrap/overlay must match the *CSS pixel* size of the canvas
+  wrap.style.width = `${Math.floor(viewport.width)}px`;
+  wrap.style.height = `${Math.floor(viewport.height)}px`;
+  overlay.style.width = `${Math.floor(viewport.width)}px`;
+  overlay.style.height = `${Math.floor(viewport.height)}px`;
+
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   await page.render({ canvasContext: ctx, viewport }).promise;
 
+  // render pins after page render
+  renderPinsForPage(overlay, Math.floor(viewport.width), Math.floor(viewport.height));
+
   setStatus('');
   setBadges();
+  setModeBadge();
 }
 
 async function goToPage(n) {
@@ -139,6 +191,7 @@ function bindUiOnce() {
   const zoomIn = qs('#btnZoomIn');
   const fitBtn = qs('#btnFit');
   const closeBtn = qs('#btnCloseViewer');
+  const addBtn = qs('#btnAddIssueMode');
 
   if (prevBtn) prevBtn.onclick = () => goToPage(currentPage - 1);
   if (nextBtn) nextBtn.onclick = () => goToPage(currentPage + 1);
@@ -158,26 +211,48 @@ function bindUiOnce() {
     });
   }
 
-  if (zoomOut) {
-    zoomOut.onclick = async () => {
-      userZoom = Math.max(0.25, userZoom - 0.25);
-      await renderPage(currentPage);
-    };
-  }
-  if (zoomIn) {
-    zoomIn.onclick = async () => {
-      userZoom = Math.min(5.0, userZoom + 0.25);
-      await renderPage(currentPage);
+  if (zoomOut) zoomOut.onclick = async () => { userZoom = Math.max(0.25, userZoom - 0.25); await renderPage(currentPage); };
+  if (zoomIn) zoomIn.onclick = async () => { userZoom = Math.min(5.0, userZoom + 0.25); await renderPage(currentPage); };
+  if (fitBtn) fitBtn.onclick = async () => { fitMode = true; userZoom = 1.0; await renderPage(currentPage); };
+
+  if (addBtn) {
+    addBtn.onclick = async () => {
+      addIssueMode = !addIssueMode;
+      addBtn.textContent = addIssueMode ? 'Done' : 'Add Issue';
+      setModeBadge();
+
+      // Enable overlay hit-testing immediately
+      const container = qs('#pdfContainer');
+      const overlay = container ? container.querySelector('.pdfOverlay') : null;
+      if (overlay) overlay.style.pointerEvents = addIssueMode ? 'auto' : 'none';
     };
   }
 
-  if (fitBtn) {
-    fitBtn.onclick = async () => {
-      fitMode = true;
-      userZoom = 1.0;
-      await renderPage(currentPage);
-    };
-  }
+  // Tap on overlay to place a temporary pin
+  document.addEventListener('click', async (e) => {
+    if (!addIssueMode) return;
+
+    const overlay = qs('.pdfOverlay');
+    if (!overlay || !overlay.contains(e.target)) return;
+
+    const rect = overlay.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const w = rect.width;
+    const h = rect.height;
+    if (w <= 0 || h <= 0) return;
+
+    const x_norm = Math.max(0, Math.min(1, x / w));
+    const y_norm = Math.max(0, Math.min(1, y / h));
+
+    // Create a temp pin number for this plan/page
+    const label = String(tempPins.filter(p => p.page === currentPage).length + 1);
+
+    tempPins.push({ page: currentPage, x_norm, y_norm, label });
+
+    await renderPage(currentPage);
+  }, true);
 
   if (closeBtn) {
     closeBtn.onclick = () => {
@@ -192,6 +267,8 @@ function bindUiOnce() {
       totalPages = 0;
       currentPage = 1;
       userZoom = 1.0;
+      addIssueMode = false;
+      setModeBadge();
       setBadges();
     };
   }
@@ -221,6 +298,8 @@ export async function startViewer() {
     return;
   }
 
+  document.body.classList.add('has-viewer');
+
   try {
     const data = await apiGetPlan(planId);
     const plan = data.plan || {};
@@ -228,7 +307,6 @@ export async function startViewer() {
 
     setTitle(plan.name || `Plan ${planId}`);
 
-    // Start in fit mode for mobile/tablets
     fitMode = true;
     userZoom = 1.0;
 
