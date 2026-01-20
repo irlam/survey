@@ -1,12 +1,12 @@
 <?php
 
-function load_config(): array {
+function load_config() {
   $file = __DIR__ . '/config.php';
   if (file_exists($file)) return require $file;
   return require __DIR__ . '/config.sample.php';
 }
 
-function base_url(): string {
+function base_url() {
   $cfg = load_config();
   if (!empty($cfg['base_url'])) return rtrim($cfg['base_url'], '/');
 
@@ -16,34 +16,39 @@ function base_url(): string {
 }
 
 /**
- * IMPORTANT (Plesk/open_basedir safe):
- * Store everything INSIDE httpdocs/storage by default.
+ * Plesk/open_basedir safe:
+ * Keep storage inside httpdocs by default: httpdocs/storage
+ *
+ * Optional config.php key:
+ *   'storage_path' => 'storage'
+ * (relative to httpdocs)
  */
-function resolve_storage_path(): string {
+function resolve_storage_path() {
   $cfg = load_config();
 
-  // If you set storage_path in config.php, treat it as RELATIVE to httpdocs.
- ്  // Example: 'storage' or 'storage_alt'
-  $rel = $cfg['storage_path'] ?? 'storage';
+  $rel = isset($cfg['storage_path']) && $cfg['storage_path'] !== ''
+    ? $cfg['storage_path']
+    : 'storage';
 
-  $root = realpath(__DIR__ . '/..'); // httpdocs
-  $path = $root . '/' . trim($rel, "/\\");
+  $httpdocs = realpath(__DIR__ . '/..'); // httpdocs
+  $path = rtrim($httpdocs, '/\\') . '/' . trim($rel, '/\\');
+
   if (!is_dir($path)) {
     @mkdir($path, 0775, true);
   }
+
   return $path;
 }
 
-function ensure_dir(string $dir): void {
+function ensure_dir($dir) {
   if (!is_dir($dir)) {
     @mkdir($dir, 0775, true);
   }
 }
 
-function storage_dir(string $subpath = ''): string {
+function storage_dir($subpath) {
   $base = resolve_storage_path();
-  $full = rtrim($base, "/\\") . '/' . ltrim($subpath, "/\\");
-  $parent = dirname($full);
-  ensure_dir($parent);
+  $full = rtrim($base, '/\\') . '/' . ltrim($subpath, '/\\');
+  ensure_dir(dirname($full));
   return $full;
 }
