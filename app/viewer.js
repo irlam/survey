@@ -216,17 +216,21 @@ function bindUiOnce() {
   if (fitBtn) fitBtn.onclick = async () => { fitMode = true; userZoom = 1.0; await renderPage(currentPage); };
 
   if (addBtn) {
-    addBtn.onclick = async () => {
-      addIssueMode = !addIssueMode;
-      addBtn.textContent = addIssueMode ? 'Done' : 'Add Issue';
-      setModeBadge();
+  addBtn.onclick = async () => {
+    addIssueMode = !addIssueMode;
+    addBtn.textContent = addIssueMode ? 'Done' : 'Add Issue';
+    setModeBadge();
 
-      // Enable overlay hit-testing immediately
-      const container = qs('#pdfContainer');
-      const overlay = container ? container.querySelector('.pdfOverlay') : null;
-      if (overlay) overlay.style.pointerEvents = addIssueMode ? 'auto' : 'none';
-    };
-  }
+    // Make it obvious in the status line too (so you KNOW it's on)
+    setStatus(addIssueMode ? 'Add Issue Mode ON — tap the plan to drop a pin.' : '');
+
+    // Enable overlay hit-testing immediately
+    const container = qs('#pdfContainer');
+    const overlay = container ? container.querySelector('.pdfOverlay') : null;
+    if (overlay) overlay.style.pointerEvents = addIssueMode ? 'auto' : 'none';
+  };
+}
+
 
   // Tap on overlay to place a temporary pin
   document.addEventListener('click', async (e) => {
