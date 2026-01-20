@@ -366,4 +366,96 @@
 
   async function refreshDrawings(){
     const project_id = projectSelect.value;
-    if (!proj
+    if (!project_id){
+      show(drawingsOut, false, { ok:false, error:'Pick a project first' }, '');
+      return;
+    }
+    try{
+      const res = await apiGet('/api/list_drawings.php?project_id=' + encodeURIComponent(project_id));
+      show(drawingsOut, true, res.data, res.status);
+      const drawings = res.data.drawings || [];
+      fillSelect(drawingSelect, drawings, d => `#${d.id} • Plan #${d.plan_id} • ${d.plan_name || ''}`);
+    }catch(e){
+      show(drawingsOut, false, e.data || e, e.status || '');
+    }
+  }
+
+  document.getElementById('btnListDrawings').onclick = refreshDrawings;
+
+  document.getElementById('btnCreateDrawing').onclick = async () => {
+    const project_id = projectSelect.value;
+    const plan_id = planSelect.value;
+    const ordering = parseInt(document.getElementById('drawingOrdering').value || '0', 10);
+
+    if (!project_id){
+      show(drawingsOut, false, { ok:false, error:'Pick a project first' }, '');
+      return;
+    }
+    if (!plan_id){
+      show(drawingsOut, false, { ok:false, error:'Pick a plan first' }, '');
+      return;
+    }
+
+    try{
+      const res = await apiPost('/api/create_drawing.php', { project_id: Number(project_id), plan_id: Number(plan_id), ordering });
+      show(drawingsOut, true, res.data, res.status);
+      await refreshDrawings();
+    }catch(e){
+      show(drawingsOut, false, e.data || e, e.status || '');
+    }
+  };
+
+  document.getElementById('btnSaveRevision').onclick = async () => {
+    const drawing_id = drawingSelect.value;
+    if (!drawing_id){
+      show(revisionsOut, false, { ok:false, error:'Pick a drawing first' }, '');
+      return;
+    }
+    let state;
+    try{
+      state = JSON.parse(document.getElementById('stateJson').value);
+    }catch(err){
+      show(revisionsOut, false, { ok:false, error:'State JSON is not valid JSON' }, '');
+      return;
+    }
+    // update saved time automatically
+    state.saved_at = new Date().toISOString();
+
+    try{
+      const res = await apiPost('/api/save_revision.php', { drawing_id: Number(drawing_id), state });
+      show(revisionsOut, true, res.data, res.status);
+    }catch(e){
+      show(revisionsOut, false, e.data || e, e.status || '');
+    }
+  };
+
+  document.getElementById('btnListRevisions').onclick = async () => {
+    const drawing_id = drawingSelect.value;
+    if (!drawing_id){
+      show(revisionsOut, false, { ok:false, error:'Pick a drawing first' }, '');
+      return;
+    }
+    try{
+      const res = await apiGet('/api/list_revisions.php?drawing_id=' + encodeURIComponent(drawing_id));
+      show(revisionsOut, true, res.data, res.status);
+    }catch(e){
+      show(revisionsOut, false, e.data || e, e.status || '');
+    }
+  };
+
+  document.getElementById('btnGetRevision').onclick = async () => {
+    const revId = document.getElementById('revisionId').value.trim();
+    if (!revId){
+      show(revisionsOut, false, { ok:false, error:'Enter a revision_id first' }, '');
+      return;
+    }
+    try{
+      const res = await apiGet('/api/get_revision.php?revision_id=' + encodeURIComponent(revId));
+      show(revisionsOut, true, res.data, res.status);
+    }catch(e){
+      show(revisionsOut, false, e.data || e, e.status || '');
+    }
+  };
+</script>
+</body>
+</html>
