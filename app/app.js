@@ -1,10 +1,7 @@
 import { renderPlansScreen } from './ui.js';
-import { startViewer } from './viewer.js';
+import { startViewer } from './viewer.js?v=20260120_2';
 
 window.addEventListener('DOMContentLoaded', async () => {
   await renderPlansScreen();
-
-  // Always bind viewer controls (Add Issue, zoom, etc).
-  // If there’s a ?plan_id= in the URL it will also load the PDF.
-  await startViewer();
+  await startViewer(); // binds Add Issue, and loads PDF if ?plan_id= exists
 });
