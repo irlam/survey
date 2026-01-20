@@ -5,7 +5,7 @@ function $(sel) { return document.querySelector(sel); }
 async function apiJson(url, opts) {
   const r = await fetch(url, opts);
   const data = await r.json().catch(() => null);
-  if (!data || data.ok !== true) throw new Error(data?.error || `Request failed: ${url}`);
+  if (!data || data.ok !== true) throw new Error((data && data.error) ? data.error : `Request failed: ${url}`);
   return data;
 }
 
@@ -14,6 +14,12 @@ function setNetDot() {
   if (!dot) return;
   dot.classList.toggle('online', navigator.onLine);
   dot.title = navigator.onLine ? 'Online' : 'Offline';
+}
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (m) => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
+  }[m]));
 }
 
 function planRow(plan) {
@@ -37,12 +43,6 @@ function planRow(plan) {
   li.appendChild(left);
   li.appendChild(btn);
   return li;
-}
-
-function escapeHtml(s) {
-  return String(s ?? '').replace(/[&<>"']/g, (m) => ({
-    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
-  }[m]));
 }
 
 async function refreshPlans() {
