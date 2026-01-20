@@ -232,6 +232,7 @@ function bindUiOnce() {
 
 
 
+
   // Tap on overlay to place a temporary pin
   document.addEventListener('click', async (e) => {
     if (!addIssueMode) return;
