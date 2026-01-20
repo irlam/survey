@@ -1,199 +1,85 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Survey PDF Editor</title>
-
-  <!-- Icons & PWA -->
-  <link rel="manifest" href="/manifest.json">
-  <meta name="theme-color" content="#39FF14">
-
-  <link rel="icon" href="/favicon.ico">
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-
-  <!-- Optional: Windows tiles + Safari pinned tab -->
-  <meta name="msapplication-config" content="/browserconfig.xml">
-  <meta name="msapplication-TileColor" content="#070A0F">
-  <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#39FF14">
-
   <link rel="stylesheet" href="/assets/ui.css">
 </head>
-
-<body>
-  <!-- App bar -->
-  <header class="appbar">
-    <button id="menuBtn" class="btn btn-ghost btn-icon" aria-label="Menu">☰</button>
-    <div class="appbar-title">Survey PDF Editor</div>
-    <div class="spacer"></div>
-    <span id="netDot" class="status-dot" title="Network status"></span>
+<body class="sidebar-open">
+  <header class="topbar">
+    <button id="menuBtn" class="iconBtn" aria-label="Menu">☰</button>
+    <div class="brand">Survey PDF Editor</div>
+    <div id="netDot" class="netDot" title="Offline"></div>
   </header>
 
-  <main class="container app-shell">
-    <div class="main-grid">
-      <!-- Plans -->
-      <section class="card" id="plansCard">
-        <div class="card-title">
-          <span class="accent">Plans</span>
-          <span class="badge cyan" id="plansCount">0</span>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="panelTitle">Plans</div>
+
+      <form id="uploadForm" class="card">
+        <div class="field">
+          <label>PDF</label>
+          <input name="file" type="file" accept="application/pdf" required>
         </div>
-
-        <!-- Collapsed rail (tablet landscape only, viewer-open only) -->
-        <div id="plansRail">
-          <button class="btn btn-primary btn-icon" id="railCloseViewer" title="Close viewer">✕</button>
-          <button class="btn btn-ghost btn-icon" id="railRefresh" title="Refresh plans">⟳</button>
-          <button class="btn btn-green btn-icon" id="railUpload" title="Upload">＋</button>
-          <a class="btn btn-ghost btn-icon" href="/exports.html" title="Exports">⇩</a>
-          <a class="btn btn-ghost btn-icon" href="/help.html" title="Help">?</a>
+        <div class="field">
+          <label>Name (optional)</label>
+          <input name="name" type="text" placeholder="e.g. L00 West Main Concourse">
         </div>
-
-        <div class="col" style="margin-top:10px;">
-          <form id="uploadForm" class="col" enctype="multipart/form-data" autocomplete="off">
-            <input class="input" type="file" name="file" id="planFile" accept="application/pdf" required>
-            <div class="row">
-              <input class="input" type="text" name="name" id="planName" placeholder="Plan name (optional)">
-              <input class="input" type="text" name="revision" id="planRev" placeholder="Rev" style="max-width:140px;">
-            </div>
-            <div class="row">
-              <button class="btn btn-primary" type="submit" id="uploadBtn">Upload plan</button>
-              <button class="btn btn-ghost" type="button" id="refreshBtn">Refresh</button>
-              <div class="spacer"></div>
-              <span class="meta" id="uploadHint">PDF only</span>
-            </div>
-          </form>
-
-          <ul class="list" id="plansList" aria-label="Plans list"></ul>
+        <div class="field">
+          <label>Revision (optional)</label>
+          <input name="revision" type="text" placeholder="e.g. P03">
         </div>
-      </section>
+        <button class="btnPrimary" type="submit">Upload</button>
+        <div id="uploadOut" class="muted" style="margin-top:8px"></div>
+      </form>
 
-      <!-- Viewer -->
-      <section class="card" id="viewerCard" style="display:none;">
-        <div class="row" style="justify-content:space-between;">
-          <div class="card-title">
-            <span class="accent" id="viewerTitle">Viewer</span>
-            <span class="badge purple" id="pageBadge">Page 1 / 1</span>
+      <div id="plansList" class="list"></div>
+    </aside>
+
+    <main class="main">
+      <div class="viewerShell">
+        <div class="viewerHeader">
+          <div class="viewerTitle">
+            <span id="planTitle">Select a plan</span>
+            <span id="pageBadge" class="pill">Page - / -</span>
           </div>
-          <div class="row">
-            <button class="btn btn-ghost" id="closeViewerBtn" type="button">Close</button>
-          </div>
+          <button id="btnCloseViewer" class="btn">Close</button>
         </div>
 
-        <!-- Controls -->
-        <div class="row" style="margin-top:10px; flex-wrap:wrap;">
-          <button class="btn btn-ghost btn-icon" id="prevPageBtn" type="button" aria-label="Previous page">◀</button>
-          <button class="btn btn-ghost btn-icon" id="nextPageBtn" type="button" aria-label="Next page">▶</button>
+        <div class="viewerControls">
+          <button id="btnPrev" class="btn">◀</button>
+          <button id="btnNext" class="btn">▶</button>
 
-          <span class="meta" style="padding:0 6px;">Page</span>
-          <input class="input" id="pageInput" type="number" min="1" step="1" value="1" style="max-width:90px;">
-          <button class="btn btn-ghost" id="goPageBtn" type="button">Go</button>
+          <span class="muted">Page</span>
+          <input id="pageInput" class="inputSmall" type="number" min="1" value="1">
+          <button id="btnGo" class="btn">Go</button>
 
           <div class="spacer"></div>
 
-          <button class="btn btn-ghost btn-icon" id="zoomOutBtn" type="button" aria-label="Zoom out">−</button>
-          <span class="badge cyan" id="zoomBadge">100%</span>
-          <button class="btn btn-ghost btn-icon" id="zoomInBtn" type="button" aria-label="Zoom in">+</button>
+          <button id="btnZoomOut" class="btn">−</button>
+          <span id="zoomBadge" class="pill">100%</span>
+          <button id="btnZoomIn" class="btn">+</button>
+          <button id="btnFit" class="btn">Fit</button>
         </div>
 
-        <!-- Canvas wrap -->
-        <div class="viewer-wrap" style="margin-top:10px;">
-          <div id="pdfContainer">
-            <!-- PDF.js will insert canvas here -->
-          </div>
-        </div>
+        <div id="viewerMsg" class="muted" style="margin:6px 2px 10px 2px;"></div>
 
-        <div class="meta" style="margin-top:10px;" id="viewerMeta"></div>
-      </section>
-    </div>
-  </main>
-
-  <!-- Drawer (menu) -->
-  <aside class="drawer" id="menuDrawer" aria-hidden="true">
-    <div class="drawer-header">
-      <div class="card-title"><span class="accent">Menu</span></div>
-      <div class="spacer"></div>
-      <button class="btn btn-ghost btn-icon" id="closeMenuBtn" aria-label="Close">✕</button>
-    </div>
-
-    <div class="col">
-      <a class="btn btn-ghost" href="/" onclick="return closeMenu()">Plans</a>
-      <a class="btn btn-ghost" href="/exports.html">Exports</a>
-      <a class="btn btn-ghost" href="/help.html">Help</a>
-      <div class="card" style="margin-top:10px;">
-        <div class="meta">
-          This menu will expand as tools/milestones are added.
+        <div id="pdfStage" class="pdfStage">
+          <div id="pdfContainer" class="pdfContainer"></div>
         </div>
       </div>
-    </div>
-  </aside>
+    </main>
+  </div>
 
-  <!-- Toast -->
-  <div class="toast" id="toast" role="status" aria-live="polite"></div>
-
-  <!-- App logic -->
-  <script type="module" src="/app/app.js"></script>
-
+  <!-- PDF.js (MUST exist here) -->
+  <script src="/vendor/pdfjs/pdf.min.js"></script>
   <script>
-    // Minimal UI helpers (keep app.js as main logic)
-    const drawer = document.getElementById('menuDrawer');
-    const toastEl = document.getElementById('toast');
-    const netDot = document.getElementById('netDot');
-
-    function setNetDot() {
-      const online = navigator.onLine;
-      netDot.className = 'status-dot ' + (online ? 'ok' : 'bad');
-      netDot.title = online ? 'Online' : 'Offline';
+    if (window.pdfjsLib) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = "/vendor/pdfjs/pdf.worker.min.js";
     }
-    window.addEventListener('online', setNetDot);
-    window.addEventListener('offline', setNetDot);
-    setNetDot();
-
-    function openMenu() {
-      drawer.classList.add('open');
-      drawer.setAttribute('aria-hidden', 'false');
-    }
-    function closeMenu() {
-      drawer.classList.remove('open');
-      drawer.setAttribute('aria-hidden', 'true');
-      return false;
-    }
-
-    document.getElementById('menuBtn').addEventListener('click', openMenu);
-    document.getElementById('closeMenuBtn').addEventListener('click', closeMenu);
-
-    // Hook for app.js (optional): call window.setViewerOpen(true/false)
-    window.setViewerOpen = function(isOpen) {
-      document.body.classList.toggle('viewer-open', !!isOpen);
-    };
-
-    // Rail buttons
-    document.getElementById('railCloseViewer').addEventListener('click', () => {
-      // If your app.js already controls viewer state, prefer calling its close method.
-      // Otherwise this at least hides the viewer card visually.
-      document.getElementById('viewerCard').style.display = 'none';
-      window.setViewerOpen(false);
-      window.toast?.('Viewer closed');
-    imagine
-    });
-
-    document.getElementById('railRefresh').addEventListener('click', () => {
-      document.getElementById('refreshBtn')?.click();
-      window.toast?.('Refreshing plans…', 1400);
-    });
-
-    document.getElementById('railUpload').addEventListener('click', () => {
-      document.getElementById('planFile')?.click();
-    });
-
-    // Simple toast hook for app.js to call:
-    window.toast = function (msg, ms = 2200) {
-      toastEl.textContent = msg;
-      toastEl.style.display = 'block';
-      clearTimeout(window.__toastT);
-      window.__toastT = setTimeout(() => toastEl.style.display = 'none', ms);
-    };
   </script>
+
+  <script type="module" src="/app/app.js"></script>
 </body>
 </html>
