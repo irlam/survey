@@ -3,5 +3,5 @@ import { startViewer } from './viewer.js';
 
 window.addEventListener('DOMContentLoaded', async () => {
   await renderPlansScreen();
-  await startViewer(); // if ?plan_id=... is present, it loads the PDF
+  await startViewer();
 });
