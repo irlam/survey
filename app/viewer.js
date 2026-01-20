@@ -127,13 +127,6 @@ async function goToPage(n) {
   await renderPage(currentPage);
 }
 
-function showViewerShell(on) {
-  // viewer.html always shows it, but you might want to toggle message/state
-  // Keep as a hook for later if you hide/show panels
-  const shell = qs('.viewerShell');
-  if (shell) shell.style.display = on ? '' : '';
-}
-
 function bindUiOnce() {
   if (window.__viewerBound) return;
   window.__viewerBound = true;
@@ -193,7 +186,6 @@ function bindUiOnce() {
       history.pushState({}, '', u.pathname);
       setTitle('Select a plan');
       setStatus('');
-      // Clear canvas (optional)
       const c = qs('#pdfContainer');
       if (c) c.innerHTML = '';
       pdfDoc = null;
@@ -223,14 +215,11 @@ export async function startViewer() {
 
   const planId = getPlanIdFromUrl();
   if (!planId) {
-    showViewerShell(true);
     setTitle('Select a plan');
     setStatus('');
     setBadges();
     return;
   }
-
-  showViewerShell(true);
 
   try {
     const data = await apiGetPlan(planId);
