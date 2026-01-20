@@ -221,8 +221,7 @@ function bindUiOnce() {
     addBtn.textContent = addIssueMode ? 'Done' : 'Add Issue';
     setModeBadge();
 
-    // Make it obvious in the status line too (so you KNOW it's on)
-    setStatus(addIssueMode ? 'Add Issue Mode ON — tap the plan to drop a pin.' : '');
+    console.log('AddIssueMode:', addIssueMode, 'modeBadge:', document.querySelector('#modeBadge'));
 
     // Enable overlay hit-testing immediately
     const container = qs('#pdfContainer');
@@ -230,6 +229,7 @@ function bindUiOnce() {
     if (overlay) overlay.style.pointerEvents = addIssueMode ? 'auto' : 'none';
   };
 }
+
 
 
   // Tap on overlay to place a temporary pin
