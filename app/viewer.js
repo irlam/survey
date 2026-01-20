@@ -1,236 +1,218 @@
-// Minimal PDF.js viewer logic for Milestone 2
-import { getQuery } from './router.js';
+let _pdf = null;
+let _pageNum = 1;
+let _zoom = 1;            // 1 = fit
+let _fitScale = 1;
+let _renderTask = null;
 
-const planId = getQuery('plan_id');
-if (!planId) {
-	document.getElementById('app').innerHTML = '<p>No plan_id specified.</p>';
-} else {
-	renderViewer(planId);
+function $(sel) { return document.querySelector(sel); }
+
+function setMsg(text) {
+  const el = $('#viewerMsg');
+  if (el) el.textContent = text || '';
 }
 
-function renderViewer(planId) {
-	const app = document.getElementById('app');
-	app.innerHTML = `
-		<div style="display:flex;align-items:center;gap:8px;">
-			<button id="prev" style="min-width:44px;min-height:44px;">◀</button>
-			<span id="pageNum">1</span>/<span id="pageCount">?</span>
-			<button id="next" style="min-width:44px;min-height:44px;">▶</button>
-			<button id="zoomIn" style="min-width:44px;min-height:44px;">＋</button>
-			<button id="zoomOut" style="min-width:44px;min-height:44px;">－</button>
-		</div>
-		<div id="pdfContainer" style="touch-action:pan-x pan-y;overflow:auto;width:100vw;height:80vh;background:#232347;position:relative;"></div>
-		<div id="overlay" style="position:absolute;top:0;left:0;width:100vw;height:80vh;pointer-events:none;"></div>
-		<div style="margin-top:8px;">
-			<label><input type="checkbox" id="addIssueToggle"> Add Issue</label>
-		</div>
-	`;
-	loadPDF(planId);
-	window.addIssueMode = false;
-	document.getElementById('addIssueToggle').onchange = (e) => {
-		window.addIssueMode = e.target.checked;
-		document.getElementById('overlay').style.pointerEvents = window.addIssueMode ? 'auto' : 'none';
-	};
+function setPageBadge() {
+  const badge = $('#pageBadge');
+  if (badge && _pdf) badge.textContent = `Page ${_pageNum} / ${_pdf.numPages}`;
 }
 
-async function loadPDF(planId) {
-	// Load PDF.js dynamically
-	if (!window.pdfjsLib) {
-		const script = document.createElement('script');
-		script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.js';
-		script.onload = () => showPDF(planId);
-		document.body.appendChild(script);
-	} else {
-		showPDF(planId);
-	}
+function setZoomBadge() {
+  const z = $('#zoomBadge');
+  if (!z) return;
+  const pct = Math.round(_zoom * 100);
+  z.textContent = `${pct}%`;
 }
 
-function showPDF(planId) {
-	const url = `/api/plan_file.php?plan_id=${planId}`;
-	const container = document.getElementById('pdfContainer');
-	window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.js';
-	let pdfDoc = null, pageNum = 1, pageCount = 1, scale = 1.2;
+function ensureCanvas() {
+  const container = $('#pdfContainer');
+  if (!container) throw new Error('Missing #pdfContainer in HTML');
+  let canvas = container.querySelector('canvas');
+  if (!canvas) {
+    canvas = document.createElement('canvas');
+    canvas.id = 'pdfCanvas';
+    container.innerHTML = '';
+    container.appendChild(canvas);
+  }
+  return canvas;
+}
 
-	window.pdfjsLib.getDocument(url).promise.then(function(pdf) {
-		pdfDoc = pdf;
-		pageCount = pdf.numPages;
-		document.getElementById('pageCount').textContent = pageCount;
-		renderPage(pageNum);
-	});
+function wireDragToPan() {
+  const stage = $('#pdfStage');
+  if (!stage) return;
 
-	function renderPage(num) {
-		pdfDoc.getPage(num).then(function(page) {
-			const viewport = page.getViewport({ scale });
-			const canvas = document.createElement('canvas');
-			const ctx = canvas.getContext('2d');
-			canvas.height = viewport.height;
-			canvas.width = viewport.width;
-			container.innerHTML = '';
-			container.appendChild(canvas);
-			page.render({ canvasContext: ctx, viewport }).promise.then(() => {
-				document.getElementById('pageNum').textContent = num;
-				renderOverlay(num, viewport.width, viewport.height);
-			});
-			// Overlay click for pin placement
-			const overlay = document.getElementById('overlay');
-			overlay.style.width = canvas.style.width;
-			overlay.style.height = canvas.style.height;
-			overlay.onclick = (e) => {
-				if (!window.addIssueMode) return;
-				const rect = overlay.getBoundingClientRect();
-				const x = (e.clientX - rect.left) / rect.width;
-				const y = (e.clientY - rect.top) / rect.height;
-				openIssueDrawer({ x_norm: x, y_norm: y, page: num });
-			};
-		});
-	}
+  let down = false;
+  let startX = 0, startY = 0, startL = 0, startT = 0;
 
-	async function renderOverlay(pageNum, w, h) {
-		const overlay = document.getElementById('overlay');
-		overlay.innerHTML = '';
-		overlay.style.width = w + 'px';
-		overlay.style.height = h + 'px';
-		// Fetch issues for this plan
-		const res = await fetch(`/api/list_issues.php?plan_id=${planId}`);
-		if (!res.ok) return;
-		const data = await res.json();
-		for (const issue of data.issues) {
-			if (issue.page !== pageNum) continue;
-			const pin = document.createElement('div');
-			pin.style.position = 'absolute';
-			pin.style.left = (issue.x_norm * w - 22) + 'px';
-			pin.style.top = (issue.y_norm * h - 22) + 'px';
-			pin.style.width = '44px';
-			pin.style.height = '44px';
-			pin.style.background = '#00ffe7';
-			pin.style.borderRadius = '50%';
-			pin.style.boxShadow = '0 0 8px #00ffe7';
-			pin.style.opacity = '0.8';
-			pin.title = issue.title;
-			pin.style.pointerEvents = 'auto';
-			pin.onclick = () => openIssueDrawer(issue);
-			overlay.appendChild(pin);
-		}
-	}
+  stage.addEventListener('pointerdown', (e) => {
+    // allow text inputs/buttons to work
+    if (e.target.closest('button,input,select,textarea,a')) return;
+    down = true;
+    stage.setPointerCapture(e.pointerId);
+    startX = e.clientX;
+    startY = e.clientY;
+    startL = stage.scrollLeft;
+    startT = stage.scrollTop;
+    stage.classList.add('dragging');
+  });
 
-	function openIssueDrawer(issue) {
-		// Minimal drawer for editing/creating issues and photos
-		const app = document.getElementById('app');
-		app.insertAdjacentHTML('beforeend', `
-			<div id="issueDrawer" style="position:fixed;bottom:0;left:0;width:100vw;background:#232347;color:#00ffe7;padding:1em;box-shadow:0 -2px 16px #00ffe7;z-index:10;">
-				<form id="issueForm">
-					<input type="text" name="title" value="${issue.title||''}" placeholder="Issue title" required style="width:80%;margin-bottom:8px;" />
-					<textarea name="description" placeholder="Description" style="width:80%;height:44px;margin-bottom:8px;">${issue.description||''}</textarea>
-					<button type="submit">Save</button>
-					${issue.id ? '<button type="button" id="deleteBtn">Delete</button>' : ''}
-					<button type="button" id="closeBtn">Close</button>
-				</form>
-				<div id="photoGrid" style="margin-top:1em;"></div>
-				<form id="photoUploadForm" enctype="multipart/form-data" style="margin-top:1em;">
-					<input type="file" name="file" accept="image/*" required />
-					<button type="submit">Upload Photo</button>
-				</form>
-				<button id="exportReportBtn" style="margin-top:1em;">Export Report</button>
-			</div>
-		`);
-		const form = document.getElementById('issueForm');
-		form.onsubmit = async (e) => {
-			e.preventDefault();
-			const fd = {
-				id: issue.id,
-				plan_id: planId,
-				x_norm: issue.x_norm,
-				y_norm: issue.y_norm,
-				page: issue.page,
-				title: form.title.value,
-				description: form.description.value,
-				status: 'open'
-			};
-			await fetch('/api/save_issue.php', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(fd)
-			});
-			document.getElementById('issueDrawer').remove();
-			renderPage(issue.page);
-		};
-		if (issue.id) {
-			document.getElementById('deleteBtn').onclick = async () => {
-				await fetch('/api/delete_issue.php', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ id: issue.id, plan_id: planId })
-				});
-				document.getElementById('issueDrawer').remove();
-				renderPage(issue.page);
-			};
-		}
-		document.getElementById('closeBtn').onclick = () => {
-			document.getElementById('issueDrawer').remove();
-		};
-		// Photo grid
-		loadPhotos(issue.plan_id);
-		async function loadPhotos(plan_id) {
-			const grid = document.getElementById('photoGrid');
-			const res = await fetch(`/api/list_photos.php?plan_id=${plan_id}`);
-			if (!res.ok) { grid.innerHTML = 'Failed to load photos'; return; }
-			const data = await res.json();
-			grid.innerHTML = '';
-			for (const photo of data.photos) {
-				const img = document.createElement('img');
-				img.src = `/storage/photos/${photo.filename}`;
-				img.style.width = '64px';
-				img.style.height = '64px';
-				img.style.objectFit = 'cover';
-				img.style.margin = '4px';
-				img.title = photo.filename;
-				const delBtn = document.createElement('button');
-				delBtn.textContent = '🗑';
-				delBtn.onclick = async () => {
-					await fetch('/api/delete_photo.php', {
-						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({ id: photo.id, plan_id })
-					});
-					loadPhotos(plan_id);
-				};
-				const wrap = document.createElement('div');
-				wrap.style.display = 'inline-block';
-				wrap.appendChild(img);
-				wrap.appendChild(delBtn);
-				grid.appendChild(wrap);
-			}
-		}
-		// Photo upload
-		document.getElementById('photoUploadForm').onsubmit = async (e) => {
-			e.preventDefault();
-			const fd = new FormData(e.target);
-			fd.append('plan_id', issue.plan_id);
-			fd.append('issue_id', issue.id || '');
-			await fetch('/api/upload_photo.php', { method: 'POST', body: fd });
-			loadPhotos(issue.plan_id);
-			e.target.reset();
-		};
-		// Export report
-		document.getElementById('exportReportBtn').onclick = async () => {
-			const res = await fetch('/api/export_report.php', {
-				method: 'POST',
-				body: new URLSearchParams({ plan_id: issue.plan_id })
-			});
-			if (res.ok) {
-				const data = await res.json();
-				window.open(`/storage/exports/${data.filename}`);
-			} else {
-				alert('Export failed');
-			}
-		};
-	}
+  stage.addEventListener('pointermove', (e) => {
+    if (!down) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    stage.scrollLeft = startL - dx;
+    stage.scrollTop = startT - dy;
+  });
 
-	document.getElementById('prev').onclick = () => {
-		if (pageNum > 1) { pageNum--; renderPage(pageNum); }
-	};
-	document.getElementById('next').onclick = () => {
-		if (pageNum < pageCount) { pageNum++; renderPage(pageNum); }
-	};
-	document.getElementById('zoomIn').onclick = () => { scale *= 1.2; renderPage(pageNum); };
-	document.getElementById('zoomOut').onclick = () => { scale /= 1.2; renderPage(pageNum); };
+  const end = () => {
+    down = false;
+    stage.classList.remove('dragging');
+  };
+  stage.addEventListener('pointerup', end);
+  stage.addEventListener('pointercancel', end);
+}
+
+async function loadPdf(planId) {
+  setMsg('Loading plan…');
+
+  const r = await fetch(`/api/get_plan.php?plan_id=${encodeURIComponent(planId)}`);
+  const data = await r.json();
+  if (!data.ok) throw new Error(data.error || 'Failed to load plan');
+
+  const title = $('#planTitle');
+  if (title) title.textContent = data.plan?.name ? data.plan.name : `Plan #${planId}`;
+
+  // PDF.js global
+  if (!window.pdfjsLib) throw new Error('PDF.js not loaded (check /vendor/pdfjs/pdf.min.js)');
+
+  // worker path
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/vendor/pdfjs/pdf.worker.min.js';
+
+  setMsg('Loading PDF…');
+  const task = window.pdfjsLib.getDocument({ url: data.pdf_url });
+  _pdf = await task.promise;
+
+  _pageNum = 1;
+  _zoom = 1;
+
+  await renderPage(true);
+  wireControls();
+  wireDragToPan();
+
+  setMsg('');
+}
+
+async function renderPage(fit = false) {
+  if (!_pdf) return;
+
+  // cancel any in-flight render
+  try { if (_renderTask) _renderTask.cancel(); } catch {}
+  _renderTask = null;
+
+  const page = await _pdf.getPage(_pageNum);
+
+  const stage = $('#pdfStage');
+  const canvas = ensureCanvas();
+  const ctx = canvas.getContext('2d', { alpha: false });
+
+  // Compute fit scale to available width
+  const padding = 24;
+  const stageWidth = Math.max(320, (stage?.clientWidth || window.innerWidth) - padding);
+
+  const vp1 = page.getViewport({ scale: 1 });
+  _fitScale = stageWidth / vp1.width;
+
+  const scale = (fit ? _fitScale : _fitScale * _zoom);
+  const viewport = page.getViewport({ scale });
+
+  // HiDPI
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.floor(viewport.width * dpr);
+  canvas.height = Math.floor(viewport.height * dpr);
+  canvas.style.width = Math.floor(viewport.width) + 'px';
+  canvas.style.height = Math.floor(viewport.height) + 'px';
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, viewport.width, viewport.height);
+
+  setPageBadge();
+  setZoomBadge();
+
+  _renderTask = page.render({ canvasContext: ctx, viewport });
+  await _renderTask.promise;
+  _renderTask = null;
+}
+
+function wireControls() {
+  // Only wire once
+  if (window.__viewerWired) return;
+  window.__viewerWired = true;
+
+  const prev = $('#btnPrev');
+  const next = $('#btnNext');
+  const go = $('#btnGo');
+  const pageInput = $('#pageInput');
+
+  const zoomOut = $('#btnZoomOut');
+  const zoomIn = $('#btnZoomIn');
+  const fit = $('#btnFit');
+
+  const close = $('#btnCloseViewer');
+
+  if (prev) prev.onclick = async () => {
+    if (!_pdf || _pageNum <= 1) return;
+    _pageNum--;
+    await renderPage(false);
+  };
+
+  if (next) next.onclick = async () => {
+    if (!_pdf || _pageNum >= _pdf.numPages) return;
+    _pageNum++;
+    await renderPage(false);
+  };
+
+  if (go) go.onclick = async () => {
+    if (!_pdf) return;
+    const n = parseInt(pageInput?.value || '1', 10);
+    if (!Number.isFinite(n) || n < 1 || n > _pdf.numPages) return;
+    _pageNum = n;
+    await renderPage(false);
+  };
+
+  if (pageInput) {
+    pageInput.addEventListener('keydown', async (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        go?.click();
+      }
+    });
+  }
+
+  if (zoomOut) zoomOut.onclick = async () => {
+    _zoom = Math.max(0.5, _zoom - 0.25);
+    await renderPage(false);
+  };
+
+  if (zoomIn) zoomIn.onclick = async () => {
+    _zoom = Math.min(4, _zoom + 0.25);
+    await renderPage(false);
+  };
+
+  if (fit) fit.onclick = async () => {
+    _zoom = 1;
+    await renderPage(true);
+  };
+
+  if (close) close.onclick = () => {
+    document.body.classList.remove('has-viewer');
+    setMsg('');
+  };
+
+  window.addEventListener('resize', () => {
+    if (_pdf) renderPage(true);
+  });
+}
+
+export async function openPlanInApp(planId) {
+  document.body.classList.add('has-viewer');
+  await loadPdf(planId);
 }
