@@ -1,13 +1,14 @@
 // app/viewer.js
-// In-app PDF.js viewer: loads plan via API then renders with PDF.js
+// In-app PDF.js viewer wired to your current index.html markup
 
 let pdfDoc = null;
 let currentPage = 1;
 let totalPages = 0;
-let scale = 1.0;
+let scale = 1.0;          // user zoom multiplier
+let fitScale = 1.0;       // computed each render
+let fitMode = true;       // start in fit mode
 
 function qs(sel) { return document.querySelector(sel); }
-function qsa(sel) { return Array.from(document.querySelectorAll(sel)); }
 
 function getPlanIdFromUrl() {
   const u = new URL(window.location.href);
@@ -17,25 +18,57 @@ function getPlanIdFromUrl() {
 }
 
 function setStatus(text) {
-  const el = qs('#viewerStatus');
+  const el = qs('#viewerMsg');
   if (el) el.textContent = text || '';
 }
 
-function setPageBadge() {
-  const badge = qs('#pageBadge');
-  if (badge) badge.textContent = totalPages ? `Page ${currentPage} / ${totalPages}` : 'Page - / -';
-  const input = qs('#pageInput');
-  if (input) input.value = totalPages ? String(currentPage) : '';
-  const zoom = qs('#zoomPct');
-  if (zoom) zoom.textContent = `${Math.round(scale * 100)}%`;
+function setTitle(text) {
+  const el = qs('#planTitle');
+  if (el) el.textContent = text || 'Plan';
 }
 
-function getCanvas() {
-  return qs('#pdfCanvas');
+function setBadges() {
+  const pageBadge = qs('#pageBadge');
+  if (pageBadge) pageBadge.textContent = totalPages ? `Page ${currentPage} / ${totalPages}` : 'Page - / -';
+
+  const pageInput = qs('#pageInput');
+  if (pageInput && totalPages) pageInput.value = String(currentPage);
+
+  const zoomBadge = qs('#zoomBadge');
+  if (zoomBadge) {
+    // show the *effective* scale (fitScale * userScale)
+    const effective = fitScale * scale;
+    zoomBadge.textContent = `${Math.round(effective * 100)}%`;
+  }
 }
 
-function getContainer() {
-  return qs('#pdfStage');
+function ensurePdfJsConfigured() {
+  if (!window.pdfjsLib) throw new Error('PDF.js not loaded. Check /vendor/pdfjs/pdf.min.js');
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/vendor/pdfjs/pdf.worker.min.js';
+}
+
+function ensureCanvas() {
+  const container = qs('#pdfContainer');
+  if (!container) throw new Error('Missing #pdfContainer in HTML');
+
+  let canvas = container.querySelector('canvas');
+  if (!canvas) {
+    canvas = document.createElement('canvas');
+    canvas.id = 'pdfCanvas';
+    canvas.style.display = 'block';
+    canvas.style.margin = '0 auto';
+    canvas.style.background = '#0b1220';
+    container.innerHTML = '';
+    container.appendChild(canvas);
+  }
+  return canvas;
+}
+
+function getStageWidth() {
+  const stage = qs('#pdfStage');
+  if (!stage) return window.innerWidth;
+  // Use container width (minus a little padding)
+  return Math.max(320, stage.clientWidth - 16);
 }
 
 async function fetchPlan(planId) {
@@ -47,64 +80,52 @@ async function fetchPlan(planId) {
   return data;
 }
 
-function ensurePdfJsConfigured() {
-  // Expect pdfjsLib global from /vendor/pdfjs/pdf.min.js
-  if (!window.pdfjsLib) throw new Error('PDF.js not loaded. Check /vendor/pdfjs/pdf.min.js');
-  // Worker path
-  window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/vendor/pdfjs/pdf.worker.min.js';
-}
-
 async function loadPdf(pdfUrl) {
   ensurePdfJsConfigured();
   setStatus('Loading PDF…');
+
   const task = window.pdfjsLib.getDocument({ url: pdfUrl, withCredentials: true });
   pdfDoc = await task.promise;
+
   totalPages = pdfDoc.numPages;
   currentPage = 1;
+
   setStatus('');
-  setPageBadge();
+  setBadges();
 }
 
 async function renderPage(pageNo) {
   if (!pdfDoc) return;
-  const canvas = getCanvas();
-  const stage = getContainer();
-  if (!canvas || !stage) throw new Error('Missing #pdfCanvas or #pdfStage in HTML');
+
+  const canvas = ensureCanvas();
+  const ctx = canvas.getContext('2d');
 
   setStatus(`Rendering page ${pageNo}…`);
   const page = await pdfDoc.getPage(pageNo);
 
-  // Calculate a sensible "fit" scale if scale is not set yet
-  // We'll keep current scale, but if it is tiny/NaN, compute fit-to-width.
-  let desiredScale = scale;
-  if (!desiredScale || !Number.isFinite(desiredScale) || desiredScale < 0.1) desiredScale = 1.0;
+  // compute fitScale based on stage width
+  const stageW = getStageWidth();
+  const v1 = page.getViewport({ scale: 1.0 });
+  fitScale = stageW / v1.width;
 
-  // Fit-to-width helper (stage width)
-  const stageWidth = stage.clientWidth || window.innerWidth;
-  const viewport1 = page.getViewport({ scale: 1.0 });
-  const fitScale = stageWidth ? (stageWidth / viewport1.width) : 1.0;
+  // effective scale
+  const effectiveScale = fitMode ? fitScale * scale : scale;
 
-  // If we're in "fit" mode we set scale = fitScale; otherwise keep.
-  if (window.__viewerFitMode === true) {
-    scale = Math.min(Math.max(fitScale, 0.25), 5.0);
-  }
+  const viewport = page.getViewport({ scale: effectiveScale });
 
-  const viewport = page.getViewport({ scale });
-
-  // HiDPI support
+  // HiDPI
   const dpr = window.devicePixelRatio || 1;
   canvas.width = Math.floor(viewport.width * dpr);
   canvas.height = Math.floor(viewport.height * dpr);
   canvas.style.width = `${Math.floor(viewport.width)}px`;
   canvas.style.height = `${Math.floor(viewport.height)}px`;
 
-  const ctx = canvas.getContext('2d');
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
   await page.render({ canvasContext: ctx, viewport }).promise;
 
   setStatus('');
-  setPageBadge();
+  setBadges();
 }
 
 async function goToPage(n) {
@@ -128,7 +149,7 @@ function bindUi() {
 
   if (goBtn) {
     goBtn.onclick = () => {
-      const v = parseInt((pageInput && pageInput.value) ? pageInput.value : '1', 10);
+      const v = parseInt(pageInput ? pageInput.value : '1', 10);
       goToPage(Number.isFinite(v) ? v : 1);
     };
   }
@@ -143,35 +164,36 @@ function bindUi() {
 
   if (zoomOut) {
     zoomOut.onclick = async () => {
-      window.__viewerFitMode = false;
+      // keep fit mode on, just reduce user zoom
       scale = Math.max(0.25, scale - 0.25);
       await renderPage(currentPage);
     };
   }
   if (zoomIn) {
     zoomIn.onclick = async () => {
-      window.__viewerFitMode = false;
       scale = Math.min(5.0, scale + 0.25);
       await renderPage(currentPage);
     };
   }
   if (fitBtn) {
     fitBtn.onclick = async () => {
-      window.__viewerFitMode = true;
+      // toggle fit mode
+      fitMode = true;
+      scale = 1.0;
       await renderPage(currentPage);
     };
   }
 
-  // Re-render on resize (keeps fit mode correct)
+  // Re-render on resize (especially important for tablet landscape)
   window.addEventListener('resize', () => {
-    if (window.__viewerFitMode) renderPage(currentPage);
+    if (pdfDoc) renderPage(currentPage);
   });
 }
 
 export async function startViewer() {
   const planId = getPlanIdFromUrl();
   if (!planId) {
-    setStatus('Missing plan_id in URL');
+    setStatus('Select a plan to view');
     return;
   }
 
@@ -179,13 +201,19 @@ export async function startViewer() {
 
   try {
     const data = await fetchPlan(planId);
-    const pdfUrl = data.pdf_url || (data.plan ? data.plan.pdf_url : null) || data.plan_url;
-    // Your get_plan.php should return: { ok:true, plan:{...}, pdf_url:"/api/plan_file.php?plan_id=..." }
-    const finalUrl = pdfUrl || (data.plan && data.plan.file_path ? `/api/plan_file.php?plan_id=${planId}` : null);
-    if (!finalUrl) throw new Error('No pdf_url returned from API');
 
-    window.__viewerFitMode = true; // start in Fit mode (best for mobile)
-    await loadPdf(finalUrl);
+    // support both styles:
+    // { ok:true, plan:{...}, pdf_url:"..." }
+    const plan = data.plan || {};
+    const pdfUrl = data.pdf_url || plan.pdf_url || `/api/plan_file.php?plan_id=${planId}`;
+
+    setTitle(plan.name || `Plan ${planId}`);
+
+    // Start in fit mode, 100%
+    fitMode = true;
+    scale = 1.0;
+
+    await loadPdf(pdfUrl);
     await renderPage(1);
   } catch (e) {
     console.error(e);
