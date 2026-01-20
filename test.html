@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Survey API Test</title>
+  <style>
+    :root{
+      --bg:#070A0F;
+      --panel:#101827;
+      --panel2:#0B1220;
+      --text:#E6F0FF;
+      --muted:#8FA3BF;
+      --cyan:#00FFE7;
+      --lime:#39FF14;
+      --border:rgba(57,255,20,.35);
+      --shadow:0 0 18px rgba(0,255,231,.15);
+      --radius:14px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      background: radial-gradient(1200px 600px at 20% 0%, rgba(0,255,231,.08), transparent 60%),
+                  radial-gradient(1000px 600px at 80% 10%, rgba(57,255,20,.06), transparent 55%),
+                  var(--bg);
+      color:var(--text);
+    }
+    header{
+      position:sticky; top:0; z-index:100;
+      background:rgba(7,10,15,.92);
+      backdrop-filter: blur(8px);
+      border-bottom:1px solid rgba(57,255,20,.25);
+      padding:12px 14px;
+      display:flex; gap:10px; align-items:center; justify-content:space-between;
+    }
+    header h1{
+      margin:0;
+      font-size:16px;
+      letter-spacing:.2px;
+      color:var(--cyan);
+      text-shadow:0 0 10px rgba(0,255,231,.3);
+      font-weight:700;
+    }
+    header .pill{
+      border:1px solid rgba(0,255,231,.35);
+      color:var(--cyan);
+      padding:6px 10px;
+      border-radius:999px;
+      font-size:12px;
+      background:rgba(16,24,39,.6);
+    }
+    main{padding:14px; max-width:1100px; margin:0 auto;}
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:12px;
+    }
+    @media (min-width: 900px){
+      .grid{grid-template-columns: 1fr 1fr;}
+    }
+    .card{
+      background:linear-gradient(180deg, rgba(16,24,39,.85), rgba(11,18,32,.85));
+      border:1px solid rgba(57,255,20,.25);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:14px;
+      overflow:hidden;
+    }
+    .card h2{
+      margin:0 0 10px 0;
+      font-size:14px;
+      color:var(--lime);
+      text-shadow:0 0 10px rgba(57,255,20,.25);
+    }
+    .row{display:flex; flex-wrap:wrap; gap:10px; align-items:center;}
+    label{font-size:12px; color:var(--muted); display:block; margin:8px 0 4px}
+    input, select, textarea, button{
+      font:inherit;
+      color:var(--text);
+      background:rgba(16,24,39,.9);
+      border:1px solid rgba(0,255,231,.28);
+      border-radius:12px;
+      padding:10px 12px;
+      min-height:44px;
+      outline:none;
+    }
+    textarea{min-height:120px; width:100%; resize:vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;}
+    button{
+      cursor:pointer;
+      color:var(--bg);
+      background:linear-gradient(90deg, var(--cyan), var(--lime));
+      border:none;
+      font-weight:700;
+      box-shadow:0 0 14px rgba(0,255,231,.18);
+    }
+    button.secondary{
+      background:rgba(16,24,39,.9);
+      color:var(--cyan);
+      border:1px solid rgba(0,255,231,.35);
+      box-shadow:none;
+      font-weight:600;
+    }
+    button:disabled{opacity:.55; cursor:not-allowed}
+    .status{
+      margin-top:10px;
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(0,0,0,.25);
+      color:var(--muted);
+      font-size:12px;
+      white-space:pre-wrap;
+      word-break:break-word;
+    }
+    .ok{border-color:rgba(57,255,20,.35); color:#CFFFD1;}
+    .bad{border-color:rgba(255,80,80,.35); color:#FFD1D1;}
+    .hint{color:var(--muted); font-size:12px; margin-top:8px}
+    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;}
+    .small{font-size:12px}
+    .divider{height:1px; background:rgba(57,255,20,.18); margin:12px 0;}
+  </style>
+</head>
+<body>
+<header>
+  <h1>Survey API Test</h1>
+  <div class="pill" id="onlinePill">Checking…</div>
+</header>
+
+<main>
+  <div class="grid">
+
+    <section class="card">
+      <h2>1) Health / Ping</h2>
+      <div class="row">
+        <button id="btnPing">Run /api/ping.php</button>
+        <button class="secondary" id="btnClear">Clear Log</button>
+      </div>
+      <div class="hint">
+        If DB is false here, your <span class="mono">api/config.php</span> is pointing to the wrong database.
+      </div>
+      <div id="log" class="status mono"></div>
+    </section>
+
+    <section class="card">
+      <h2>2) Plans</h2>
+      <div class="row">
+        <button id="btnPlans">Load Plans</button>
+      </div>
+
+      <label>Pick a plan</label>
+      <select id="planSelect"></select>
+
+      <div class="hint">This uses <span class="mono">/api/list_plans.php</span>.</div>
+      <div id="plansOut" class="status mono"></div>
+    </section>
+
+    <section class="card">
+      <h2>3) Projects</h2>
+      <div class="row">
+        <button id="btnProjects">Load Projects</button>
+      </div>
+
+      <label>Create new project name</label>
+      <div class="row">
+        <input id="projectName" placeholder="e.g. West Concourse Survey" style="flex:1; min-width:240px;">
+        <button id="btnCreateProject">Create Project</button>
+      </div>
+
+      <label>Pick a project</label>
+      <select id="projectSelect"></select>
+
+      <div class="hint">Uses <span class="mono">/api/list_projects.php</span> and <span class="mono">/api/save_project.php</span>.</div>
+      <div id="projectsOut" class="status mono"></div>
+    </section>
+
+    <section class="card">
+      <h2>4) Drawings (attach plan to project)</h2>
+
+      <label>Ordering (optional)</label>
+      <input id="drawingOrdering" type="number" value="0" min="0">
+
+      <div class="row" style="margin-top:10px;">
+        <button id="btnCreateDrawing">Create Drawing (attach selected plan)</button>
+        <button class="secondary" id="btnListDrawings">List Drawings for Project</button>
+      </div>
+
+      <label>Pick a drawing</label>
+      <select id="drawingSelect"></select>
+
+      <div class="hint">
+        Uses <span class="mono">/api/create_drawing.php</span> and <span class="mono">/api/list_drawings.php</span>.
+      </div>
+      <div id="drawingsOut" class="status mono"></div>
+    </section>
+
+    <section class="card">
+      <h2>5) Revisions (save / list / load)</h2>
+
+      <label>Revision state JSON (you can leave this as-is)</label>
+      <textarea id="stateJson"></textarea>
+
+      <div class="row" style="margin-top:10px;">
+        <button id="btnSaveRevision">Save Revision</button>
+        <button class="secondary" id="btnListRevisions">List Revisions</button>
+      </div>
+
+      <div class="divider"></div>
+
+      <label>Revision ID to load</label>
+      <div class="row">
+        <input id="revisionId" placeholder="e.g. 12" style="flex:1; min-width:200px;">
+        <button class="secondary" id="btnGetRevision">Get Revision</button>
+      </div>
+
+      <div class="hint">
+        Uses <span class="mono">/api/save_revision.php</span>, <span class="mono">/api/list_revisions.php</span>, <span class="mono">/api/get_revision.php</span>.
+      </div>
+
+      <div id="revisionsOut" class="status mono"></div>
+    </section>
+
+  </div>
+
+  <p class="hint small" style="margin-top:14px;">
+    Tip: once everything works, delete <span class="mono">test.html</span> from your site.
+  </p>
+</main>
+
+<script>
+  const logEl = document.getElementById('log');
+  const plansOut = document.getElementById('plansOut');
+  const projectsOut = document.getElementById('projectsOut');
+  const drawingsOut = document.getElementById('drawingsOut');
+  const revisionsOut = document.getElementById('revisionsOut');
+
+  const planSelect = document.getElementById('planSelect');
+  const projectSelect = document.getElementById('projectSelect');
+  const drawingSelect = document.getElementById('drawingSelect');
+
+  const onlinePill = document.getElementById('onlinePill');
+
+  function setOnlinePill(){
+    const on = navigator.onLine;
+    onlinePill.textContent = on ? 'Online' : 'Offline';
+    onlinePill.style.borderColor = on ? 'rgba(57,255,20,.35)' : 'rgba(255,80,80,.35)';
+    onlinePill.style.color = on ? '#CFFFD1' : '#FFD1D1';
+  }
+  window.addEventListener('online', setOnlinePill);
+  window.addEventListener('offline', setOnlinePill);
+  setOnlinePill();
+
+  function show(el, ok, data, status){
+    el.classList.remove('ok','bad');
+    el.classList.add(ok ? 'ok' : 'bad');
+    const header = status ? `HTTP ${status}\n` : '';
+    el.textContent = header + (typeof data === 'string' ? data : JSON.stringify(data, null, 2));
+  }
+
+  async function apiGet(url){
+    const r = await fetch(url, { credentials:'same-origin' });
+    const text = await r.text();
+    let data;
+    try { data = JSON.parse(text); } catch { data = text; }
+    if (!r.ok) throw { status:r.status, data };
+    return { status:r.status, data };
+  }
+
+  async function apiPost(url, bodyObj){
+    const r = await fetch(url, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify(bodyObj),
+      credentials:'same-origin'
+    });
+    const text = await r.text();
+    let data;
+    try { data = JSON.parse(text); } catch { data = text; }
+    if (!r.ok) throw { status:r.status, data };
+    return { status:r.status, data };
+  }
+
+  function fillSelect(select, items, getLabel){
+    select.innerHTML = '';
+    if (!items || items.length === 0){
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = '(none)';
+      select.appendChild(opt);
+      return;
+    }
+    for (const it of items){
+      const opt = document.createElement('option');
+      opt.value = it.id;
+      opt.textContent = getLabel(it);
+      select.appendChild(opt);
+    }
+  }
+
+  // Default revision state JSON
+  document.getElementById('stateJson').value = JSON.stringify({
+    version: 1,
+    saved_at: new Date().toISOString(),
+    notes: "Example revision state. Later this will contain overlay pins, shapes, text, etc.",
+    overlay: {
+      items: [
+        { type:"text", page:1, x:0.2, y:0.2, text:"Hello", color:"#00FFE7" }
+      ]
+    }
+  }, null, 2);
+
+  document.getElementById('btnClear').onclick = () => {
+    logEl.textContent = '';
+    plansOut.textContent = '';
+    projectsOut.textContent = '';
+    drawingsOut.textContent = '';
+    revisionsOut.textContent = '';
+  };
+
+  document.getElementById('btnPing').onclick = async () => {
+    try {
+      const res = await apiGet('/api/ping.php');
+      show(logEl, true, res.data, res.status);
+    } catch (e) {
+      show(logEl, false, e.data || e, e.status || '');
+    }
+  };
+
+  document.getElementById('btnPlans').onclick = async () => {
+    try {
+      const res = await apiGet('/api/list_plans.php');
+      show(plansOut, true, res.data, res.status);
+      const plans = res.data.plans || [];
+      fillSelect(planSelect, plans, p => `#${p.id} • ${p.name}${p.revision ? ' (Rev '+p.revision+')' : ''}`);
+    } catch (e) {
+      show(plansOut, false, e.data || e, e.status || '');
+    }
+  };
+
+  document.getElementById('btnProjects').onclick = async () => {
+    try {
+      const res = await apiGet('/api/list_projects.php');
+      show(projectsOut, true, res.data, res.status);
+      const projects = res.data.projects || [];
+      fillSelect(projectSelect, projects, p => `#${p.id} • ${p.name}`);
+    } catch (e) {
+      show(projectsOut, false, e.data || e, e.status || '');
+    }
+  };
+
+  document.getElementById('btnCreateProject').onclick = async () => {
+    const name = document.getElementById('projectName').value.trim();
+    if (!name){
+      show(projectsOut, false, { ok:false, error:'Enter a project name first' }, '');
+      return;
+    }
+    try {
+      const res = await apiPost('/api/save_project.php', { name });
+      show(projectsOut, true, res.data, res.status);
+      // refresh list
+      document.getElementById('btnProjects').click();
+    } catch (e) {
+      show(projectsOut, false, e.data || e, e.status || '');
+    }
+  };
+
+  async function refreshDrawings(){
+    const project_id = projectSelect.value;
+    if (!proj
