@@ -1,10 +1,28 @@
 <?php
 require_once __DIR__ . '/config-util.php';
 require_once __DIR__ . '/db.php';
+
 require_method('GET');
+
 $project_id = safe_int($_GET['project_id'] ?? null);
-if (!$project_id) error_response('Missing project_id', 400);
+if (!$project_id) error_response('Missing or invalid project_id', 400);
+
 $pdo = db();
-$stmt = $pdo->prepare('SELECT * FROM drawings WHERE project_id=? ORDER BY ordering ASC');
-$stmt->execute([$project_id]);
-json_response(['ok'=>true, 'drawings'=>$stmt->fetchAll()]);
+
+// Ensure project exists
+$chk = $pdo->prepare('SELECT id FROM projects WHERE id=?');
+$chk->execute([$project_id]);
+if (!$chk->fetch()) error_response('Project not found', 404);
+
+$st = $pdo->prepare('
+  SELECT d.id, d.project_id, d.plan_id, d.ordering, d.created_at,
+         p.name AS plan_name, p.revision AS plan_revision, p.uploaded_at AS plan_uploaded_at
+  FROM drawings d
+  JOIN plans p ON p.id = d.plan_id
+  WHERE d.project_id=?
+  ORDER BY d.ordering ASC, d.created_at ASC
+');
+$st->execute([$project_id]);
+$rows = $st->fetchAll();
+
+json_response(['ok' => true, 'drawings' => $rows]);
