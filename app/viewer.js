@@ -34,7 +34,7 @@ function setTitle(text) {
 function setModeBadge() {
   const b = qs('#modeBadge');
   if (!b) return;
-  b.style.display = addIssueMode ? '' : 'none';
+  b.style.display = addIssueMode ? 'inline-flex' : 'none';
 }
 
 function setBadges() {
