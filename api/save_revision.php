@@ -9,9 +9,7 @@ $data = read_json_body();
 $drawing_id = safe_int($data['drawing_id'] ?? null);
 if (!$drawing_id) error_response('Missing or invalid drawing_id', 400);
 
-// Accept either:
-// - "state" as array/object (preferred)
-// - "state_json" as JSON string
+// Accept state object OR state_json string
 $state_json = null;
 
 if (isset($data['state']) && (is_array($data['state']) || is_object($data['state']))) {
@@ -31,22 +29,19 @@ if (isset($data['state']) && (is_array($data['state']) || is_object($data['state
 
 $pdo = db();
 
-// Ensure drawing exists (assumes table "drawings" exists)
-$stmt = $pdo->prepare('SELECT id FROM drawings WHERE id=?');
-$stmt->execute([$drawing_id]);
-if (!$stmt->fetch()) error_response('Drawing not found', 404);
+// Ensure drawing exists
+$chk = $pdo->prepare('SELECT id FROM drawings WHERE id=?');
+$chk->execute([$drawing_id]);
+if (!$chk->fetch()) error_response('Drawing not found', 404);
 
-// Insert revision (assumes revisions table has created_at default or we set it)
-$stmt = $pdo->prepare('INSERT INTO revisions (drawing_id, state_json, created_at) VALUES (?, ?, NOW())');
+// Insert revision
+$stmt = $pdo->prepare('INSERT INTO revisions (drawing_id, state_json) VALUES (?, ?)');
 $stmt->execute([$drawing_id, $state_json]);
 
 $rev_id = (int)$pdo->lastInsertId();
 
-json_response([
-  'ok' => true,
-  'revision' => [
-    'id' => $rev_id,
-    'drawing_id' => $drawing_id,
-    'created_at' => date('Y-m-d H:i:s')
-  ]
-], 201);
+$out = $pdo->prepare('SELECT id, drawing_id, created_at FROM revisions WHERE id=?');
+$out->execute([$rev_id]);
+$rev = $out->fetch();
+
+json_response(['ok' => true, 'revision' => $rev, 'created' => true], 201);
