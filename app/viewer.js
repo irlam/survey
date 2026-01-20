@@ -1,6 +1,9 @@
 // app/viewer.js
 // PDF.js viewer + overlay layer + Add Issue Mode (pins only, no DB save yet)
 
+// Version marker to prove you're running THIS file (check DevTools console)
+console.log('viewer.js loaded: v20260120_2');
+
 let pdfDoc = null;
 let currentPage = 1;
 let totalPages = 0;
@@ -85,9 +88,7 @@ function ensureWrapAndOverlay() {
     wrap.appendChild(overlay);
   }
 
-  // enable tap when in add mode
   overlay.style.pointerEvents = addIssueMode ? 'auto' : 'none';
-
   return { wrap, canvas, overlay };
 }
 
@@ -148,14 +149,12 @@ async function renderPage(pageNo) {
   const effectiveScale = fitMode ? (fitScale * userZoom) : userZoom;
   const viewport = page.getViewport({ scale: effectiveScale });
 
-  // HiDPI
   const dpr = window.devicePixelRatio || 1;
   canvas.width = Math.floor(viewport.width * dpr);
   canvas.height = Math.floor(viewport.height * dpr);
   canvas.style.width = `${Math.floor(viewport.width)}px`;
   canvas.style.height = `${Math.floor(viewport.height)}px`;
 
-  // IMPORTANT: wrap/overlay must match the *CSS pixel* size of the canvas
   wrap.style.width = `${Math.floor(viewport.width)}px`;
   wrap.style.height = `${Math.floor(viewport.height)}px`;
   overlay.style.width = `${Math.floor(viewport.width)}px`;
@@ -164,7 +163,6 @@ async function renderPage(pageNo) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   await page.render({ canvasContext: ctx, viewport }).promise;
 
-  // render pins after page render
   renderPinsForPage(overlay, Math.floor(viewport.width), Math.floor(viewport.height));
 
   setStatus('');
@@ -216,24 +214,20 @@ function bindUiOnce() {
   if (fitBtn) fitBtn.onclick = async () => { fitMode = true; userZoom = 1.0; await renderPage(currentPage); };
 
   if (addBtn) {
-  addBtn.onclick = async () => {
-    addIssueMode = !addIssueMode;
-    addBtn.textContent = addIssueMode ? 'Done' : 'Add Issue';
-    setModeBadge();
+    addBtn.onclick = async () => {
+      addIssueMode = !addIssueMode;
+      addBtn.textContent = addIssueMode ? 'Done' : 'Add Issue';
+      setModeBadge();
+      setStatus(addIssueMode ? 'Add Issue Mode ON — tap the plan to drop a pin.' : '');
 
-    console.log('AddIssueMode:', addIssueMode, 'modeBadge:', document.querySelector('#modeBadge'));
+      console.log('AddIssueMode:', addIssueMode, 'modeBadge:', document.querySelector('#modeBadge'));
 
-    // Enable overlay hit-testing immediately
-    const container = qs('#pdfContainer');
-    const overlay = container ? container.querySelector('.pdfOverlay') : null;
-    if (overlay) overlay.style.pointerEvents = addIssueMode ? 'auto' : 'none';
-  };
-}
+      const container = qs('#pdfContainer');
+      const overlay = container ? container.querySelector('.pdfOverlay') : null;
+      if (overlay) overlay.style.pointerEvents = addIssueMode ? 'auto' : 'none';
+    };
+  }
 
-
-
-
-  // Tap on overlay to place a temporary pin
   document.addEventListener('click', async (e) => {
     if (!addIssueMode) return;
 
@@ -251,9 +245,7 @@ function bindUiOnce() {
     const x_norm = Math.max(0, Math.min(1, x / w));
     const y_norm = Math.max(0, Math.min(1, y / h));
 
-    // Create a temp pin number for this plan/page
     const label = String(tempPins.filter(p => p.page === currentPage).length + 1);
-
     tempPins.push({ page: currentPage, x_norm, y_norm, label });
 
     await renderPage(currentPage);
@@ -283,7 +275,7 @@ function bindUiOnce() {
   });
 }
 
-// Public: open a plan from the sidebar button
+// ✅ These MUST be exported
 export async function openPlanInApp(planId) {
   const u = new URL(window.location.href);
   u.searchParams.set('plan_id', String(planId));
@@ -291,7 +283,7 @@ export async function openPlanInApp(planId) {
   await startViewer();
 }
 
-// Public: start viewer based on current URL plan_id
+// ✅ This MUST be exported (your error proves it wasn’t before)
 export async function startViewer() {
   bindUiOnce();
 
