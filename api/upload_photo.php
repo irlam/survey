@@ -83,6 +83,6 @@ try {
 
 $pdo = db();
 $stmt = $pdo->prepare('INSERT INTO photos (plan_id, issue_id, filename, thumb) VALUES (?, ?, ?, ?)');
-$thumbDbValue = $thumbCreated ? ('thumbs/' . $thumbFilename) : null;
+$thumbDbValue = $thumbCreated ? ('photos/thumbs/' . $thumbFilename) : null;
 $stmt->execute([$plan_id, $issue_id, $filename, $thumbDbValue]);
 json_response(['ok'=>true, 'photo_id'=>$pdo->lastInsertId(), 'filename'=>$filename, 'thumb'=>$thumbDbValue]);
