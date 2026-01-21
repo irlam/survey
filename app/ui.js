@@ -105,4 +105,3 @@ async function renderPlansScreen() {
   await refreshPlans();
 }
 window.renderPlansScreen = renderPlansScreen;
-}
