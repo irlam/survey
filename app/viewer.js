@@ -62,6 +62,7 @@ function stageWidth() {
 }
 
 function ensureWrapAndOverlay() {
+  console.log('DEBUG: ensureWrapAndOverlay called');
   const container = qs('#pdfContainer');
   if (!container) throw new Error('Missing #pdfContainer');
 
@@ -160,6 +161,7 @@ function renderPinsForPage(overlay, viewportWidth, viewportHeight) {
 }
 
 async function renderPage(pageNo) {
+  console.log('DEBUG: renderPage called for page', pageNo);
   if (!pdfDoc) return;
 
   const { wrap, canvas, overlay } = ensureWrapAndOverlay();
