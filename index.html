@@ -85,7 +85,7 @@
 
   <script src="/app/viewer.js?v=20260121_2"></script>
   <script>
-    // Fallback loader: if viewer.js failed (syntax error / truncated), try to fetch and inject a fresh copy
+    // Fallback loader: if viewer.js failed (syntax error / truncated), try to fetch and load a fresh copy via src (browser parse)
     (function(){
       if (window.startViewer) return;
       console.warn('viewer.js did not initialize. Attempting fallback fetch...');
@@ -104,10 +104,12 @@
             console.error('viewer.js fallback failed after multiple attempts. Try unregistering service worker/clearing cache.');
             return;
           }
+          // Load by creating a script element with src so browser parses it naturally
           const s = document.createElement('script');
-          s.text = src + '\n//# sourceURL=' + url;
+          s.src = url;
+          s.onload = function(){ console.info('viewer.js fallback loaded via src'); if(window.startViewer) window.startViewer(); };
+          s.onerror = async function(e){ console.error('viewer.js script load error', e); if(attempts < 4){ await new Promise(r=>setTimeout(r,400)); return tryLoad(); } console.error('viewer.js fallback failed after multiple attempts. Try unregistering service worker/clearing cache.'); };
           document.head.appendChild(s);
-          console.info('viewer.js fallback loaded');
         }catch(e){
           console.error('viewer.js fetch/inject error (attempt '+attempts+')', e);
           if(attempts < 4){ await new Promise(r=>setTimeout(r, 400)); return tryLoad(); }
