@@ -318,7 +318,7 @@ function bindUiOnce() {
 }
 
 // Modal for adding/editing issue
-function showIssueModal(pin) {
+async function showIssueModal(pin) {
   let modal = document.getElementById('issueModal');
   if (!modal) {
     modal = document.createElement('div');
