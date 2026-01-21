@@ -475,15 +475,17 @@ async function reloadDbPins() {
 }
 
 // Public: open a plan from the sidebar button
-export async function openPlanInApp(planId) {
+async function openPlanInApp(planId) {
   const u = new URL(window.location.href);
   u.searchParams.set('plan_id', String(planId));
   history.pushState({}, '', u.toString());
   await startViewer();
 }
+window.openPlanInApp = openPlanInApp;
+}
 
 // Public: start viewer based on current URL plan_id
-export async function startViewer() {
+async function startViewer() {
   bindUiOnce();
   const planId = getPlanIdFromUrl();
   if (!planId) {
@@ -507,4 +509,6 @@ export async function startViewer() {
     console.error(e);
     setStatus(e.message || 'Viewer error');
   }
+}
+window.startViewer = startViewer;
 }
