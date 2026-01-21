@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Upload Plan</title>
+  <style>
+    body{margin:0;font-family:system-ui;background:#070A0F;color:#E6F0FF;padding:14px}
+    .card{max-width:720px;margin:0 auto;background:#101827;border:1px solid rgba(0,255,231,.25);border-radius:14px;padding:14px}
+    h1{margin:0 0 12px 0;color:#00FFE7}
+    label{display:block;margin:10px 0 6px;color:#8FA3BF;font-size:12px}
+    input,button{width:100%;min-height:44px;border-radius:12px;border:1px solid rgba(0,255,231,.25);background:#0B1220;color:#E6F0FF;padding:10px}
+    button{cursor:pointer;font-weight:700;background:linear-gradient(90deg,#00FFE7,#39FF14);color:#070A0F;border:none;margin-top:12px}
+    pre{white-space:pre-wrap;word-break:break-word;background:rgba(0,0,0,.25);padding:10px;border-radius:12px;margin-top:12px;border:1px solid rgba(255,255,255,.12)}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Upload a Plan PDF</h1>
+
+    <form id="form">
+      <label>PDF file</label>
+      <input type="file" name="file" accept="application/pdf" required>
+
+      <label>Name (optional)</label>
+      <input type="text" name="name" placeholder="e.g. L00 West Main Concourse">
+
+      <label>Revision (optional)</label>
+      <input type="text" name="revision" placeholder="e.g. P03">
+
+      <button type="submit">Upload</button>
+    </form>
+
+    <pre id="out"></pre>
+
+    <p style="margin-top:10px;">
+      After upload, check:
+      <br><a href="/api/list_plans.php" style="color:#00FFE7">/api/list_plans.php</a>
+    </p>
+  </div>
+
+<script>
+  const form = document.getElementById('form');
+  const out = document.getElementById('out');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    out.textContent = 'Uploading...';
+
+    const fd = new FormData(form);
+    const res = await fetch('/api/upload_plan.php', { method:'POST', body: fd });
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch { data = text; }
+
+    out.textContent = `HTTP ${res.status}\n` + (typeof data === 'string' ? data : JSON.stringify(data, null, 2));
+  });
+</script>
+</body>
+</html>
