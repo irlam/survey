@@ -1,0 +1,83 @@
+<?php
+// api/diagnostics.php
+// Simple diagnostics endpoint to help validate deployment & environment
+require_once __DIR__ . '/config-util.php';
+require_once __DIR__ . '/db.php';
+require_method('GET');
+
+$info = [
+  'ok' => true,
+  'time' => date('c'),
+];
+
+// Git commit (best-effort)
+$gitSha = null;
+$gitDir = __DIR__ . '/../.git';
+$headFile = $gitDir . '/HEAD';
+if (file_exists($headFile)) {
+  $head = trim(@file_get_contents($headFile));
+  if ($head !== '') {
+    if (strpos($head, 'ref: ') === 0) {
+      $ref = substr($head, 5);
+      $refFile = $gitDir . '/' . $ref;
+      if (file_exists($refFile)) $gitSha = trim(@file_get_contents($refFile));
+    } else {
+      $gitSha = $head;
+    }
+  }
+}
+if (!$gitSha && function_exists('shell_exec')) {
+  $out = @shell_exec('git rev-parse --short HEAD 2>/dev/null');
+  if ($out) $gitSha = trim($out);
+}
+$info['git_short'] = $gitSha ? substr($gitSha,0,12) : null;
+
+// Composer / vendor
+$vendorAutoload = realpath(__DIR__ . '/../vendor/autoload.php');
+$info['vendor_autoload'] = $vendorAutoload ? $vendorAutoload : null;
+
+// PDF class availability
+$info['pdf_class_exists'] = false;
+if ($vendorAutoload) {
+  try {
+    require_once $vendorAutoload;
+    $info['pdf_class_exists'] = class_exists('setasign\\Fpdf\\Fpdf');
+  } catch (Throwable $e) {
+    $info['pdf_class_error'] = $e->getMessage();
+  }
+}
+
+// viewer.js file info
+$viewerPath = realpath(__DIR__ . '/../app/viewer.js');
+if ($viewerPath && file_exists($viewerPath)) {
+  $info['viewer_js'] = [
+    'path' => $viewerPath,
+    'size' => filesize($viewerPath),
+    'sha256' => hash_file('sha256', $viewerPath),
+    'mtime' => date('c', filemtime($viewerPath)),
+  ];
+} else {
+  $info['viewer_js'] = null;
+}
+
+// DB checks
+try {
+  $pdo = db();
+  $info['db'] = ['ok' => true];
+  // check photos table columns
+  $cols = $pdo->query("SHOW COLUMNS FROM photos")->fetchAll(PDO::FETCH_COLUMN);
+  $info['photos_table_columns'] = $cols;
+  $info['photos_expected'] = [
+    'has_file_path' => in_array('file_path', $cols),
+    'has_thumb_path' => in_array('thumb_path', $cols),
+    'has_filename' => in_array('filename', $cols),
+    'has_thumb' => in_array('thumb', $cols),
+  ];
+  // quick counts
+  $stmt = $pdo->prepare('SELECT COUNT(*) AS c FROM issues'); $stmt->execute(); $info['issue_count'] = (int)$stmt->fetchColumn();
+  $stmt2 = $pdo->prepare('SELECT COUNT(*) AS c FROM photos'); $stmt2->execute(); $info['photo_count'] = (int)$stmt2->fetchColumn();
+} catch (Throwable $e) {
+  $info['db'] = ['ok' => false, 'error' => $e->getMessage()];
+}
+
+json_response($info);
