@@ -482,6 +482,17 @@ async function openPlanInApp(planId) {
   await startViewer();
 }
 window.openPlanInApp = openPlanInApp;
+
+// Load a PDF into the viewer
+async function loadPdf(pdfUrl) {
+  ensurePdfJsConfigured();
+  setStatus('Loading PDF…');
+  const task = window.pdfjsLib.getDocument({ url: pdfUrl, withCredentials: true });
+  pdfDoc = await task.promise;
+  totalPages = pdfDoc.numPages;
+  currentPage = 1;
+  setStatus('');
+  setBadges();
 }
 
 // Public: start viewer based on current URL plan_id
