@@ -38,7 +38,11 @@ function planRow(plan) {
   btn.className = 'btn';
   btn.textContent = 'Open';
   btn.onclick = async () => {
-    await openPlanInApp(plan.id);
+    if (window.openPlanInApp) {
+      await window.openPlanInApp(plan.id);
+    } else {
+      alert('Viewer not loaded');
+    }
   };
 
   li.appendChild(left);
