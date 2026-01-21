@@ -34,7 +34,9 @@ function setTitle(text) {
 function setModeBadge() {
   const b = qs('#modeBadge');
   if (!b) return;
+  // Show badge when Add Issue mode is ON
   b.style.display = addIssueMode ? 'inline-flex' : 'none';
+  console.log('setModeBadge: addIssueMode', addIssueMode, 'badge display:', b.style.display);
 }
 
 function setBadges() {
@@ -223,7 +225,10 @@ function bindUiOnce() {
       // Enable overlay hit-testing immediately
       const container = qs('#pdfContainer');
       const overlay = container ? container.querySelector('.pdfOverlay') : null;
-      if (overlay) overlay.style.pointerEvents = addIssueMode ? 'auto' : 'none';
+      if (overlay) {
+        overlay.style.pointerEvents = addIssueMode ? 'auto' : 'none';
+        console.log('Overlay pointer-events:', overlay.style.pointerEvents);
+      }
 
       console.log('AddIssueMode:', addIssueMode, 'modeBadge:', document.querySelector('#modeBadge'));
       console.log('Overlay:', overlay, 'pointerEvents:', overlay?.style.pointerEvents);
