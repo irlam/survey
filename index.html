@@ -83,13 +83,13 @@
     }
   </script>
 
-  <script src="/app/viewer.js?v=20260121_1"></script>
+  <script src="/app/viewer.js?v=20260121_2"></script>
   <script>
     // Fallback loader: if viewer.js failed (syntax error / truncated), try to fetch and inject a fresh copy
     (function(){
       if (window.startViewer) return;
       console.warn('viewer.js did not initialize. Attempting fallback fetch...');
-      const urlBase = '/app/viewer.js?v=20260121_1';
+      const urlBase = '/app/viewer.js?v=20260121_2';
       let attempts = 0;
       async function tryLoad(){
         attempts++;
