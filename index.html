@@ -104,11 +104,22 @@
             console.error('viewer.js fallback failed after multiple attempts. Try unregistering service worker/clearing cache.');
             return;
           }
-          // Load by creating a script element with src so browser parses it naturally
+          // Use blob URL to avoid re-fetching the script (prevents server truncation differences)
+          const blob = new Blob([src], {type: 'application/javascript; charset=utf-8'});
+          const blobUrl = URL.createObjectURL(blob);
           const s = document.createElement('script');
-          s.src = url;
-          s.onload = function(){ console.info('viewer.js fallback loaded via src'); if(window.startViewer) window.startViewer(); };
-          s.onerror = async function(e){ console.error('viewer.js script load error', e); if(attempts < 4){ await new Promise(r=>setTimeout(r,400)); return tryLoad(); } console.error('viewer.js fallback failed after multiple attempts. Try unregistering service worker/clearing cache.'); };
+          s.src = blobUrl;
+          s.onload = function(){
+            console.info('viewer.js fallback loaded via blob');
+            URL.revokeObjectURL(blobUrl);
+            try{ if(window.startViewer) window.startViewer(); }catch(e){ console.error('viewer start error', e); }
+          };
+          s.onerror = async function(e){
+            console.error('viewer.js blob load error', e);
+            URL.revokeObjectURL(blobUrl);
+            if(attempts < 4){ await new Promise(r=>setTimeout(r,400)); return tryLoad(); }
+            console.error('viewer.js fallback failed after multiple attempts. Try unregistering service worker/clearing cache.');
+          };
           document.head.appendChild(s);
         }catch(e){
           console.error('viewer.js fetch/inject error (attempt '+attempts+')', e);
