@@ -89,15 +89,32 @@
     (function(){
       if (window.startViewer) return;
       console.warn('viewer.js did not initialize. Attempting fallback fetch...');
-      const url = '/app/viewer.js?v=20260121_1&t=' + Date.now();
-      fetch(url, {credentials:'same-origin', cache:'reload'}).then(r=>r.text()).then(src=>{
+      const urlBase = '/app/viewer.js?v=20260121_1';
+      let attempts = 0;
+      async function tryLoad(){
+        attempts++;
+        const url = urlBase + '&t=' + Date.now();
         try{
+          const res = await fetch(url, {credentials:'same-origin', cache:'reload'});
+          const src = await res.text();
+          // Quick validation to avoid injecting truncated scripts
+          if(!src || src.length < 200 || src.indexOf('window.startViewer = startViewer') === -1){
+            console.warn('viewer.js fallback: validation failed', {attempts, length: src ? src.length : 0});
+            if(attempts < 4){ await new Promise(r=>setTimeout(r, 300)); return tryLoad(); }
+            console.error('viewer.js fallback failed after multiple attempts. Try unregistering service worker/clearing cache.');
+            return;
+          }
           const s = document.createElement('script');
           s.text = src + '\n//# sourceURL=' + url;
           document.head.appendChild(s);
           console.info('viewer.js fallback loaded');
-        }catch(e){ console.error('viewer fallback failed', e); }
-      }).catch(err=>{ console.error('viewer fetch fallback failed', err); });
+        }catch(e){
+          console.error('viewer.js fetch/inject error (attempt '+attempts+')', e);
+          if(attempts < 4){ await new Promise(r=>setTimeout(r, 400)); return tryLoad(); }
+          console.error('viewer.js fallback failed after multiple attempts. Try unregistering service worker/clearing cache.');
+        }
+      }
+      tryLoad();
     })();
   </script>
   <script src="/app/ui.js?v=20260121_1"></script>
