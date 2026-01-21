@@ -1,7 +1,8 @@
 {
     "require": {
         "setasign/fpdf": "^1.8",
-        "setasign/fpdi": "^2.3"
+        "setasign/fpdi": "^2.3"'
+        "setasign/fpdi-fpdf": "^2.0"
     },
     "config": {
         "platform": {
