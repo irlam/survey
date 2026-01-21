@@ -224,14 +224,19 @@ input:focus{border-color: rgba(0,255,231,.5); box-shadow: 0 0 0 3px rgba(0,255,2
   position: relative;
   margin: 0 auto;
 }
-  position:absolute;
-  left:0; top:0;
-  width:100%;
-  height:100%;
-  pointer-events:none; /* viewer.js toggles to auto when Add Issue Mode is ON */
+
+/* Overlay for PDF pins */
+.pdfOverlay {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none; /* viewer.js toggles to auto when Add Issue Mode is ON */
   z-index: 1000; /* ensure overlay is above canvas */
-  border: 2px dashed red; /* TEMP: debug overlay position */
-  background: rgba(255,0,0,0.08); /* TEMP: debug overlay visibility */
+  /* border: 2px dashed red;  TEMP: debug overlay position */
+  /* background: rgba(255,0,0,0.08); TEMP: debug overlay visibility */
+}
 }
 .pin{
   position:absolute;
