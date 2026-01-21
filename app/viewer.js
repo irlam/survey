@@ -113,7 +113,7 @@ function ensureWrapAndOverlay() {
     }, { capture: true });
   }
 
-  // enable hit-testing when in add mode
+  // Always enable hit-testing based on latest addIssueMode
   overlay.style.pointerEvents = addIssueMode ? 'auto' : 'none';
 
   return { wrap, canvas, overlay };
@@ -248,19 +248,7 @@ function bindUiOnce() {
       addIssueMode = !addIssueMode;
       addBtn.textContent = addIssueMode ? 'Done' : 'Add Issue';
       setModeBadge();
-
-      // Enable overlay hit-testing immediately
-      const container = qs('#pdfContainer');
-      const overlay = container ? container.querySelector('.pdfOverlay') : null;
-      if (overlay) {
-        overlay.style.pointerEvents = addIssueMode ? 'auto' : 'none';
-        console.log('Overlay pointer-events:', overlay.style.pointerEvents);
-      }
-
-      console.log('AddIssueMode:', addIssueMode, 'modeBadge:', document.querySelector('#modeBadge'));
-      console.log('Overlay:', overlay, 'pointerEvents:', overlay?.style.pointerEvents);
-
-      // Re-render so overlay matches the current canvas size and pins redraw
+      // Re-render so overlay matches the current canvas size and pins redraw, and pointer-events is set correctly
       if (pdfDoc) await renderPage(currentPage);
     };
   }
