@@ -1,4 +1,4 @@
-import { openPlanInApp } from './viewer.js?v=20260120_2';
+
 
 
 function $(sel) { return document.querySelector(sel); }
