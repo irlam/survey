@@ -260,6 +260,23 @@ input:focus{border-color: rgba(0,255,231,.5); box-shadow: 0 0 0 3px rgba(0,255,2
   pointer-events: auto !important;
   visibility: visible !important;
 }
+.pin{
+  position:absolute;
+  transform: translate(-50%, -100%);
+  width:32px;
+  height:32px;
+  border-radius: 999px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:900;
+  font-size:16px;
+  color:#fff;
+  background: #e74c3c !important; /* bright red for debug */
+  border: 3px solid #fff !important;
+  z-index: 2000;
+  box-shadow: 0 0 16px #e74c3c, 0 0 8px #fff;
+}
 
 .pdfOverlay {
   position: absolute !important;

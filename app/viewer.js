@@ -213,6 +213,7 @@ function renderPinsForPage(overlay, viewportWidth, viewportHeight) {
     el.style.top = `${p.y_norm * viewportHeight}px`;
     overlay.appendChild(el);
     console.log(`[DEBUG] Pin label ${p.label} at (x_norm: ${p.x_norm}, y_norm: ${p.y_norm}) => (left: ${p.x_norm * viewportWidth}px, top: ${p.y_norm * viewportHeight}px)`);
+    console.log('[DEBUG] Pin element appended:', el, 'at', el.style.left, el.style.top);
   }
   showTempPinsDebug();
 }
