@@ -108,7 +108,16 @@
           try{
             new Function(src);
           }catch(parseErr){
-            console.warn('viewer.js fallback: parse error detected, will retry', {attempts, error: parseErr.message});
+            // Attempt to compute lightweight diagnostics without printing full file
+            const len = src ? src.length : 0;
+            const head = src ? src.slice(0,200) : '';
+            const tail = src ? src.slice(Math.max(0,len-200), len) : '';
+            // simple bracket counting
+            const counts = {paren:0, brace:0, bracket:0};
+            for(let i=0;i<src.length;i++){
+              const ch = src[i]; if(ch==='(') counts.paren++; if(ch===')') counts.paren--; if(ch==='{') counts.brace++; if(ch==='}') counts.brace--; if(ch==='[') counts.bracket++; if(ch===']') counts.bracket--; if(counts.paren<0||counts.brace<0||counts.bracket<0){ break; }
+            }
+            console.warn('viewer.js fallback: parse error detected, will retry', {attempts, error: parseErr.message, length: len, counts, head, tail});
             if(attempts < 4){ await new Promise(r=>setTimeout(r, 300)); return tryLoad(); }
             console.error('viewer.js fallback: parse error persisted after retries.');
             return;
