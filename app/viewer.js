@@ -347,48 +347,110 @@ function showIssueModal(pin) {
           <textarea id="issueNotes" style="width:100%;height:60px;font-size:15px;">${pin.notes || ''}</textarea>
         </label>
       </div>
+      <div id="photoThumbs" style="margin-bottom:12px;"></div>
+      <div style="margin-bottom:12px;">
+        <label>Upload Photo:<br>
+          <input id="issuePhotoInput" type="file" accept="image/jpeg,image/png" style="width:100%;" />
+        </label>
+      </div>
       <div style="text-align:right;">
         <button id="issueSaveBtn" style="background:#0ff;color:#222;font-weight:bold;padding:8px 16px;border-radius:6px;">Save</button>
         <button id="issueCancelBtn" style="background:#444;color:#fff;padding:8px 16px;border-radius:6px;">Cancel</button>
       </div>
     `;
     document.body.appendChild(modal);
-  } else {
-    modal.style.display = 'block';
-    modal.querySelector('#issueTitle').value = pin.title || '';
-    modal.querySelector('#issueNotes').value = pin.notes || '';
-  }
-
-  modal.querySelector('#issueSaveBtn').onclick = async () => {
-    const planId = getPlanIdFromUrl();
-    const title = modal.querySelector('#issueTitle').value.trim();
-    const notes = modal.querySelector('#issueNotes').value.trim();
-    if (!title) {
-      alert('Title is required');
-      return;
-    }
-    const issue = {
-      plan_id: planId,
-      page: pin.page,
-      x_norm: pin.x_norm,
-      y_norm: pin.y_norm,
-      title,
-      notes
+    // Load thumbnails
+    await loadPhotoThumbs(pin);
+    // Photo upload handler
+    modal.querySelector('#issuePhotoInput').onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const planId = getPlanIdFromUrl();
+      const issueId = pin.id;
+      if (!planId || !issueId) {
+        alert('Save the issue first before uploading photos.');
+        return;
+      }
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('plan_id', planId);
+      formData.append('issue_id', issueId);
+      try {
+        const res = await fetch('/api/upload_photo.php', {
+          method: 'POST',
+          body: formData,
+          credentials: 'same-origin'
+        });
+        const txt = await res.text();
+        let data;
+        try { data = JSON.parse(txt); } catch { throw new Error('Invalid photo upload response'); }
+        if (!res.ok || !data.ok) throw new Error(data.error || 'Photo upload failed');
+        await loadPhotoThumbs(pin);
+        alert('Photo uploaded!');
+      } catch (err) {
+        alert('Photo upload error: ' + err.message);
+      }
     };
-    if (pin.id) issue.id = pin.id;
-    try {
-      await apiSaveIssue(issue);
+    // Save/cancel handlers
+    modal.querySelector('#issueSaveBtn').onclick = async () => {
+      const planId = getPlanIdFromUrl();
+      const title = modal.querySelector('#issueTitle').value.trim();
+      const notes = modal.querySelector('#issueNotes').value.trim();
+      if (!title) {
+        alert('Title is required');
+        return;
+      }
+      const issue = {
+        plan_id: planId,
+        page: pin.page,
+        x_norm: pin.x_norm,
+        y_norm: pin.y_norm,
+        title,
+        notes
+      };
+      if (pin.id) issue.id = pin.id;
+      try {
+        const saved = await apiSaveIssue(issue);
+        modal.style.display = 'none';
+        await reloadDbPins();
+        await renderPage(currentPage);
+        // If new issue, reload modal to allow photo upload
+        if (!pin.id && saved.id) {
+          pin.id = saved.id;
+          showIssueModal(pin);
+        }
+      } catch (e) {
+        alert('Error saving issue: ' + e.message);
+      }
+    };
+    modal.querySelector('#issueCancelBtn').onclick = () => {
       modal.style.display = 'none';
-      await reloadDbPins();
-      await renderPage(currentPage);
-    } catch (e) {
-      alert('Error saving issue: ' + e.message);
-    }
-  };
+    };
 
-  modal.querySelector('#issueCancelBtn').onclick = () => {
-    modal.style.display = 'none';
-  };
+    // Helper: load thumbnails
+    async function loadPhotoThumbs(pin) {
+      const planId = getPlanIdFromUrl();
+      if (!planId || !pin.id) return;
+      try {
+        const res = await fetch(`/api/list_photos.php?plan_id=${planId}`);
+        const txt = await res.text();
+        let data;
+        try { data = JSON.parse(txt); } catch { return; }
+        if (!data.ok || !Array.isArray(data.photos)) return;
+        const thumbs = data.photos.filter(p => p.issue_id == pin.id);
+        const thumbsDiv = modal.querySelector('#photoThumbs');
+        thumbsDiv.innerHTML = '';
+        for (const t of thumbs) {
+          const img = document.createElement('img');
+          img.src = `/storage/photos/${t.filename}`;
+          img.alt = 'Photo';
+          img.style.maxWidth = '64px';
+          img.style.maxHeight = '64px';
+          img.style.margin = '2px';
+          thumbsDiv.appendChild(img);
+        }
+      } catch {}
+    }
 }
 
 // Load pins from DB
