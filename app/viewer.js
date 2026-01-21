@@ -85,6 +85,31 @@ function ensureWrapAndOverlay() {
     overlay = document.createElement('div');
     overlay.className = 'pdfOverlay';
     wrap.appendChild(overlay);
+    console.log('DEBUG: .pdfOverlay created and added to DOM', overlay);
+    // Attach pointerdown event directly to overlay
+    overlay.addEventListener('pointerdown', async (e) => {
+      console.log('DEBUG: pointerdown event fired on overlay', e);
+      if (!addIssueMode) return;
+
+      // Only accept taps that happen on the overlay itself (or its children)
+      if (!overlay.contains(e.target)) return;
+
+      const rect = overlay.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      const w = rect.width;
+      const h = rect.height;
+      if (w <= 0 || h <= 0) return;
+
+      const x_norm = Math.max(0, Math.min(1, x / w));
+      const y_norm = Math.max(0, Math.min(1, y / h));
+
+      const label = String(tempPins.filter(p => p.page === currentPage).length + 1);
+      tempPins.push({ page: currentPage, x_norm, y_norm, label });
+
+      await renderPage(currentPage);
+    }, { capture: true });
   }
 
   // enable hit-testing when in add mode
@@ -238,35 +263,7 @@ function bindUiOnce() {
     };
   }
 
-  // Tap on overlay to place a temporary pin (pointerdown is better on tablets)
-  document.addEventListener('pointerdown', async (e) => {
-    console.log('DEBUG: pointerdown event fired', e);
-    if (!addIssueMode) return;
-
-    const overlay = qs('.pdfOverlay');
-    console.log('tap target:', e.target, 'overlay:', overlay);
-
-    if (!overlay) return;
-
-    // Only accept taps that happen on the overlay itself (or its children)
-    if (!overlay.contains(e.target)) return;
-
-    const rect = overlay.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    const w = rect.width;
-    const h = rect.height;
-    if (w <= 0 || h <= 0) return;
-
-    const x_norm = Math.max(0, Math.min(1, x / w));
-    const y_norm = Math.max(0, Math.min(1, y / h));
-
-    const label = String(tempPins.filter(p => p.page === currentPage).length + 1);
-    tempPins.push({ page: currentPage, x_norm, y_norm, label });
-
-    await renderPage(currentPage);
-  }, { capture: true });
+  // ...pointerdown now handled directly on overlay...
 
   if (closeBtn) {
     closeBtn.onclick = () => {
