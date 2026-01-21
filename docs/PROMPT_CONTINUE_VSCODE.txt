@@ -1,0 +1,21 @@
+You are helping me build Survey PDF Editor (https://survey.defecttracker.uk/) on shared Plesk hosting (no Docker).
+Use the repo context in docs/ASSISTANT_CONTEXT.md as the source of truth.
+
+Rules:
+- Mobile-first UI, dark neon theme already in /assets/ui.css.
+- Keep changes small and incremental; always provide FULL files for copy/paste when I ask.
+- Assume I’m not a coder: give exact file paths + what to replace.
+- Backend is PHP + MySQL. Storage must remain inside /httpdocs/storage due to open_basedir.
+- Frontend uses PDF.js from /vendor/pdfjs/.
+
+Where we are now:
+- PDF renders in-app and “Add Issue Mode” can place temporary pins (client-only).
+Goal now:
+- Save pins as issues in DB (create/edit) and load/render them from API.
+Next steps you should do:
+1) Provide /api/save_issue.php and /api/list_issues.php (and any small helpers needed).
+2) Update /app/viewer.js to:
+   - fetch existing issues on page load/page change
+   - render pins from API
+   - on tap in Add Issue Mode, show a small modal, then POST to save_issue.php
+3) Keep it robust on mobile and tablet landscape.
