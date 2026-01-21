@@ -127,6 +127,7 @@ function ensureWrapAndOverlay() {
       // Only increment label and push pin if inside canvas
       const label = String(tempPins.filter(p => p.page === currentPage).length + 1);
       tempPins.push({ page: currentPage, x_norm, y_norm, label });
+  console.log('[DEBUG] tempPins after push:', JSON.stringify(tempPins));
 
       await renderPage(currentPage);
     }, { capture: true });
