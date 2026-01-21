@@ -109,6 +109,9 @@ async function showIssueModal(pin){
 
   modal.querySelector('#issueSaveBtn').onclick = async ()=>{ const planId = getPlanIdFromUrl(); const title = modal.querySelector('#issueTitle').value.trim(); const notes = modal.querySelector('#issueNotes').value.trim(); if(!title){ alert('Title is required'); return; } const issue = { plan_id: planId, page: pin.page, x_norm: pin.x_norm, y_norm: pin.y_norm, title, notes }; if(pin.id) issue.id = pin.id; try{ const saved = await apiSaveIssue(issue); modal.style.display='none'; await reloadDbPins(); await renderPage(currentPage); if(!pin.id && saved.id){ pin.id = saved.id; await showIssueModal(pin); } }catch(e){ alert('Error saving issue: '+e.message); } };
 
+  // Cancel handler and close modal
+  const cancelBtn = modal.querySelector('#issueCancelBtn'); if(cancelBtn) cancelBtn.onclick = ()=>{ modal.style.display='none'; };
+}
 
 async function reloadDbPins() {
   const planId = getPlanIdFromUrl();
