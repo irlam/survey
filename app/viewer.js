@@ -109,9 +109,11 @@ function ensureWrapAndOverlay() {
         e.clientY > canvasRect.bottom
       ) {
         console.log('Click outside visible PDF area, not adding pin');
+        // Extra guard: do not update pin label, do not push to tempPins, do not update UI
         return;
       }
 
+      // Only proceed if inside canvas
       // Calculate normalized coordinates relative to overlay
       const x = e.clientX - overlayRect.left;
       const y = e.clientY - overlayRect.top;
@@ -122,6 +124,7 @@ function ensureWrapAndOverlay() {
       const x_norm = Math.max(0, Math.min(1, x / w));
       const y_norm = Math.max(0, Math.min(1, y / h));
 
+      // Only increment label and push pin if inside canvas
       const label = String(tempPins.filter(p => p.page === currentPage).length + 1);
       tempPins.push({ page: currentPage, x_norm, y_norm, label });
 
