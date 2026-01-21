@@ -235,6 +235,7 @@ function bindUiOnce() {
 
   // Tap on overlay to place a temporary pin (pointerdown is better on tablets)
   document.addEventListener('pointerdown', async (e) => {
+    console.log('DEBUG: pointerdown event fired', e);
     if (!addIssueMode) return;
 
     const overlay = qs('.pdfOverlay');
