@@ -47,9 +47,9 @@ try {
         $tw = max(40, (int)round($width * $scale));
         $th = max(40, (int)round($height * $scale));
         if ($mime === 'image/png') {
-            $src = imagecreatefrompng($dest);
+            $src = @imagecreatefrompng($dest);
         } else {
-            $src = imagecreatefromjpeg($dest);
+            $src = @imagecreatefromjpeg($dest);
         }
         if ($src) {
             $thumb = imagecreatetruecolor($tw, $th);
@@ -66,9 +66,9 @@ try {
             imagecopyresampled($thumb, $src, 0, 0, 0, 0, $tw, $th, $width, $height);
             if (!is_dir(dirname($thumbPath))) {@mkdir(dirname($thumbPath), 0755, true);}            
             if ($mime === 'image/png') {
-                imagepng($thumb, $thumbPath);
+                @imagepng($thumb, $thumbPath);
             } else {
-                imagejpeg($thumb, $thumbPath, 78);
+                @imagejpeg($thumb, $thumbPath, 78);
             }
             imagedestroy($thumb);
             imagedestroy($src);
@@ -82,7 +82,17 @@ try {
 }
 
 $pdo = db();
-$stmt = $pdo->prepare('INSERT INTO photos (plan_id, issue_id, filename, thumb) VALUES (?, ?, ?, ?)');
+// Store paths in DB columns `file_path` and `thumb_path` (supports both schemas)
+$fileRel = 'photos/' . $filename;
 $thumbDbValue = $thumbCreated ? ('photos/thumbs/' . $thumbFilename) : null;
-$stmt->execute([$plan_id, $issue_id, $filename, $thumbDbValue]);
-json_response(['ok'=>true, 'photo_id'=>$pdo->lastInsertId(), 'filename'=>$filename, 'thumb'=>$thumbDbValue]);
+// If the production DB uses `file_path`/`thumb_path`, insert into those; otherwise fall back to older names
+$cols = $pdo->query("SHOW COLUMNS FROM photos")->fetchAll(PDO::FETCH_COLUMN);
+if (in_array('file_path', $cols) && in_array('thumb_path', $cols)) {
+    $stmt = $pdo->prepare('INSERT INTO photos (plan_id, issue_id, file_path, thumb_path) VALUES (?, ?, ?, ?)');
+    $stmt->execute([$plan_id, $issue_id, $fileRel, $thumbDbValue]);
+} else {
+    // older schema
+    $stmt = $pdo->prepare('INSERT INTO photos (plan_id, issue_id, filename, thumb) VALUES (?, ?, ?, ?)');
+    $stmt->execute([$plan_id, $issue_id, $filename, $thumbDbValue]);
+}
+json_response(['ok'=>true, 'photo_id'=>$pdo->lastInsertId(), 'file'=> $fileRel, 'thumb'=>$thumbDbValue]);
