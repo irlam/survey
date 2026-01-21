@@ -511,4 +511,3 @@ async function startViewer() {
   }
 }
 window.startViewer = startViewer;
-}
