@@ -84,6 +84,22 @@
   </script>
 
   <script src="/app/viewer.js?v=20260121_1"></script>
+  <script>
+    // Fallback loader: if viewer.js failed (syntax error / truncated), try to fetch and inject a fresh copy
+    (function(){
+      if (window.startViewer) return;
+      console.warn('viewer.js did not initialize. Attempting fallback fetch...');
+      const url = '/app/viewer.js?v=20260121_1&t=' + Date.now();
+      fetch(url, {credentials:'same-origin', cache:'reload'}).then(r=>r.text()).then(src=>{
+        try{
+          const s = document.createElement('script');
+          s.text = src + '\n//# sourceURL=' + url;
+          document.head.appendChild(s);
+          console.info('viewer.js fallback loaded');
+        }catch(e){ console.error('viewer fallback failed', e); }
+      }).catch(err=>{ console.error('viewer fetch fallback failed', err); });
+    })();
+  </script>
   <script src="/app/ui.js?v=20260121_1"></script>
   <script src="/app/app.js?v=20260121_1"></script>
 
