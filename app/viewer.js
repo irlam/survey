@@ -2,7 +2,7 @@
 // DEBUG: Top-level script execution log and counter
 window.__viewerDebugCounter = (window.__viewerDebugCounter || 0) + 1;
 console.log('[DEBUG] viewer.js loaded, counter:', window.__viewerDebugCounter);
-// DEBUG: Add a floating debug div to show tempPins live
+
 function showTempPinsDebug() {
   let dbg = document.getElementById('tempPinsDebug');
   if (!dbg) {
@@ -24,7 +24,6 @@ function showTempPinsDebug() {
   }
   dbg.textContent = '[DEBUG] tempPins: ' + JSON.stringify(tempPins);
 }
-// PDF.js viewer + overlay layer + Add Issue Mode (pins only, no DB save yet)
 
 let pdfDoc = null;
 let currentPage = 1;
@@ -36,6 +35,7 @@ let fitMode = true;
 
 let addIssueMode = false;
 let tempPins = []; // {page, x_norm, y_norm, label}
+let dbPins = [];   // Pins loaded from DB
 
 function qs(sel) { return document.querySelector(sel); }
 
@@ -59,7 +59,6 @@ function setTitle(text) {
 function setModeBadge() {
   const b = qs('#modeBadge');
   if (!b) return;
-  // Show badge when Add Issue mode is ON
   b.style.display = addIssueMode ? 'inline-flex' : 'none';
   console.log('setModeBadge: addIssueMode', addIssueMode, 'badge display:', b.style.display);
 }
@@ -112,56 +111,40 @@ function ensureWrapAndOverlay() {
     overlay.className = 'pdfOverlay';
     wrap.appendChild(overlay);
     console.log('DEBUG: .pdfOverlay created and added to DOM', overlay);
-    // Attach pointerdown event directly to overlay
     overlay.addEventListener('pointerdown', async (e) => {
-      console.log('DEBUG: pointerdown event fired on overlay', e);
       if (!addIssueMode) return;
-
-      // Only accept taps that happen on the overlay itself (or its children)
       if (!overlay.contains(e.target)) return;
-
-      // Get overlay and canvas bounds
       const overlayRect = overlay.getBoundingClientRect();
       const canvas = overlay.parentElement.querySelector('canvas');
       if (!canvas) return;
       const canvasRect = canvas.getBoundingClientRect();
-
-      // Check if click is within canvas bounds (visible PDF)
       if (
         e.clientX < canvasRect.left ||
         e.clientX > canvasRect.right ||
         e.clientY < canvasRect.top ||
         e.clientY > canvasRect.bottom
       ) {
-        console.log('Click outside visible PDF area, not adding pin');
-        // Extra guard: do not update pin label, do not push to tempPins, do not update UI
         return;
       }
-
-      // Only proceed if inside canvas
-      // Calculate normalized coordinates relative to overlay
       const x = e.clientX - overlayRect.left;
       const y = e.clientY - overlayRect.top;
       const w = overlayRect.width;
       const h = overlayRect.height;
       if (w <= 0 || h <= 0) return;
-
       const x_norm = Math.max(0, Math.min(1, x / w));
       const y_norm = Math.max(0, Math.min(1, y / h));
-
-      // Only increment label and push pin if inside canvas
       const label = String(tempPins.filter(p => p.page === currentPage).length + 1);
-      tempPins.push({ page: currentPage, x_norm, y_norm, label });
-  console.log('[DEBUG] tempPins after push:', JSON.stringify(tempPins));
-  showTempPinsDebug();
 
-      await renderPage(currentPage);
+      // Show modal for issue details
+      showIssueModal({
+        page: currentPage,
+        x_norm,
+        y_norm,
+        label
+      });
     }, { capture: true });
   }
-
-  // Always enable hit-testing based on latest addIssueMode
   overlay.style.pointerEvents = addIssueMode ? 'auto' : 'none';
-
   return { wrap, canvas, overlay };
 }
 
@@ -174,18 +157,27 @@ async function apiGetPlan(planId) {
   return data;
 }
 
-async function loadPdf(pdfUrl) {
-  ensurePdfJsConfigured();
-  setStatus('Loading PDF…');
+async function apiListIssues(planId) {
+  const res = await fetch(`/api/list_issues.php?plan_id=${encodeURIComponent(planId)}`, { credentials: 'same-origin' });
+  const txt = await res.text();
+  let data;
+  try { data = JSON.parse(txt); } catch { throw new Error(`list_issues invalid JSON: ${txt}`); }
+  if (!res.ok || !data.ok) throw new Error(data.error || `list_issues failed: HTTP ${res.status}`);
+  return data.issues || [];
+}
 
-  const task = window.pdfjsLib.getDocument({ url: pdfUrl, withCredentials: true });
-  pdfDoc = await task.promise;
-
-  totalPages = pdfDoc.numPages;
-  currentPage = 1;
-
-  setStatus('');
-  setBadges();
+async function apiSaveIssue(issue) {
+  const res = await fetch('/api/save_issue.php', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(issue)
+  });
+  const txt = await res.text();
+  let data;
+  try { data = JSON.parse(txt); } catch { throw new Error(`save_issue invalid JSON: ${txt}`); }
+  if (!res.ok || !data.ok) throw new Error(data.error || `save_issue failed: HTTP ${res.status}`);
+  return data;
 }
 
 function clearOverlay(overlay) {
@@ -195,64 +187,54 @@ function clearOverlay(overlay) {
 function renderPinsForPage(overlay, viewportWidth, viewportHeight) {
   clearOverlay(overlay);
 
-  const pins = tempPins.filter(p => p.page === currentPage);
-  console.log('[DEBUG] renderPinsForPage:', {
-    overlay,
-    overlayWidth: overlay.offsetWidth,
-    overlayHeight: overlay.offsetHeight,
-    viewportWidth,
-    viewportHeight,
-    pinsCount: pins.length,
-    pins
-  });
+  // Render DB pins first
+  const pins = dbPins.filter(p => p.page === currentPage);
   for (const p of pins) {
     const el = document.createElement('div');
-    el.className = 'pin';
+    el.className = 'pin db-pin';
+    el.textContent = p.label || p.title || '!';
+    el.title = p.title || '';
+    el.style.left = `${p.x_norm * viewportWidth}px`;
+    el.style.top = `${p.y_norm * viewportHeight}px`;
+    overlay.appendChild(el);
+    el.addEventListener('click', () => showIssueModal(p));
+  }
+
+  // Render temp pins (not yet saved)
+  for (const p of tempPins.filter(p => p.page === currentPage)) {
+    const el = document.createElement('div');
+    el.className = 'pin temp-pin';
     el.textContent = p.label;
     el.style.left = `${p.x_norm * viewportWidth}px`;
     el.style.top = `${p.y_norm * viewportHeight}px`;
     overlay.appendChild(el);
-    console.log(`[DEBUG] Pin label ${p.label} at (x_norm: ${p.x_norm}, y_norm: ${p.y_norm}) => (left: ${p.x_norm * viewportWidth}px, top: ${p.y_norm * viewportHeight}px)`);
-    console.log('[DEBUG] Pin element appended:', el, 'at', el.style.left, el.style.top);
   }
   showTempPinsDebug();
 }
 
 async function renderPage(pageNo) {
-  console.log('DEBUG: renderPage called for page', pageNo);
   if (!pdfDoc) return;
-
   const { wrap, canvas, overlay } = ensureWrapAndOverlay();
   const ctx = canvas.getContext('2d');
-
   setStatus(`Rendering page ${pageNo}…`);
   const page = await pdfDoc.getPage(pageNo);
-
   const w = stageWidth();
   const v1 = page.getViewport({ scale: 1.0 });
   fitScale = w / v1.width;
-
   const effectiveScale = fitMode ? (fitScale * userZoom) : userZoom;
   const viewport = page.getViewport({ scale: effectiveScale });
-
-  // HiDPI
   const dpr = window.devicePixelRatio || 1;
   canvas.width = Math.floor(viewport.width * dpr);
   canvas.height = Math.floor(viewport.height * dpr);
   canvas.style.width = `${Math.floor(viewport.width)}px`;
   canvas.style.height = `${Math.floor(viewport.height)}px`;
-
-  // Wrap/overlay must match CSS pixel size
   wrap.style.width = `${Math.floor(viewport.width)}px`;
   wrap.style.height = `${Math.floor(viewport.height)}px`;
   overlay.style.width = `${Math.floor(viewport.width)}px`;
   overlay.style.height = `${Math.floor(viewport.height)}px`;
-
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   await page.render({ canvasContext: ctx, viewport }).promise;
-
   renderPinsForPage(overlay, Math.floor(viewport.width), Math.floor(viewport.height));
-
   setStatus('');
   setBadges();
   setModeBadge();
@@ -306,34 +288,26 @@ function bindUiOnce() {
       addIssueMode = !addIssueMode;
       addBtn.textContent = addIssueMode ? 'Done' : 'Add Issue';
       setModeBadge();
-      // Re-render so overlay matches the current canvas size and pins redraw, and pointer-events is set correctly
       if (pdfDoc) await renderPage(currentPage);
     };
   }
-
-  // ...pointerdown now handled directly on overlay...
 
   if (closeBtn) {
     closeBtn.onclick = () => {
       const u = new URL(window.location.href);
       u.searchParams.delete('plan_id');
       history.pushState({}, '', u.pathname);
-
       setTitle('Select a plan');
       setStatus('');
-
       const c = qs('#pdfContainer');
       if (c) c.innerHTML = '';
-
       pdfDoc = null;
       totalPages = 0;
       currentPage = 1;
       userZoom = 1.0;
-
       addIssueMode = false;
       setModeBadge();
       setBadges();
-
       document.body.classList.remove('has-viewer');
     };
   }
@@ -341,6 +315,101 @@ function bindUiOnce() {
   window.addEventListener('resize', () => {
     if (pdfDoc) renderPage(currentPage);
   });
+}
+
+// Modal for adding/editing issue
+function showIssueModal(pin) {
+  let modal = document.getElementById('issueModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'issueModal';
+    modal.style.position = 'fixed';
+    modal.style.left = '50%';
+    modal.style.top = '50%';
+    modal.style.transform = 'translate(-50%, -50%)';
+    modal.style.background = '#222';
+    modal.style.color = '#fff';
+    modal.style.zIndex = 100000;
+    modal.style.padding = '20px';
+    modal.style.borderRadius = '12px';
+    modal.style.boxShadow = '0 0 24px #0ff8';
+    modal.style.maxWidth = '90vw';
+    modal.style.width = '320px';
+    modal.style.fontSize = '16px';
+    modal.innerHTML = `
+      <div style="margin-bottom:12px;">
+        <label>Title:<br>
+          <input id="issueTitle" type="text" style="width:100%;font-size:16px;" value="${pin.title || ''}" maxlength="255" />
+        </label>
+      </div>
+      <div style="margin-bottom:12px;">
+        <label>Notes:<br>
+          <textarea id="issueNotes" style="width:100%;height:60px;font-size:15px;">${pin.notes || ''}</textarea>
+        </label>
+      </div>
+      <div style="text-align:right;">
+        <button id="issueSaveBtn" style="background:#0ff;color:#222;font-weight:bold;padding:8px 16px;border-radius:6px;">Save</button>
+        <button id="issueCancelBtn" style="background:#444;color:#fff;padding:8px 16px;border-radius:6px;">Cancel</button>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  } else {
+    modal.style.display = 'block';
+    modal.querySelector('#issueTitle').value = pin.title || '';
+    modal.querySelector('#issueNotes').value = pin.notes || '';
+  }
+
+  modal.querySelector('#issueSaveBtn').onclick = async () => {
+    const planId = getPlanIdFromUrl();
+    const title = modal.querySelector('#issueTitle').value.trim();
+    const notes = modal.querySelector('#issueNotes').value.trim();
+    if (!title) {
+      alert('Title is required');
+      return;
+    }
+    const issue = {
+      plan_id: planId,
+      page: pin.page,
+      x_norm: pin.x_norm,
+      y_norm: pin.y_norm,
+      title,
+      notes
+    };
+    if (pin.id) issue.id = pin.id;
+    try {
+      await apiSaveIssue(issue);
+      modal.style.display = 'none';
+      await reloadDbPins();
+      await renderPage(currentPage);
+    } catch (e) {
+      alert('Error saving issue: ' + e.message);
+    }
+  };
+
+  modal.querySelector('#issueCancelBtn').onclick = () => {
+    modal.style.display = 'none';
+  };
+}
+
+// Load pins from DB
+async function reloadDbPins() {
+  const planId = getPlanIdFromUrl();
+  if (!planId) return;
+  try {
+    const issues = await apiListIssues(planId);
+    dbPins = issues.map(issue => ({
+      id: issue.id,
+      page: issue.page || 1,
+      x_norm: issue.x_norm,
+      y_norm: issue.y_norm,
+      title: issue.title,
+      notes: issue.notes,
+      label: issue.label || issue.id
+    }));
+  } catch (e) {
+    dbPins = [];
+    console.error('Failed to load issues:', e);
+  }
 }
 
 // Public: open a plan from the sidebar button
@@ -354,7 +423,6 @@ export async function openPlanInApp(planId) {
 // Public: start viewer based on current URL plan_id
 export async function startViewer() {
   bindUiOnce();
-
   const planId = getPlanIdFromUrl();
   if (!planId) {
     setTitle('Select a plan');
@@ -362,20 +430,16 @@ export async function startViewer() {
     setBadges();
     return;
   }
-
   document.body.classList.add('has-viewer');
-
   try {
     const data = await apiGetPlan(planId);
     const plan = data.plan || {};
     const pdfUrl = data.pdf_url || plan.pdf_url || `/api/plan_file.php?plan_id=${planId}`;
-
     setTitle(plan.name || `Plan ${planId}`);
-
     fitMode = true;
     userZoom = 1.0;
-
     await loadPdf(pdfUrl);
+    await reloadDbPins();
     await renderPage(1);
   } catch (e) {
     console.error(e);
