@@ -169,6 +169,15 @@ function renderPinsForPage(overlay, viewportWidth, viewportHeight) {
   clearOverlay(overlay);
 
   const pins = tempPins.filter(p => p.page === currentPage);
+  console.log('[DEBUG] renderPinsForPage:', {
+    overlay,
+    overlayWidth: overlay.offsetWidth,
+    overlayHeight: overlay.offsetHeight,
+    viewportWidth,
+    viewportHeight,
+    pinsCount: pins.length,
+    pins
+  });
   for (const p of pins) {
     const el = document.createElement('div');
     el.className = 'pin';
@@ -176,6 +185,7 @@ function renderPinsForPage(overlay, viewportWidth, viewportHeight) {
     el.style.left = `${p.x_norm * viewportWidth}px`;
     el.style.top = `${p.y_norm * viewportHeight}px`;
     overlay.appendChild(el);
+    console.log(`[DEBUG] Pin label ${p.label} at (x_norm: ${p.x_norm}, y_norm: ${p.y_norm}) => (left: ${p.x_norm * viewportWidth}px, top: ${p.y_norm * viewportHeight}px)`);
   }
 }
 
