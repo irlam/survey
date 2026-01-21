@@ -1,4 +1,7 @@
 // app/viewer.js
+// DEBUG: Top-level script execution log and counter
+window.__viewerDebugCounter = (window.__viewerDebugCounter || 0) + 1;
+console.log('[DEBUG] viewer.js loaded, counter:', window.__viewerDebugCounter);
 // DEBUG: Add a floating debug div to show tempPins live
 function showTempPinsDebug() {
   let dbg = document.getElementById('tempPinsDebug');
