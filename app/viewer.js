@@ -95,12 +95,28 @@ function ensureWrapAndOverlay() {
       // Only accept taps that happen on the overlay itself (or its children)
       if (!overlay.contains(e.target)) return;
 
-      const rect = overlay.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
+      // Get overlay and canvas bounds
+      const overlayRect = overlay.getBoundingClientRect();
+      const canvas = overlay.parentElement.querySelector('canvas');
+      if (!canvas) return;
+      const canvasRect = canvas.getBoundingClientRect();
 
-      const w = rect.width;
-      const h = rect.height;
+      // Check if click is within canvas bounds (visible PDF)
+      if (
+        e.clientX < canvasRect.left ||
+        e.clientX > canvasRect.right ||
+        e.clientY < canvasRect.top ||
+        e.clientY > canvasRect.bottom
+      ) {
+        console.log('Click outside visible PDF area, not adding pin');
+        return;
+      }
+
+      // Calculate normalized coordinates relative to overlay
+      const x = e.clientX - overlayRect.left;
+      const y = e.clientY - overlayRect.top;
+      const w = overlayRect.width;
+      const h = overlayRect.height;
       if (w <= 0 || h <= 0) return;
 
       const x_norm = Math.max(0, Math.min(1, x / w));
