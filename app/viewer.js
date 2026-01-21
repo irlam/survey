@@ -1,4 +1,26 @@
 // app/viewer.js
+// DEBUG: Add a floating debug div to show tempPins live
+function showTempPinsDebug() {
+  let dbg = document.getElementById('tempPinsDebug');
+  if (!dbg) {
+    dbg = document.createElement('div');
+    dbg.id = 'tempPinsDebug';
+    dbg.style.position = 'fixed';
+    dbg.style.bottom = '10px';
+    dbg.style.right = '10px';
+    dbg.style.background = 'rgba(255,255,0,0.95)';
+    dbg.style.color = '#000';
+    dbg.style.zIndex = 99999;
+    dbg.style.fontSize = '12px';
+    dbg.style.padding = '8px';
+    dbg.style.border = '2px solid #f00';
+    dbg.style.maxWidth = '400px';
+    dbg.style.maxHeight = '200px';
+    dbg.style.overflow = 'auto';
+    document.body.appendChild(dbg);
+  }
+  dbg.textContent = '[DEBUG] tempPins: ' + JSON.stringify(tempPins);
+}
 // PDF.js viewer + overlay layer + Add Issue Mode (pins only, no DB save yet)
 
 let pdfDoc = null;
@@ -128,6 +150,7 @@ function ensureWrapAndOverlay() {
       const label = String(tempPins.filter(p => p.page === currentPage).length + 1);
       tempPins.push({ page: currentPage, x_norm, y_norm, label });
   console.log('[DEBUG] tempPins after push:', JSON.stringify(tempPins));
+  showTempPinsDebug();
 
       await renderPage(currentPage);
     }, { capture: true });
@@ -188,6 +211,7 @@ function renderPinsForPage(overlay, viewportWidth, viewportHeight) {
     overlay.appendChild(el);
     console.log(`[DEBUG] Pin label ${p.label} at (x_norm: ${p.x_norm}, y_norm: ${p.y_norm}) => (left: ${p.x_norm * viewportWidth}px, top: ${p.y_norm * viewportHeight}px)`);
   }
+  showTempPinsDebug();
 }
 
 async function renderPage(pageNo) {
