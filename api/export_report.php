@@ -19,9 +19,45 @@ $pdf->AddPage();
 $pdf->SetFont('Arial','B',16);
 $pdf->Cell(0,10,'Survey Report',0,1,'C');
 $pdf->SetFont('Arial','',12);
+$format = strtolower($_POST['format'] ?? 'pdf');
+
+if ($format === 'csv') {
+    // Generate CSV report
+    $filename = 'report_' . $plan_id . '_' . time() . '.csv';
+    $path = storage_dir('exports/' . $filename);
+    $fh = fopen($path, 'w');
+    if (!$fh) error_response('Failed to create CSV file', 500);
+    // header
+    $header = ['issue_no','page','x_norm','y_norm','title','notes','category','status','priority','trade','assigned_to','due_date','created_at','updated_at'];
+    fputcsv($fh, $header);
+    foreach ($issues as $issue) {
+        $row = [
+            $issue['issue_no'] ?? '',
+            $issue['page'] ?? '',
+            $issue['x_norm'] ?? '',
+            $issue['y_norm'] ?? '',
+            $issue['title'] ?? '',
+            $issue['notes'] ?? '',
+            $issue['category'] ?? '',
+            $issue['status'] ?? '',
+            $issue['priority'] ?? '',
+            $issue['trade'] ?? '',
+            $issue['assigned_to'] ?? '',
+            $issue['due_date'] ?? '',
+            $issue['created_at'] ?? '',
+            $issue['updated_at'] ?? ''
+        ];
+        fputcsv($fh, $row);
+    }
+    fclose($fh);
+    json_response(['ok'=>true, 'filename'=>$filename, 'format'=>'csv']);
+}
+
+// Default: PDF
 foreach ($issues as $issue) {
     $pdf->Cell(0,10,"Issue: {$issue['title']}",0,1);
-    $pdf->MultiCell(0,8,"Desc: {$issue['description']}");
+    // use notes field instead of description
+    $pdf->MultiCell(0,8,"Desc: {$issue['notes']}");
 }
 $pdf->Cell(0,10,'Photos:',0,1);
 foreach ($photos as $photo) {
