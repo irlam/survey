@@ -108,18 +108,7 @@ async function showIssueModal(pin){
   modal.querySelector('#issuePhotoInput').onchange = async (e)=>{ const file = e.target.files[0]; if(!file) return; const planId = getPlanIdFromUrl(); const issueId = pin.id; if(!planId || !issueId){ alert('Save the issue first before uploading photos.'); return; } const fd = new FormData(); fd.append('file', file); fd.append('plan_id', planId); fd.append('issue_id', issueId); try{ const res = await fetch('/api/upload_photo.php',{method:'POST',body:fd,credentials:'same-origin'}); const txt = await res.text(); let data; try{ data = JSON.parse(txt); }catch{ throw new Error('Invalid photo upload response'); } if(!res.ok || !data.ok) throw new Error(data.error||'Photo upload failed'); await loadPhotoThumbs(); alert('Photo uploaded'); }catch(err){ alert('Photo upload error: '+err.message); } };
 
   modal.querySelector('#issueSaveBtn').onclick = async ()=>{ const planId = getPlanIdFromUrl(); const title = modal.querySelector('#issueTitle').value.trim(); const notes = modal.querySelector('#issueNotes').value.trim(); if(!title){ alert('Title is required'); return; } const issue = { plan_id: planId, page: pin.page, x_norm: pin.x_norm, y_norm: pin.y_norm, title, notes }; if(pin.id) issue.id = pin.id; try{ const saved = await apiSaveIssue(issue); modal.style.display='none'; await reloadDbPins(); await renderPage(currentPage); if(!pin.id && saved.id){ pin.id = saved.id; await showIssueModal(pin); } }catch(e){ alert('Error saving issue: '+e.message); } };
-  modal.querySelector('#issueCancelBtn').onclick = ()=>{ modal.style.display='none'; };
-}
 
-async function reloadDbPins(){ const planId = getPlanIdFromUrl(); if(!planId) return; try{ const issues = await apiListIssues(planId); dbPins = issues.map(issue=>({ id: issue.id, page: issue.page||1, x_norm: issue.x_norm, y_norm: issue.y_norm, title: issue.title, notes: issue.notes, label: issue.label||issue.id })); }catch(e){ dbPins = []; console.error('Failed to load issues:', e); } }
-
-async function openPlanInApp(planId){ const u = new URL(window.location.href); u.searchParams.set('plan_id', String(planId)); history.pushState({},'',u.toString()); await startViewer(); }
-window.openPlanInApp = openPlanInApp;
-
-async function loadPdf(pdfUrl){ ensurePdfJsConfigured(); setStatus('Loading PDF…'); const task = window.pdfjsLib.getDocument({url: pdfUrl, withCredentials: true}); pdfDoc = await task.promise; totalPages = pdfDoc.numPages; currentPage = 1; setStatus(''); setBadges(); }
-
-async function startViewer(){ bindUiOnce(); const planId = getPlanIdFromUrl(); if(!planId){ setTitle('Select a plan'); setStatus(''); setBadges(); return; } document.body.classList.add('has-viewer'); try{ const data = await apiGetPlan(planId); const plan = data.plan || {}; const pdfUrl = data.pdf_url || plan.pdf_url || `/api/plan_file.php?plan_id=${planId}`; setTitle(plan.name || `Plan ${planId}`); fitMode = true; userZoom = 1.0; await loadPdf(pdfUrl); await reloadDbPins(); await renderPage(1); }catch(e){ console.error(e); setStatus(e.message || 'Viewer error'); } }
-window.startViewer = startViewer;
 
 async function reloadDbPins() {
   const planId = getPlanIdFromUrl();
