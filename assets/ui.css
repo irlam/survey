@@ -252,7 +252,15 @@ input:focus{border-color: rgba(0,255,231,.5); box-shadow: 0 0 0 3px rgba(0,255,2
   color:#041013;
   background: linear-gradient(90deg, var(--neon), var(--neon2));
   box-shadow: 0 0 16px rgba(0,255,231,.25);
-  border: 1px solid rgba(255,255,255,.25);
+  border: 2px solid red !important; /* DEBUG: red border for pin */
+  background-color: yellow !important; /* DEBUG: yellow background for pin */
+  z-index: 9999 !important;
+}
+
+.pdfOverlay {
+  border: 2px dashed blue !important; /* DEBUG: blue border for overlay */
+  background: rgba(0,0,255,0.05) !important; /* DEBUG: faint blue overlay */
+  z-index: 9998 !important;
 }
 
 /* LANDSCAPE TABLET RULES: collapse plans list, maximize viewer */
