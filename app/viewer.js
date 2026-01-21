@@ -433,7 +433,9 @@ async function showIssueModal(pin) {
         thumbsDiv.innerHTML = '';
         for (const t of thumbs) {
           const img = document.createElement('img');
-          img.src = `/storage/photos/${t.filename}`;
+          // Prefer thumbnail if available, fall back to original
+          const thumbPath = t.thumb ? `/storage/${t.thumb}` : `/storage/photos/${t.filename}`;
+          img.src = thumbPath;
           img.alt = 'Photo';
           img.style.maxWidth = '64px';
           img.style.maxHeight = '64px';
