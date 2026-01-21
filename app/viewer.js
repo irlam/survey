@@ -1,9 +1,6 @@
 // app/viewer.js
 // PDF.js viewer + overlay layer + Add Issue Mode (pins only, no DB save yet)
 
-// Version marker to prove you're running THIS file (check DevTools console)
-console.log('viewer.js loaded: v20260120_2');
-
 let pdfDoc = null;
 let currentPage = 1;
 let totalPages = 0;
@@ -88,7 +85,9 @@ function ensureWrapAndOverlay() {
     wrap.appendChild(overlay);
   }
 
+  // enable hit-testing when in add mode
   overlay.style.pointerEvents = addIssueMode ? 'auto' : 'none';
+
   return { wrap, canvas, overlay };
 }
 
@@ -149,12 +148,14 @@ async function renderPage(pageNo) {
   const effectiveScale = fitMode ? (fitScale * userZoom) : userZoom;
   const viewport = page.getViewport({ scale: effectiveScale });
 
+  // HiDPI
   const dpr = window.devicePixelRatio || 1;
   canvas.width = Math.floor(viewport.width * dpr);
   canvas.height = Math.floor(viewport.height * dpr);
   canvas.style.width = `${Math.floor(viewport.width)}px`;
   canvas.style.height = `${Math.floor(viewport.height)}px`;
 
+  // Wrap/overlay must match CSS pixel size
   wrap.style.width = `${Math.floor(viewport.width)}px`;
   wrap.style.height = `${Math.floor(viewport.height)}px`;
   overlay.style.width = `${Math.floor(viewport.width)}px`;
@@ -218,21 +219,31 @@ function bindUiOnce() {
       addIssueMode = !addIssueMode;
       addBtn.textContent = addIssueMode ? 'Done' : 'Add Issue';
       setModeBadge();
-      setStatus(addIssueMode ? 'Add Issue Mode ON — tap the plan to drop a pin.' : '');
 
-      console.log('AddIssueMode:', addIssueMode, 'modeBadge:', document.querySelector('#modeBadge'));
-
+      // Enable overlay hit-testing immediately
       const container = qs('#pdfContainer');
       const overlay = container ? container.querySelector('.pdfOverlay') : null;
       if (overlay) overlay.style.pointerEvents = addIssueMode ? 'auto' : 'none';
+
+      console.log('AddIssueMode:', addIssueMode, 'modeBadge:', document.querySelector('#modeBadge'));
+      console.log('Overlay:', overlay, 'pointerEvents:', overlay?.style.pointerEvents);
+
+      // Re-render so overlay matches the current canvas size and pins redraw
+      if (pdfDoc) await renderPage(currentPage);
     };
   }
 
-  document.addEventListener('click', async (e) => {
+  // Tap on overlay to place a temporary pin (pointerdown is better on tablets)
+  document.addEventListener('pointerdown', async (e) => {
     if (!addIssueMode) return;
 
     const overlay = qs('.pdfOverlay');
-    if (!overlay || !overlay.contains(e.target)) return;
+    console.log('tap target:', e.target, 'overlay:', overlay);
+
+    if (!overlay) return;
+
+    // Only accept taps that happen on the overlay itself (or its children)
+    if (!overlay.contains(e.target)) return;
 
     const rect = overlay.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -249,24 +260,30 @@ function bindUiOnce() {
     tempPins.push({ page: currentPage, x_norm, y_norm, label });
 
     await renderPage(currentPage);
-  }, true);
+  }, { capture: true });
 
   if (closeBtn) {
     closeBtn.onclick = () => {
       const u = new URL(window.location.href);
       u.searchParams.delete('plan_id');
       history.pushState({}, '', u.pathname);
+
       setTitle('Select a plan');
       setStatus('');
+
       const c = qs('#pdfContainer');
       if (c) c.innerHTML = '';
+
       pdfDoc = null;
       totalPages = 0;
       currentPage = 1;
       userZoom = 1.0;
+
       addIssueMode = false;
       setModeBadge();
       setBadges();
+
+      document.body.classList.remove('has-viewer');
     };
   }
 
@@ -275,7 +292,7 @@ function bindUiOnce() {
   });
 }
 
-// ✅ These MUST be exported
+// Public: open a plan from the sidebar button
 export async function openPlanInApp(planId) {
   const u = new URL(window.location.href);
   u.searchParams.set('plan_id', String(planId));
@@ -283,7 +300,7 @@ export async function openPlanInApp(planId) {
   await startViewer();
 }
 
-// ✅ This MUST be exported (your error proves it wasn’t before)
+// Public: start viewer based on current URL plan_id
 export async function startViewer() {
   bindUiOnce();
 
