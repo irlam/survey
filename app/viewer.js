@@ -159,17 +159,7 @@ function getPlanIdFromUrl() {
 
   async function startViewer(){ bindUiOnce(); const planId = getPlanIdFromUrl(); if(!planId){ setTitle('Select a plan'); setStatus(''); setBadges(); return; } document.body.classList.add('has-viewer'); try{ const data = await apiGetPlan(planId); const plan = data.plan || {}; const pdfUrl = data.pdf_url || plan.pdf_url || `/api/plan_file.php?plan_id=${planId}`; setTitle(plan.name || `Plan ${planId}`); fitMode = true; userZoom = 1.0; await loadPdf(pdfUrl); await reloadDbPins(); await renderPage(1); }catch(e){ console.error(e); setStatus(e.message || 'Viewer error'); } }
   window.startViewer = startViewer;
-    method: 'POST',
-    credentials: 'same-origin',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(issue)
-  });
-  const txt = await res.text();
-  let data;
-  try { data = JSON.parse(txt); } catch { throw new Error(`save_issue invalid JSON: ${txt}`); }
-  if (!res.ok || !data.ok) throw new Error(data.error || `save_issue failed: HTTP ${res.status}`);
-  return data;
-}
+  
 
 function clearOverlay(overlay) {
   overlay.innerHTML = '';
