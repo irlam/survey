@@ -94,13 +94,15 @@ async function wireUpload() {
   });
 }
 
-export async function renderPlansScreen() {
+async function renderPlansScreen() {
   setNetDot();
   window.addEventListener('online', setNetDot);
   window.addEventListener('offline', setNetDot);
 
   const menuBtn = $('#menuBtn');
   if (menuBtn) menuBtn.onclick = () => document.body.classList.toggle('sidebar-open');
+}
+window.renderPlansScreen = renderPlansScreen;
 
   await wireUpload();
   await refreshPlans();
