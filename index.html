@@ -104,6 +104,15 @@
             console.error('viewer.js fallback failed after multiple attempts. Try unregistering service worker/clearing cache.');
             return;
           }
+          // Try to parse the script to detect syntax errors before injection
+          try{
+            new Function(src);
+          }catch(parseErr){
+            console.warn('viewer.js fallback: parse error detected, will retry', {attempts, error: parseErr.message});
+            if(attempts < 4){ await new Promise(r=>setTimeout(r, 300)); return tryLoad(); }
+            console.error('viewer.js fallback: parse error persisted after retries.');
+            return;
+          }
           // Use blob URL to avoid re-fetching the script (prevents server truncation differences)
           const blob = new Blob([src], {type: 'application/javascript; charset=utf-8'});
           const blobUrl = URL.createObjectURL(blob);
