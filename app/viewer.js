@@ -30,16 +30,39 @@ function ensureWrapAndOverlay(){
   let wrap = container.querySelector('.pdfWrap'); if(!wrap){ wrap = document.createElement('div'); wrap.className = 'pdfWrap'; container.innerHTML = ''; container.appendChild(wrap); }
   let canvas = wrap.querySelector('canvas'); if(!canvas){ canvas = document.createElement('canvas'); canvas.id = 'pdfCanvas'; wrap.appendChild(canvas); }
   let overlay = wrap.querySelector('.pdfOverlay'); if(!overlay){ overlay = document.createElement('div'); overlay.className = 'pdfOverlay'; wrap.appendChild(overlay);
-    overlay.addEventListener('pointerdown', async (e)=>{
+    // Long-press (1s) to place an issue pin to avoid accidental taps while navigating
+    overlay.addEventListener('pointerdown', (e)=>{
       if(!addIssueMode) return;
+      // only start hold if pointer is within the canvas area
       const canvasRect = canvas.getBoundingClientRect();
       if(e.clientX < canvasRect.left || e.clientX > canvasRect.right || e.clientY < canvasRect.top || e.clientY > canvasRect.bottom) return;
-      const overlayRect = overlay.getBoundingClientRect();
-      const x = e.clientX - overlayRect.left; const y = e.clientY - overlayRect.top; const w = overlayRect.width; const h = overlayRect.height; if(w<=0||h<=0) return;
-      const x_norm = Math.max(0, Math.min(1, x/w)); const y_norm = Math.max(0, Math.min(1, y/h));
-      const label = String(tempPins.filter(p=>p.page===currentPage).length + 1);
-      showIssueModal({page: currentPage, x_norm, y_norm, label});
+      // store initial coordinates on the overlay for use when timer fires
+      overlay._issueHold = overlay._issueHold || {};
+      overlay._issueHold.startX = e.clientX;
+      overlay._issueHold.startY = e.clientY;
+      // clear any previous timer
+      if(overlay._issueHold.timer) { clearTimeout(overlay._issueHold.timer); overlay._issueHold.timer = null; }
+      // set timer for 1 second
+      overlay._issueHold.timer = setTimeout(()=>{
+        // when timer fires, compute normalized coords and open modal
+        const overlayRect = overlay.getBoundingClientRect();
+        const x = overlay._issueHold.startX - overlayRect.left;
+        const y = overlay._issueHold.startY - overlayRect.top;
+        const w = overlayRect.width; const h = overlayRect.height; if(w<=0||h<=0) return;
+        const x_norm = Math.max(0, Math.min(1, x/w));
+        const y_norm = Math.max(0, Math.min(1, y/h));
+        const label = String(tempPins.filter(p=>p.page===currentPage).length + 1);
+        showIssueModal({page: currentPage, x_norm, y_norm, label});
+        overlay._issueHold.timer = null;
+      }, 1000);
     }, {capture:true});
+    // Cancel the hold if the pointer is released/moved/cancelled before 1s
+    const cancelHold = (ev)=>{
+      if(overlay._issueHold && overlay._issueHold.timer){ clearTimeout(overlay._issueHold.timer); overlay._issueHold.timer = null; }
+    };
+    overlay.addEventListener('pointerup', cancelHold, {capture:true});
+    overlay.addEventListener('pointercancel', cancelHold, {capture:true});
+    overlay.addEventListener('pointerleave', cancelHold, {capture:true});
   }
   overlay.style.pointerEvents = addIssueMode ? 'auto' : 'none';
   return {wrap, canvas, overlay};
