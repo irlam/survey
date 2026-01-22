@@ -254,6 +254,8 @@ function showIssuesModal(planId) {
   }
   // clicking outside modal content will also close
   window.onclick = (event) => { if (event.target === modal) { modal.style.display = 'none'; issuesList.innerHTML = ''; pdfOut.textContent = ''; document.removeEventListener('photosUpdated', photosListener); document.removeEventListener('keydown', escKeyHandler); } };
+}
+
 
 // Attach View Issues button logic after plan is opened
 function wireViewIssues(planId) {
