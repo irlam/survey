@@ -242,13 +242,13 @@ input:focus{border-color: rgba(0,255,231,.5); box-shadow: 0 0 0 3px rgba(0,255,2
 .pin{
   position: absolute;
   transform: translate(-50%, -100%);
-  width: 34px;
-  height: 44px;
+  width: 46px;
+  height: 56px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 800;
-  font-size: 12px;
+  font-size: 13px;
   color: #ffffff; /* label color shown in the pin hole */
   background-color: transparent;
   border: none;
@@ -261,7 +261,7 @@ input:focus{border-color: rgba(0,255,231,.5); box-shadow: 0 0 0 3px rgba(0,255,2
   background-size: contain;
   background-position: center bottom;
   /* lift the label up so it sits inside the pin hole */
-  padding-bottom: 12px;
+  padding-bottom: 18px;
 }
 
 .pdfOverlay {
