@@ -249,7 +249,7 @@ input:focus{border-color: rgba(0,255,231,.5); box-shadow: 0 0 0 3px rgba(0,255,2
   justify-content: center;
   font-weight: 800;
   font-size: 13px;
-  color: #ffffff; /* label color shown in the pin hole */
+  color: transparent; /* label will be provided by .pinLabel */
   background-color: transparent;
   border: none;
   z-index: 2000;
@@ -260,8 +260,18 @@ input:focus{border-color: rgba(0,255,231,.5); box-shadow: 0 0 0 3px rgba(0,255,2
   background-repeat: no-repeat;
   background-size: contain;
   background-position: center bottom;
-  /* lift the label up so it sits inside the pin hole */
-  padding-bottom: 18px;
+  /* lift the label area so the label (span) sits inside the pin hole */
+  padding-bottom: 8px;
+}
+
+.pinLabel{
+  display:inline-block;
+  transform: translateY(-10px);
+  color: #e12b2b; /* red issue number */
+  font-weight: 900;
+  font-size: 12px;
+  line-height: 1;
+  pointer-events: none; /* clicks should hit the pin container */
 }
 
 .pdfOverlay {

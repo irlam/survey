@@ -54,8 +54,31 @@ function clearOverlay(overlay){ overlay.innerHTML = ''; }
 
 function renderPinsForPage(overlay, viewportWidth, viewportHeight){ clearOverlay(overlay);
   const pins = dbPins.filter(p=>p.page===currentPage);
-  for(const p of pins){ const el = document.createElement('div'); el.className='pin db-pin'; el.textContent = p.label || p.title || '!'; el.title = p.title || ''; el.style.left = `${p.x_norm * viewportWidth}px`; el.style.top = `${p.y_norm * viewportHeight}px`; overlay.appendChild(el); el.addEventListener('click', ()=> showIssueModal(p)); }
-  for(const p of tempPins.filter(p=>p.page===currentPage)){ const el = document.createElement('div'); el.className='pin temp-pin'; el.textContent = p.label; el.style.left = `${p.x_norm * viewportWidth}px`; el.style.top = `${p.y_norm * viewportHeight}px`; overlay.appendChild(el); }
+  for(const p of pins){
+    const el = document.createElement('div');
+    el.className = 'pin db-pin';
+    el.title = p.title || '';
+    el.style.left = `${p.x_norm * viewportWidth}px`;
+    el.style.top = `${p.y_norm * viewportHeight}px`;
+    const labelText = p.label || p.title || '!';
+    const span = document.createElement('span');
+    span.className = 'pinLabel';
+    span.textContent = labelText;
+    el.appendChild(span);
+    overlay.appendChild(el);
+    el.addEventListener('click', ()=> showIssueModal(p));
+  }
+  for(const p of tempPins.filter(p=>p.page===currentPage)){
+    const el = document.createElement('div');
+    el.className = 'pin temp-pin';
+    el.style.left = `${p.x_norm * viewportWidth}px`;
+    el.style.top = `${p.y_norm * viewportHeight}px`;
+    const span = document.createElement('span');
+    span.className = 'pinLabel';
+    span.textContent = p.label;
+    el.appendChild(span);
+    overlay.appendChild(el);
+  }
 }
 
 async function renderPage(pageNo){ if(!pdfDoc) return; const {wrap, canvas, overlay} = ensureWrapAndOverlay(); const ctx = canvas.getContext('2d'); setStatus(`Rendering page ${pageNo}…`); const page = await pdfDoc.getPage(pageNo); const w = stageWidth(); const v1 = page.getViewport({scale:1.0}); fitScale = w / v1.width; const effectiveScale = fitMode ? (fitScale * userZoom) : userZoom; const viewport = page.getViewport({scale: effectiveScale}); const dpr = window.devicePixelRatio || 1; canvas.width = Math.floor(viewport.width * dpr); canvas.height = Math.floor(viewport.height * dpr); canvas.style.width = `${Math.floor(viewport.width)}px`; canvas.style.height = `${Math.floor(viewport.height)}px`; wrap.style.width = `${Math.floor(viewport.width)}px`; wrap.style.height = `${Math.floor(viewport.height)}px`; overlay.style.width = `${Math.floor(viewport.width)}px`; overlay.style.height = `${Math.floor(viewport.height)}px`; ctx.setTransform(dpr,0,0,dpr,0,0); await page.render({canvasContext:ctx, viewport}).promise; renderPinsForPage(overlay, Math.floor(viewport.width), Math.floor(viewport.height)); setStatus(''); setBadges(); setModeBadge(); }
