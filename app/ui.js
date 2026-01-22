@@ -183,3 +183,11 @@ function wireViewIssues(planId) {
     const iv = setInterval(()=>{ if (tryWrap()) clearInterval(iv); }, 200);
   }
 })();
+
+// Listen for planOpened events (fired by viewer) and wire View Issues button
+document.addEventListener('planOpened', (e) => {
+  try {
+    const planId = e?.detail?.planId;
+    if (planId) wireViewIssues(planId);
+  } catch (err) { console.error('planOpened handler error', err); }
+});

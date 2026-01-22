@@ -198,6 +198,8 @@ async function startViewer() {
     await loadPdf(pdfUrl);
     await reloadDbPins();
     await renderPage(1);
+    // Notify other UI code that a plan has been opened
+    try { document.dispatchEvent(new CustomEvent('planOpened', { detail: { planId } })); } catch (e) { console.warn('planOpened event failed', e); }
   } catch (e) {
     console.error(e);
     setStatus(e.message || 'Viewer error');
