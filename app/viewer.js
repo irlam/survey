@@ -73,6 +73,18 @@ async function apiGetPlan(planId){ const res = await fetch(`/api/get_plan.php?pl
 async function apiListIssues(planId){ const res = await fetch(`/api/list_issues.php?plan_id=${encodeURIComponent(planId)}`, {credentials:'same-origin'}); const txt = await res.text(); let data; try{ data = JSON.parse(txt); }catch{ throw new Error(`list_issues invalid JSON: ${txt}`); } if(!res.ok || !data.ok) throw new Error(data.error || `list_issues failed: HTTP ${res.status}`); return data.issues || []; }
 async function apiSaveIssue(issue){ const res = await fetch('/api/save_issue.php',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(issue)}); const txt = await res.text(); let data; try{ data = JSON.parse(txt); }catch{ throw new Error(`save_issue invalid JSON: ${txt}`); } if(!res.ok || !data.ok) throw new Error(data.error || `save_issue failed: HTTP ${res.status}`); return data; }
 
+// fetch issue details by id via list_issues (safe fallback if no dedicated endpoint)
+async function fetchIssueDetails(issueId){ const planId = getPlanIdFromUrl(); if(!planId || !issueId) return null; try{ const issues = await apiListIssues(planId); return issues.find(i=>String(i.id)===String(issueId)) || null; }catch(e){ console.warn('fetchIssueDetails failed', e); return null; } }
+
+// resize/compress image file (returns Blob)
+function resizeImageFile(file, maxWidth=1600, maxHeight=1600, quality=0.8){ return new Promise((resolve,reject)=>{
+  const img = new Image(); const fr = new FileReader(); fr.onload = ()=>{ img.onload = ()=>{
+    let w = img.naturalWidth, h = img.naturalHeight; const ratio = Math.min(1, maxWidth/w, maxHeight/h); if(ratio<1){ w = Math.round(w*ratio); h = Math.round(h*ratio); }
+    const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h; const ctx = canvas.getContext('2d'); ctx.drawImage(img,0,0,w,h);
+    // Convert to JPEG to reduce size (preserve as JPEG). If original is PNG and transparency matters, caller can pass through original file.
+    canvas.toBlob((blob)=>{ if(!blob) return reject(new Error('Image resize failed')); resolve(blob); }, 'image/jpeg', quality);
+  }; img.onerror = (e)=>reject(new Error('Image load error')); img.src = fr.result; }; fr.onerror = ()=>reject(new Error('File read error')); fr.readAsDataURL(file); }); }
+
 function clearOverlay(overlay){ overlay.innerHTML = ''; }
 
 function renderPinsForPage(overlay, viewportWidth, viewportHeight){ clearOverlay(overlay);
@@ -134,12 +146,31 @@ async function showIssueModal(pin){
           <label style="font-size:14px;">Title:<br>
             <input id="issueTitle" type="text" style="width:100%;font-size:16px;" value="${pin.title||''}" maxlength="255" />
           </label>
+          <div style="display:flex;gap:8px;margin-top:8px;">
+            <label style="flex:1">Status:<br>
+              <select id="issueStatusSelect" style="width:100%;min-height:40px;font-size:14px;">
+                <option value="open">Open</option>
+                <option value="in_progress">In Progress</option>
+                <option value="resolved">Resolved</option>
+                <option value="closed">Closed</option>
+              </select>
+            </label>
+            <label style="width:120px">Priority:<br>
+              <select id="issuePrioritySelect" style="width:100%;min-height:40px;font-size:14px;">
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </label>
+          </div>
+          <label style="display:block;margin-top:8px;">Assignee:<br>
+            <input id="issueAssignee" type="text" style="width:100%;font-size:14px;" value="${pin.assignee||''}" />
+          </label>
         </div>
-        <div style="width:190px;border-left:1px solid rgba(255,255,255,.04);padding-left:12px;font-size:13px;">
+        <div style="width:220px;border-left:1px solid rgba(255,255,255,.04);padding-left:12px;font-size:13px;">
           <div><strong>ID:</strong> <span id="issueId">${pin.id||''}</span></div>
           <div><strong>Page:</strong> <span id="issuePage">${pin.page||''}</span></div>
           <div><strong>Coords:</strong> <span id="issueCoords">${pin.x_norm? (Math.round(pin.x_norm*1000)/1000):''}, ${pin.y_norm? (Math.round(pin.y_norm*1000)/1000):''}</span></div>
-          <div><strong>Status:</strong> <span id="issueStatus">${pin.status||'open'}</span></div>
           <div><strong>Created by:</strong> <span id="issueCreatedBy">${pin.created_by||pin.author||''}</span></div>
           <div style="margin-top:6px;"><strong>Created:</strong><div id="issueCreated" style="font-weight:700;margin-top:2px;">&nbsp;</div></div>
         </div>
@@ -150,11 +181,21 @@ async function showIssueModal(pin){
         </label>
       </div>
       <div id="photoThumbs" style="margin-bottom:12px;display:flex;flex-wrap:wrap;"></div>
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
-        <label style="flex:1">Upload Photo:<br>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+        <label style="flex:1">Select Photo:<br>
           <input id="issuePhotoInput" type="file" accept="image/*" style="width:100%;" />
         </label>
         <button id="issueTakePhotoBtn" class="btn" style="flex:0 0 auto;min-width:120px;">Take Photo</button>
+      </div>
+      <div id="photoPreview" style="display:none;margin-bottom:12px;align-items:center;gap:8px;">
+        <img id="photoPreviewImg" style="max-width:160px;max-height:160px;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.6);" />
+        <div style="flex:1;">
+          <div id="photoPreviewInfo" style="color:var(--muted);font-size:13px;margin-bottom:8px;"></div>
+          <div style="display:flex;gap:8px;">
+            <button id="issueUploadConfirmBtn" class="btnPrimary">Upload Photo</button>
+            <button id="issueUploadCancelBtn" class="btn">Cancel</button>
+          </div>
+        </div>
       </div>
       <div style="text-align:right;">
         <button id="issueSaveBtn" style="background:#0ff;color:#222;font-weight:bold;padding:8px 16px;border-radius:6px;">Save</button>
@@ -182,7 +223,7 @@ async function showIssueModal(pin){
       }
     })();
 
-  async function loadPhotoThumbs(){
+    async function loadPhotoThumbs(){
     const planId = getPlanIdFromUrl(); if(!planId || !pin.id) return;
     try{
       const res = await fetch(`/api/list_photos.php?plan_id=${planId}`);
@@ -209,30 +250,69 @@ async function showIssueModal(pin){
       }
     }catch(e){}
   }
-    // helper used by both file inputs
-    async function uploadFile(file){
-      if(!file) return;
+    // helper used by both file inputs -- will resize/compress client-side then upload
+    async function uploadProcessedFile(blobOrFile){
       const planId = getPlanIdFromUrl(); const issueId = pin.id;
       if(!planId || !issueId){ alert('Save the issue first before uploading photos.'); return; }
-      const fd = new FormData(); fd.append('file', file); fd.append('plan_id', planId); fd.append('issue_id', issueId);
+      const fd = new FormData(); fd.append('file', blobOrFile, (blobOrFile.name||'photo.jpg'));
+      fd.append('plan_id', planId); fd.append('issue_id', issueId);
       try{
         const res = await fetch('/api/upload_photo.php',{method:'POST',body:fd,credentials:'same-origin'});
-        const txt = await res.text(); let data;
-        try{ data = JSON.parse(txt); }catch{ throw new Error('Invalid photo upload response'); }
+        const txt = await res.text(); let data; try{ data = JSON.parse(txt); }catch{ throw new Error('Invalid photo upload response'); }
         if(!res.ok || !data.ok) throw new Error(data.error||'Photo upload failed');
         await loadPhotoThumbs(); alert('Photo uploaded');
       }catch(err){ alert('Photo upload error: '+err.message); }
     }
 
-    modal.querySelector('#issuePhotoInput').onchange = (e)=>{ uploadFile(e.target.files[0]); };
+    // show preview and wire confirm/cancel
+    function handleSelectedFile(file){ if(!file) return; const previewWrap = modal.querySelector('#photoPreview'); const imgEl = modal.querySelector('#photoPreviewImg'); const infoEl = modal.querySelector('#photoPreviewInfo'); previewWrap.style.display='flex'; const url = URL.createObjectURL(file); imgEl.src = url; infoEl.textContent = `${Math.round(file.size/1024)} KB — ${file.type}`;
+      // set confirm handler to resize then upload
+      const confirmBtn = modal.querySelector('#issueUploadConfirmBtn'); const cancelBtn = modal.querySelector('#issueUploadCancelBtn'); confirmBtn.disabled = false; confirmBtn.onclick = async ()=>{ confirmBtn.disabled = true; try{ const blob = await resizeImageFile(file); // convert to blob
+            // try to preserve a filename
+            const out = new File([blob], (file.name||'photo.jpg'), {type: blob.type}); await uploadProcessedFile(out); previewWrap.style.display='none'; URL.revokeObjectURL(url);
+          }catch(err){ alert('Image processing failed: '+err.message); confirmBtn.disabled=false; } };
+      cancelBtn.onclick = ()=>{ previewWrap.style.display='none'; imgEl.src=''; infoEl.textContent=''; URL.revokeObjectURL(url); };
+    }
+
+    modal.querySelector('#issuePhotoInput').onchange = (e)=>{ const f = e.target.files && e.target.files[0]; if(f) handleSelectedFile(f); };
     // camera input (for mobile): hidden input with capture attribute
     let camInput = modal.querySelector('#issueCameraInput');
-    if(!camInput){ camInput = document.createElement('input'); camInput.type='file'; camInput.accept='image/*'; camInput.capture='environment'; camInput.id='issueCameraInput'; camInput.style.display='none'; camInput.onchange = (e)=>{ uploadFile(e.target.files[0]); }; modal.appendChild(camInput); }
+    if(!camInput){ camInput = document.createElement('input'); camInput.type='file'; camInput.accept='image/*'; camInput.capture='environment'; camInput.id='issueCameraInput'; camInput.style.display='none'; camInput.onchange = (e)=>{ const f = e.target.files && e.target.files[0]; if(f) handleSelectedFile(f); }; modal.appendChild(camInput); }
     const camBtn = modal.querySelector('#issueTakePhotoBtn');
     if(camBtn){ camBtn.onclick = ()=>{ camInput.click(); }; }
     await loadPhotoThumbs();
 
-  modal.querySelector('#issueSaveBtn').onclick = async ()=>{ const planId = getPlanIdFromUrl(); const title = modal.querySelector('#issueTitle').value.trim(); const notes = modal.querySelector('#issueNotes').value.trim(); if(!title){ alert('Title is required'); return; } const issue = { plan_id: planId, page: pin.page, x_norm: pin.x_norm, y_norm: pin.y_norm, title, notes }; if(pin.id) issue.id = pin.id; try{ const saved = await apiSaveIssue(issue); modal.style.display='none'; await reloadDbPins(); await renderPage(currentPage); if(!pin.id && saved.id){ pin.id = saved.id; await showIssueModal(pin); } }catch(e){ alert('Error saving issue: '+e.message); } };
+    // populate status/prio/assignee from fetched details if available
+    (async ()=>{
+      let details = pin;
+      if(pin.id && !(pin.created_at || pin.created_by || pin.status)){
+        const fetched = await fetchIssueDetails(pin.id); if(fetched) details = Object.assign({}, pin, fetched);
+      }
+      const statusSelect = modal.querySelector('#issueStatusSelect'); const prioSelect = modal.querySelector('#issuePrioritySelect'); const assigneeInput = modal.querySelector('#issueAssignee');
+      if(statusSelect) statusSelect.value = details.status || 'open'; if(prioSelect) prioSelect.value = details.priority || 'medium'; if(assigneeInput) assigneeInput.value = details.assignee || '';
+      const createdByEl = modal.querySelector('#issueCreatedBy'); if(createdByEl) createdByEl.textContent = details.created_by||details.author||'';
+      const createdVal = details.created_at || details.created || details.createdAt || details.ts;
+      const createdEl = modal.querySelector('#issueCreated'); if(createdEl){ if(createdVal){ const d = new Date(createdVal); const pad=(n)=>n.toString().padStart(2,'0'); createdEl.textContent = `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; createdEl.style.display='block'; } else createdEl.style.display='none'; }
+    })();
+
+  modal.querySelector('#issueSaveBtn').onclick = async ()=>{
+    const planId = getPlanIdFromUrl();
+    const title = modal.querySelector('#issueTitle').value.trim();
+    const notes = modal.querySelector('#issueNotes').value.trim();
+    const status = modal.querySelector('#issueStatusSelect') ? modal.querySelector('#issueStatusSelect').value : (pin.status||'open');
+    const priority = modal.querySelector('#issuePrioritySelect') ? modal.querySelector('#issuePrioritySelect').value : (pin.priority||null);
+    const assignee = modal.querySelector('#issueAssignee') ? modal.querySelector('#issueAssignee').value.trim() : (pin.assignee||null);
+    if(!title){ alert('Title is required'); return; }
+    const issue = { plan_id: planId, page: pin.page, x_norm: pin.x_norm, y_norm: pin.y_norm, title, notes, status, priority, assignee };
+    if(pin.id) issue.id = pin.id;
+    try{
+      const saved = await apiSaveIssue(issue);
+      modal.style.display='none';
+      await reloadDbPins();
+      await renderPage(currentPage);
+      if(!pin.id && saved.id){ pin.id = saved.id; await showIssueModal(pin); }
+    }catch(e){ alert('Error saving issue: '+e.message); }
+  };
 
   // Cancel handler and close modal
   const cancelBtn = modal.querySelector('#issueCancelBtn'); if(cancelBtn) cancelBtn.onclick = ()=>{ modal.style.display='none'; };
