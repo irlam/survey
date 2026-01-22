@@ -94,16 +94,19 @@
         const params = new URLSearchParams(window.location.search);
         const pdfUrl = params.get('pdf_url');
         if(pdfUrl){
+          // show loader
+          const loader = document.createElement('span'); loader.className='loader'; loader.id='cropLoader'; loader.style.marginLeft='8px'; document.querySelector('.toolsRow').appendChild(loader);
           // fetch PDF as arraybuffer
           const r = await fetch(pdfUrl, {cache:'no-cache'});
-          if(!r.ok) { console.warn('Failed to fetch pdf_url', r.status); return; }
-          const ab = await r.arrayBuffer(); pdfBytes = ab; await openPdfFromBytes(ab);
+          if(!r.ok) { console.warn('Failed to fetch pdf_url', r.status); loader.remove(); return; }
+          const ab = await r.arrayBuffer(); pdfBytes = ab; await openPdfFromBytes(ab); loader.remove();
         }
       }catch(e){ console.warn('pdf_url load failed', e); }
     })();
 
     planSelect.onchange = async ()=>{
       const id = planSelect.value; if(!id) return;
+      const loader = document.createElement('span'); loader.className='loader'; loader.id='cropLoader'; loader.style.marginLeft='8px'; document.querySelector('.toolsRow').appendChild(loader);
       try{
         const res = await fetch('/api/get_plan.php?plan_id=' + encodeURIComponent(id));
         const txt = await res.text(); let j;
@@ -114,10 +117,13 @@
         const r2 = await fetch(pdfUrl);
         if(!r2.ok) throw new Error('Failed to fetch PDF: HTTP ' + r2.status);
         const ab = await r2.arrayBuffer(); pdfBytes = ab; await openPdfFromBytes(ab);
-      }catch(e){ alert('Failed to fetch plan PDF: '+e.message); document.getElementById('previewOut').textContent = 'Load failed: ' + e.message; console.error(e); }
-    };
+      }catch(e){ alert('Failed to fetch plan PDF: '+e.message); document.getElementById('previewOut').textContent = 'Load failed: ' + e.message; console.error(e); } finally { const l = document.getElementById('cropLoader'); if(l) l.remove(); }
+    }; 
 
-    fileUploader.onchange = (e)=>{ const f = e.target.files && e.target.files[0]; if(!f) return; const r = new FileReader(); r.onload = async ()=>{ pdfBytes = r.result; await openPdfFromBytes(pdfBytes); }; r.readAsArrayBuffer(f); };
+    fileUploader.onchange = (e)=>{ const f = e.target.files && e.target.files[0]; if(!f) return; const r = new FileReader(); r.onload = async ()=>{ pdfBytes = r.result; // show loader while opening
+      const loader = document.getElementById('cropLoader') || (function(){ const l=document.createElement('span'); l.className='loader'; l.id='cropLoader'; l.style.marginLeft='8px'; document.querySelector('.toolsRow').appendChild(l); return l; })();
+      try{ await openPdfFromBytes(pdfBytes); }finally{ if(loader) loader.remove(); }
+     }; r.readAsArrayBuffer(f); };
 
     btnLoad.onclick = async ()=>{ if(pdfBytes) { await openPdfFromBytes(pdfBytes); } else if (planSelect.value){ planSelect.onchange(); } else { alert('Select a plan or upload a PDF first'); } };
 

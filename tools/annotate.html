@@ -10,6 +10,9 @@
   #annotStage{position:relative;padding:12px}
   #pdfCanvas, #annotCanvas{border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.2);background:#fff;display:block}
   .toolBtn.active{outline:2px solid rgba(0,255,231,.2)}
+  /* small loader */
+  .loader{width:18px;height:18px;border:3px solid rgba(255,255,255,0.12);border-top-color:var(--neon);border-radius:50%;animation:spin 1s linear infinite;display:inline-block;vertical-align:middle;margin-left:8px}
+  @keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -22,7 +25,7 @@
   <main style="padding:14px;">
     <div class="card">
       <div class="toolsRow">
-        <label style="flex:1">Select plan: <select id="planSelect"></select></label>
+        <label style="flex:1">Select plan: <select id="planSelect"></select><span id="annotLoader" class="loader" style="display:none"></span></label>
         <label style="width:300px">Or upload PDF: <input id="fileUploader" type="file" accept="application/pdf"></label>
         <label>Page: <input id="pageInput" type="number" min="1" value="1" style="width:80px"></label>
       </div>
@@ -83,10 +86,13 @@
   let current = null; // current drawing
 
   async function loadPlans(){ const r = await fetch('/api/list_plans.php'); const j = await r.json(); planSelect.innerHTML = '<option value="">-- choose plan --</option>'; if(j.ok){ for(const p of j.plans){ const opt=document.createElement('option'); opt.value=p.id; opt.textContent=`${p.name||'Plan #'+p.id} (#${p.id})`; opt.dataset.file=p.file_path||''; planSelect.appendChild(opt); } } }
-  planSelect.onchange = async ()=>{ const id = planSelect.value; if(!id) return; try{ const res = await fetch('/api/get_plan.php?plan_id=' + encodeURIComponent(id)); const txt = await res.text(); let j; try{ j = JSON.parse(txt); }catch{ throw new Error('Invalid JSON from get_plan'); } if(!res.ok || !j.ok) throw new Error(j.error || 'Failed to fetch plan info'); const pdfUrl = j.pdf_url || (j.plan && (j.plan.file_path ? ('/storage/' + j.plan.file_path) : null)); if(!pdfUrl) throw new Error('No PDF URL for plan'); const r2 = await fetch(pdfUrl); if(!r2.ok) throw new Error('Failed to fetch PDF: HTTP ' + r2.status); const ab = await r2.arrayBuffer(); await openPdfFromBytes(ab); }catch(e){ alert('Failed to load plan: '+e.message); out.textContent = 'Load failed: ' + e.message; console.error(e); } };
-  fileUploader.onchange = (e)=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=async ()=>{ pdfBytes=r.result; await openPdfFromBytes(pdfBytes); }; r.readAsArrayBuffer(f); };
+  function showAnnotLoader(){ try{ document.getElementById('annotLoader').style.display = 'inline-block'; }catch(e){} }
+  function hideAnnotLoader(){ try{ document.getElementById('annotLoader').style.display = 'none'; }catch(e){} }
 
-  async function openPdfFromBytes(ab){ pdfDoc = await pdfjsLib.getDocument({data:ab}).promise; totalPages = pdfDoc.numPages; document.getElementById('pageInput').max = totalPages; document.getElementById('pageInput').value = 1; curPage=1; await renderPage(curPage); }
+  planSelect.onchange = async ()=>{ const id = planSelect.value; if(!id) return; showAnnotLoader(); try{ const res = await fetch('/api/get_plan.php?plan_id=' + encodeURIComponent(id)); const txt = await res.text(); let j; try{ j = JSON.parse(txt); }catch{ throw new Error('Invalid JSON from get_plan'); } if(!res.ok || !j.ok) throw new Error(j.error || 'Failed to fetch plan info'); const pdfUrl = j.pdf_url || (j.plan && (j.plan.file_path ? ('/storage/' + j.plan.file_path) : null)); if(!pdfUrl) throw new Error('No PDF URL for plan'); const r2 = await fetch(pdfUrl); if(!r2.ok) throw new Error('Failed to fetch PDF: HTTP ' + r2.status); const ab = await r2.arrayBuffer(); await openPdfFromBytes(ab); }catch(e){ alert('Failed to load plan: '+e.message); out.textContent = 'Load failed: ' + e.message; console.error(e); } finally{ hideAnnotLoader(); } };
+fileUploader.onchange = (e)=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=async ()=>{ pdfBytes=r.result; showAnnotLoader(); try{ await openPdfFromBytes(pdfBytes); }finally{ hideAnnotLoader(); } }; r.readAsArrayBuffer(f); };
+
+  async function openPdfFromBytes(ab){ try{ pdfDoc = await pdfjsLib.getDocument({data:ab}).promise; totalPages = pdfDoc.numPages; document.getElementById('pageInput').max = totalPages; document.getElementById('pageInput').value = 1; curPage=1; await renderPage(curPage); }catch(e){ throw e; }finally{ hideAnnotLoader(); } }
   async function renderPage(n){ if(!pdfDoc) return; const page = await pdfDoc.getPage(n); pageViewport = page.getViewport({scale:1}); const w = Math.min(pageViewport.width, 1200); const s = w / pageViewport.width; pageViewport = page.getViewport({scale:s}); canvas.width = Math.floor(pageViewport.width); canvas.height = Math.floor(pageViewport.height); canvas.style.width = canvas.width+'px'; canvas.style.height = canvas.height+'px'; aCanvas.width = canvas.width; aCanvas.height = canvas.height; aCanvas.style.left = canvas.offsetLeft+'px'; aCanvas.style.top = canvas.offsetTop+'px'; await page.render({canvasContext:ctx, viewport:pageViewport}).promise; redrawAnnotations(); }
 
   document.getElementById('pageInput').onchange = async (e)=>{ const v=parseInt(e.target.value||'1',10); if(v>=1 && v<=totalPages){ curPage=v; await renderPage(curPage); } };
@@ -152,7 +158,7 @@ function redrawAnnotations(){ aCtx.clearRect(0,0,aCanvas.width,aCanvas.height); 
   };
 
   // open via pdf_url param
-  (async function(){ const params=new URLSearchParams(window.location.search); const pdfUrl=params.get('pdf_url'); if(pdfUrl){ try{ const r=await fetch(pdfUrl); if(!r.ok) return; const ab=await r.arrayBuffer(); await openPdfFromBytes(ab);}catch(e){ console.warn('pdf_url load failed',e);} } })();
+  (async function(){ const params=new URLSearchParams(window.location.search); const pdfUrl=params.get('pdf_url'); if(pdfUrl){ showAnnotLoader(); try{ const r=await fetch(pdfUrl); if(!r.ok) return; const ab=await r.arrayBuffer(); await openPdfFromBytes(ab);}catch(e){ console.warn('pdf_url load failed',e);} finally{ hideAnnotLoader(); } } })();
 
   loadPlans();
 </script>
