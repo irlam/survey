@@ -146,30 +146,24 @@ async function showIssueModal(pin){
         <button id="issueCancelBtn" style="background:#444;color:#fff;padding:8px 16px;border-radius:6px;">Cancel</button>
       </div>
     `; document.body.appendChild(modal); }
-    modal.style.display='block'; modal.querySelector('#issueTitle').value = pin.title||''; modal.querySelector('#issueNotes').value = pin.notes||'';
+    modal.style.display = 'block';
+    modal.querySelector('#issueTitle').value = pin.title||'';
+    modal.querySelector('#issueNotes').value = pin.notes||'';
     // show created time if available
-    const createdEl = modal.querySelector('#issueCreated');
-    const createdVal = pin.created_at || pin.created || pin.createdAt || pin.ts;
-    if(createdEl){ if(createdVal){
-      const d = new Date(createdVal);
-      // format UK: DD/MM/YYYY HH:MM
-      const pad = (n)=>n.toString().padStart(2,'0');
-      const uk = `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-      createdEl.textContent = uk;
-      createdEl.style.display = 'block';
-    } else { createdEl.style.display='none'; } }
-  modal.style.display='block'; modal.querySelector('#issueTitle').value = pin.title||''; modal.querySelector('#issueNotes').value = pin.notes||'';
-  // show created time if available
-  const createdEl = modal.querySelector('#issueCreated');
-  const createdVal = pin.created_at || pin.created || pin.createdAt || pin.ts;
-  if(createdEl){ if(createdVal){
-    const d = new Date(createdVal);
-    // format UK: DD/MM/YYYY HH:MM
-    const pad = (n)=>n.toString().padStart(2,'0');
-    const uk = `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-    createdEl.textContent = uk;
-    createdEl.style.display = 'block';
-  } else { createdEl.style.display='none'; } }
+    (function(){
+      const createdEl = modal.querySelector('#issueCreated');
+      const createdVal = pin.created_at || pin.created || pin.createdAt || pin.ts;
+      if(!createdEl) return;
+      if(createdVal){
+        const d = new Date(createdVal);
+        const pad = (n)=>n.toString().padStart(2,'0');
+        const uk = `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        createdEl.textContent = uk;
+        createdEl.style.display = 'block';
+      } else {
+        createdEl.style.display='none';
+      }
+    })();
 
   async function loadPhotoThumbs(){
     const planId = getPlanIdFromUrl(); if(!planId || !pin.id) return;
@@ -198,26 +192,28 @@ async function showIssueModal(pin){
       }
     }catch(e){}
   }
-  // helper used by both file inputs
-  async function uploadFile(file){ if(!file) return; const planId = getPlanIdFromUrl(); const issueId = pin.id; if(!planId || !issueId){ alert('Save the issue first before uploading photos.'); return; } const fd = new FormData(); fd.append('file', file); fd.append('plan_id', planId); fd.append('issue_id', issueId); try{ const res = await fetch('/api/upload_photo.php',{method:'POST',body:fd,credentials:'same-origin'}); const txt = await res.text(); let data; try{ data = JSON.parse(txt); }catch{ throw new Error('Invalid photo upload response'); } if(!res.ok || !data.ok) throw new Error(data.error||'Photo upload failed'); await loadPhotoThumbs(); alert('Photo uploaded'); }catch(err){ alert('Photo upload error: '+err.message); } }
+    // helper used by both file inputs
+    async function uploadFile(file){
+      if(!file) return;
+      const planId = getPlanIdFromUrl(); const issueId = pin.id;
+      if(!planId || !issueId){ alert('Save the issue first before uploading photos.'); return; }
+      const fd = new FormData(); fd.append('file', file); fd.append('plan_id', planId); fd.append('issue_id', issueId);
+      try{
+        const res = await fetch('/api/upload_photo.php',{method:'POST',body:fd,credentials:'same-origin'});
+        const txt = await res.text(); let data;
+        try{ data = JSON.parse(txt); }catch{ throw new Error('Invalid photo upload response'); }
+        if(!res.ok || !data.ok) throw new Error(data.error||'Photo upload failed');
+        await loadPhotoThumbs(); alert('Photo uploaded');
+      }catch(err){ alert('Photo upload error: '+err.message); }
+    }
 
-  modal.querySelector('#issuePhotoInput').onchange = (e)=>{ uploadFile(e.target.files[0]); };
-  // camera input (for mobile): hidden input with capture attribute
-  let camInput = modal.querySelector('#issueCameraInput');
-  if(!camInput){ camInput = document.createElement('input'); camInput.type='file'; camInput.accept='image/*'; camInput.capture='environment'; camInput.id='issueCameraInput'; camInput.style.display='none'; camInput.onchange = (e)=>{ uploadFile(e.target.files[0]); }; modal.appendChild(camInput); }
-  const camBtn = modal.querySelector('#issueTakePhotoBtn');
-  if(camBtn){ camBtn.onclick = ()=>{ camInput.click(); }; }
-  await loadPhotoThumbs();
-
-  // helper used by both file inputs
-  async function uploadFile(file){ if(!file) return; const planId = getPlanIdFromUrl(); const issueId = pin.id; if(!planId || !issueId){ alert('Save the issue first before uploading photos.'); return; } const fd = new FormData(); fd.append('file', file); fd.append('plan_id', planId); fd.append('issue_id', issueId); try{ const res = await fetch('/api/upload_photo.php',{method:'POST',body:fd,credentials:'same-origin'}); const txt = await res.text(); let data; try{ data = JSON.parse(txt); }catch{ throw new Error('Invalid photo upload response'); } if(!res.ok || !data.ok) throw new Error(data.error||'Photo upload failed'); await loadPhotoThumbs(); alert('Photo uploaded'); }catch(err){ alert('Photo upload error: '+err.message); } }
-
-  modal.querySelector('#issuePhotoInput').onchange = (e)=>{ uploadFile(e.target.files[0]); };
-  // camera input (for mobile): hidden input with capture attribute
-  let camInput = modal.querySelector('#issueCameraInput');
-  if(!camInput){ camInput = document.createElement('input'); camInput.type='file'; camInput.accept='image/*'; camInput.capture='environment'; camInput.id='issueCameraInput'; camInput.style.display='none'; camInput.onchange = (e)=>{ uploadFile(e.target.files[0]); }; modal.appendChild(camInput); }
-  const camBtn = modal.querySelector('#issueTakePhotoBtn');
-  if(camBtn){ camBtn.onclick = ()=>{ camInput.click(); }; }
+    modal.querySelector('#issuePhotoInput').onchange = (e)=>{ uploadFile(e.target.files[0]); };
+    // camera input (for mobile): hidden input with capture attribute
+    let camInput = modal.querySelector('#issueCameraInput');
+    if(!camInput){ camInput = document.createElement('input'); camInput.type='file'; camInput.accept='image/*'; camInput.capture='environment'; camInput.id='issueCameraInput'; camInput.style.display='none'; camInput.onchange = (e)=>{ uploadFile(e.target.files[0]); }; modal.appendChild(camInput); }
+    const camBtn = modal.querySelector('#issueTakePhotoBtn');
+    if(camBtn){ camBtn.onclick = ()=>{ camInput.click(); }; }
+    await loadPhotoThumbs();
 
   modal.querySelector('#issueSaveBtn').onclick = async ()=>{ const planId = getPlanIdFromUrl(); const title = modal.querySelector('#issueTitle').value.trim(); const notes = modal.querySelector('#issueNotes').value.trim(); if(!title){ alert('Title is required'); return; } const issue = { plan_id: planId, page: pin.page, x_norm: pin.x_norm, y_norm: pin.y_norm, title, notes }; if(pin.id) issue.id = pin.id; try{ const saved = await apiSaveIssue(issue); modal.style.display='none'; await reloadDbPins(); await renderPage(currentPage); if(!pin.id && saved.id){ pin.id = saved.id; await showIssueModal(pin); } }catch(e){ alert('Error saving issue: '+e.message); } };
 
