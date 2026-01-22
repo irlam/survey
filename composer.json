@@ -10,6 +10,6 @@
         }
     },
     "scripts": {
-        "dwg:pull-image": "php -r \"if (!getenv('DWG_IMAGE')) { echo 'Set env var DWG_IMAGE and run again (e.g. DWG_IMAGE=libredwg/libredwg:latest)\n'; exit(1); } $img=getenv('DWG_IMAGE'); passthru('docker pull '.escapeshellarg($img)); echo 'Pulled '+$img+'\n'; \" 
+        "dwg:pull-image": "php -r \"if (!getenv('DWG_IMAGE')) { echo 'Set env var DWG_IMAGE and run again (e.g. DWG_IMAGE=libredwg/libredwg:latest)\\n'; exit(1); } $img=getenv('DWG_IMAGE'); passthru('docker pull '.escapeshellarg($img)); echo 'Pulled ' . $img . '\\n';\""
     }
 }
