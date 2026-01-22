@@ -122,15 +122,78 @@ function showIssuesModal(planId) {
 
   fetch(`/api/list_issues.php?plan_id=${encodeURIComponent(planId)}`)
     .then(r => r.json())
-    .then(data => {
+    .then(async (data) => {
       if (!data.ok) throw new Error(data.error || 'Failed to load issues');
       if (!data.issues.length) {
         issuesList.innerHTML = '<div class="muted">No issues for this plan.</div>';
         return;
       }
-      issuesList.innerHTML = '<ul>' + data.issues.map(issue =>
-        `<li><strong>${escapeHtml(issue.title)}</strong><br><span class='muted'>${escapeHtml(issue.description)}</span></li>`
-      ).join('') + '</ul>';
+      // build enhanced list
+      issuesList.innerHTML = '';
+      const container = document.createElement('div');
+      container.style.display = 'flex';
+      container.style.flexDirection = 'column';
+      container.style.gap = '8px';
+
+      for (const issue of data.issues) {
+        const item = document.createElement('div');
+        item.className = 'card';
+        item.style.display = 'flex';
+        item.style.alignItems = 'center';
+        item.style.justifyContent = 'space-between';
+
+        const left = document.createElement('div');
+        left.style.flex = '1';
+        left.innerHTML = `
+          <div style="font-weight:800;">${escapeHtml(issue.title || ('Issue #' + issue.id))}</div>
+          <div style="font-size:13px;color:var(--muted);margin-top:4px;">${escapeHtml(issue.notes||issue.description||'')}</div>
+          <div style="margin-top:6px;font-size:13px;color:var(--muted);">
+            <strong>ID:</strong> ${escapeHtml(String(issue.id||''))} &nbsp; 
+            <strong>Page:</strong> ${escapeHtml(String(issue.page||''))} &nbsp; 
+            <strong>Coords:</strong> ${issue.x_norm!=null ? (Math.round(issue.x_norm*1000)/1000) : ''}, ${issue.y_norm!=null ? (Math.round(issue.y_norm*1000)/1000) : ''}
+          </div>
+        `;
+
+        const right = document.createElement('div');
+        right.style.display = 'flex';
+        right.style.flexDirection = 'column';
+        right.style.alignItems = 'flex-end';
+        right.style.gap = '6px';
+
+        // status / priority / assignee
+        const metaRow = document.createElement('div');
+        metaRow.style.display = 'flex'; metaRow.style.gap = '8px'; metaRow.style.alignItems = 'center';
+        const status = document.createElement('span'); status.className = 'pill'; status.textContent = issue.status || 'open'; status.style.fontSize = '12px';
+        const prio = document.createElement('span'); prio.textContent = (issue.priority || ''); prio.style.fontSize = '12px'; prio.className = 'muted';
+        metaRow.appendChild(status); metaRow.appendChild(prio);
+
+        const createdDiv = document.createElement('div'); createdDiv.style.fontSize = '12px'; createdDiv.style.color = 'var(--muted)';
+        if (issue.created_at) {
+          const d = new Date(issue.created_at);
+          const pad = (n) => n.toString().padStart(2,'0');
+          createdDiv.textContent = `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}` + (issue.created_by ? (' — ' + issue.created_by) : '');
+        } else if (issue.created_by) {
+          createdDiv.textContent = issue.created_by;
+        }
+
+        const btnRow = document.createElement('div'); btnRow.style.display='flex'; btnRow.style.gap='8px';
+        const viewBtn = document.createElement('button'); viewBtn.className='btn'; viewBtn.textContent='View';
+        viewBtn.onclick = ()=>{ try{ if(window.showIssueModal) window.showIssueModal(issue); else alert('Viewer not loaded'); }catch(e){ console.error(e); alert('Unable to open issue'); } };
+        const jumpBtn = document.createElement('button'); jumpBtn.className='btn'; jumpBtn.textContent='Jump to page';
+        jumpBtn.onclick = ()=>{ try{ if(window.startViewer){ // ensure viewer loaded
+            // set plan id in URL then start viewer; viewer will render page where user can navigate
+            const u = new URL(window.location.href); u.searchParams.set('plan_id', String(planId)); history.pushState({},'',u.toString()); if(window.startViewer) window.startViewer().then(()=>{ try{ if(window.currentPage!==undefined){ /* best-effort */ } }catch(e){} });
+          } }catch(e){ console.error(e); } };
+
+        btnRow.appendChild(viewBtn); btnRow.appendChild(jumpBtn);
+
+        right.appendChild(metaRow); right.appendChild(createdDiv); right.appendChild(btnRow);
+
+        item.appendChild(left); item.appendChild(right);
+        container.appendChild(item);
+      }
+
+      issuesList.appendChild(container);
     })
     .catch(e => {
       issuesList.innerHTML = `<div class="error">${escapeHtml(e.message)}</div>`;
