@@ -89,7 +89,12 @@ function resizeImageFile(file, maxWidth=1600, maxHeight=1600, quality=0.8){ retu
 
 function clearOverlay(overlay){ overlay.innerHTML = ''; }
 
-function renderPinsForPage(overlay, viewportWidth, viewportHeight){ clearOverlay(overlay);
+// Pin SVG loader (fetch once and cache)
+let _pinSvgText = null;
+let _pinSvgPromise = null;
+function loadPinSvg(){ if(_pinSvgPromise) return _pinSvgPromise; _pinSvgPromise = fetch('/assets/pin.svg', {cache:'no-cache'}).then(r=> r.ok ? r.text() : null).then(t=>{ _pinSvgText = t; return t; }).catch(e=>{ console.warn('loadPinSvg failed', e); _pinSvgText = null; return null; }); return _pinSvgPromise; }
+
+async function renderPinsForPage(overlay, viewportWidth, viewportHeight){ clearOverlay(overlay); await loadPinSvg();
   const pins = dbPins.filter(p=>p.page===currentPage);
   for(const p of pins){
     const el = document.createElement('div');
@@ -97,26 +102,26 @@ function renderPinsForPage(overlay, viewportWidth, viewportHeight){ clearOverlay
     el.title = p.title || '';
     el.style.left = `${p.x_norm * viewportWidth}px`;
     el.style.top = `${p.y_norm * viewportHeight}px`;
-    // Prefer numeric issue id when available so the number fits in the pin center
     const labelText = String(p.id || p.label || p.title || '!');
-    // dynamic font-size so multi-digit ids fit in the pin head
     const fontSize = labelText.length <= 2 ? 12 : (labelText.length === 3 ? 10 : 9);
-    // Inline SVG pin: circular head for the number + tapered tail
-    el.innerHTML = `
-      <svg viewBox="0 0 64 80" width="56" height="72" aria-hidden="true" focusable="false">
-        <defs>
-          <filter id="pinShadow" x="-50%" y="-50%" width="200%" height="200%">
-            <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000" flood-opacity="0.25" />
-          </filter>
-        </defs>
-        <!-- head -->
-        <circle cx="32" cy="20" r="16" fill="#e12b2b" filter="url(#pinShadow)" />
-        <!-- tail -->
-        <path d="M32 36 C24 48, 16 60, 32 76 C48 60, 40 48, 32 36 Z" fill="#e12b2b" />
-        <!-- number -->
-        <text x="32" y="20" text-anchor="middle" dominant-baseline="central" fill="#000" font-weight="900" font-size="${fontSize}">${labelText}</text>
-      </svg>
-    `;
+    if(_pinSvgText){
+      try{
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(_pinSvgText, 'image/svg+xml');
+        const svgEl = doc.querySelector('svg');
+        if(svgEl){
+          const node = document.importNode(svgEl, true);
+          const txt = node.querySelector('.pin-number');
+          if(txt){ txt.textContent = labelText; txt.setAttribute('font-size', String(fontSize)); }
+          el.appendChild(node);
+        } else {
+          // fallback: inline simple svg
+          el.innerHTML = `<svg viewBox="0 0 64 80" width="56" height="72"><circle cx="32" cy="20" r="16" fill="#e12b2b"/><path d="M32 36 C24 48, 16 60, 32 76 C48 60, 40 48, 32 36 Z" fill="#e12b2b"/><text x="32" y="20" text-anchor="middle" dominant-baseline="central" fill="#000" font-weight="900" font-size="${fontSize}">${labelText}</text></svg>`;
+        }
+      }catch(e){ console.warn('pin SVG parse failed', e); el.innerHTML = `<svg viewBox="0 0 64 80" width="56" height="72"><circle cx="32" cy="20" r="16" fill="#e12b2b"/><path d="M32 36 C24 48, 16 60, 32 76 C48 60, 40 48, 32 36 Z" fill="#e12b2b"/><text x="32" y="20" text-anchor="middle" dominant-baseline="central" fill="#000" font-weight="900" font-size="${fontSize}">${labelText}</text></svg>`; }
+    } else {
+      el.innerHTML = `<svg viewBox="0 0 64 80" width="56" height="72"><circle cx="32" cy="20" r="16" fill="#e12b2b"/><path d="M32 36 C24 48, 16 60, 32 76 C48 60, 40 48, 32 36 Z" fill="#e12b2b"/><text x="32" y="20" text-anchor="middle" dominant-baseline="central" fill="#000" font-weight="900" font-size="${fontSize}">${labelText}</text></svg>`;
+    }
     overlay.appendChild(el);
     el.addEventListener('click', ()=> showIssueModal(p));
   }
@@ -127,18 +132,28 @@ function renderPinsForPage(overlay, viewportWidth, viewportHeight){ clearOverlay
     el.style.top = `${p.y_norm * viewportHeight}px`;
     const labelText = String(p.label);
     const fontSize = labelText.length <= 2 ? 12 : (labelText.length === 3 ? 10 : 9);
-    el.innerHTML = `
-      <svg viewBox="0 0 64 80" width="56" height="72" aria-hidden="true" focusable="false">
-        <circle cx="32" cy="20" r="16" fill="#e12b2b" />
-        <path d="M32 36 C24 48, 16 60, 32 76 C48 60, 40 48, 32 36 Z" fill="#e12b2b" />
-        <text x="32" y="20" text-anchor="middle" dominant-baseline="central" fill="#000" font-weight="900" font-size="${fontSize}">${labelText}</text>
-      </svg>
-    `;
+    if(_pinSvgText){
+      try{
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(_pinSvgText, 'image/svg+xml');
+        const svgEl = doc.querySelector('svg');
+        if(svgEl){
+          const node = document.importNode(svgEl, true);
+          const txt = node.querySelector('.pin-number');
+          if(txt){ txt.textContent = labelText; txt.setAttribute('font-size', String(fontSize)); }
+          el.appendChild(node);
+        } else {
+          el.innerHTML = `<svg viewBox="0 0 64 80" width="56" height="72"><circle cx="32" cy="20" r="16" fill="#e12b2b"/><path d="M32 36 C24 48, 16 60, 32 76 C48 60, 40 48, 32 36 Z" fill="#e12b2b"/><text x="32" y="20" text-anchor="middle" dominant-baseline="central" fill="#000" font-weight="900" font-size="${fontSize}">${labelText}</text></svg>`;
+        }
+      }catch(e){ console.warn('pin SVG parse failed', e); el.innerHTML = `<svg viewBox="0 0 64 80" width="56" height="72"><circle cx="32" cy="20" r="16" fill="#e12b2b"/><path d="M32 36 C24 48, 16 60, 32 76 C48 60, 40 48, 32 36 Z" fill="#e12b2b"/><text x="32" y="20" text-anchor="middle" dominant-baseline="central" fill="#000" font-weight="900" font-size="${fontSize}">${labelText}</text></svg>`; }
+    } else {
+      el.innerHTML = `<svg viewBox="0 0 64 80" width="56" height="72"><circle cx="32" cy="20" r="16" fill="#e12b2b"/><path d="M32 36 C24 48, 16 60, 32 76 C48 60, 40 48, 32 36 Z" fill="#e12b2b"/><text x="32" y="20" text-anchor="middle" dominant-baseline="central" fill="#000" font-weight="900" font-size="${fontSize}">${labelText}</text></svg>`;
+    }
     overlay.appendChild(el);
   }
 }
 
-async function renderPage(pageNo){ if(!pdfDoc) return; const {wrap, canvas, overlay} = ensureWrapAndOverlay(); const ctx = canvas.getContext('2d'); setStatus(`Rendering page ${pageNo}…`); const page = await pdfDoc.getPage(pageNo); const w = stageWidth(); const v1 = page.getViewport({scale:1.0}); fitScale = w / v1.width; const effectiveScale = fitMode ? (fitScale * userZoom) : userZoom; const viewport = page.getViewport({scale: effectiveScale}); const dpr = window.devicePixelRatio || 1; canvas.width = Math.floor(viewport.width * dpr); canvas.height = Math.floor(viewport.height * dpr); canvas.style.width = `${Math.floor(viewport.width)}px`; canvas.style.height = `${Math.floor(viewport.height)}px`; wrap.style.width = `${Math.floor(viewport.width)}px`; wrap.style.height = `${Math.floor(viewport.height)}px`; overlay.style.width = `${Math.floor(viewport.width)}px`; overlay.style.height = `${Math.floor(viewport.height)}px`; ctx.setTransform(dpr,0,0,dpr,0,0); await page.render({canvasContext:ctx, viewport}).promise; renderPinsForPage(overlay, Math.floor(viewport.width), Math.floor(viewport.height)); setStatus(''); setBadges(); setModeBadge(); }
+async function renderPage(pageNo){ if(!pdfDoc) return; const {wrap, canvas, overlay} = ensureWrapAndOverlay(); const ctx = canvas.getContext('2d'); setStatus(`Rendering page ${pageNo}…`); const page = await pdfDoc.getPage(pageNo); const w = stageWidth(); const v1 = page.getViewport({scale:1.0}); fitScale = w / v1.width; const effectiveScale = fitMode ? (fitScale * userZoom) : userZoom; const viewport = page.getViewport({scale: effectiveScale}); const dpr = window.devicePixelRatio || 1; canvas.width = Math.floor(viewport.width * dpr); canvas.height = Math.floor(viewport.height * dpr); canvas.style.width = `${Math.floor(viewport.width)}px`; canvas.style.height = `${Math.floor(viewport.height)}px`; wrap.style.width = `${Math.floor(viewport.width)}px`; wrap.style.height = `${Math.floor(viewport.height)}px`; overlay.style.width = `${Math.floor(viewport.width)}px`; overlay.style.height = `${Math.floor(viewport.height)}px`; ctx.setTransform(dpr,0,0,dpr,0,0); await page.render({canvasContext:ctx, viewport}).promise; await renderPinsForPage(overlay, Math.floor(viewport.width), Math.floor(viewport.height)); setStatus(''); setBadges(); setModeBadge(); }
 
 async function goToPage(n){ if(!pdfDoc) return; const pageNo = Math.max(1, Math.min(totalPages, n)); currentPage = pageNo; await renderPage(currentPage); }
 
