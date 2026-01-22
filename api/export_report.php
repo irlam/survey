@@ -54,11 +54,15 @@ if ($format !== 'pdf') {
 if (!file_exists(__DIR__ . '/../vendor/autoload.php')) {
     error_response('PDF export not available: composer dependencies missing', 500);
 }
-require_once __DIR__ . '/../vendor/autoload.php';
-if (!class_exists('\\setasign\\Fpdf\\Fpdf')) {
+$requireAutoload = __DIR__ . '/../vendor/autoload.php';
+require_once $requireAutoload;
+if (class_exists('\\setasign\\Fpdf\\Fpdf')) {
+    $pdf = new \setasign\Fpdf\Fpdf();
+} elseif (class_exists('FPDF')) {
+    $pdf = new \FPDF();
+} else {
     error_response('PDF export not available: setasign/fpdi-fpdf not installed', 500);
 }
-$pdf = new \setasign\Fpdf\Fpdf();
 $pdf->AddPage();
 $pdf->SetFont('Arial','B',16);
 $pdf->Cell(0,10,'Survey Report',0,1,'C');

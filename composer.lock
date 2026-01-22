@@ -1,9 +1,14 @@
 {
+    "_readme": [
+        "This file locks the dependencies of your project to a known state",
+        "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
+        "This file is @generated automatically"
+    ],
+    "content-hash": "29787ef7da8c42b0133c08e622cd00d9",
     "packages": [
         {
             "name": "setasign/fpdf",
             "version": "1.8.2",
-            "version_normalized": "1.8.2.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/Setasign/FPDF.git",
@@ -15,9 +20,7 @@
                 "reference": "d77904018090c17dc9f3ab6e944679a7a47e710a",
                 "shasum": ""
             },
-            "time": "2019-12-08T10:32:10+00:00",
             "type": "library",
-            "installation-source": "dist",
             "autoload": {
                 "classmap": [
                     "fpdf.php"
@@ -43,12 +46,11 @@
             "support": {
                 "source": "https://github.com/Setasign/FPDF/tree/1.8.2"
             },
-            "install-path": "../setasign/fpdf"
+            "time": "2019-12-08T10:32:10+00:00"
         },
         {
             "name": "setasign/fpdi",
             "version": "v2.6.4",
-            "version_normalized": "2.6.4.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/Setasign/FPDI.git",
@@ -77,9 +79,7 @@
             "suggest": {
                 "setasign/fpdf": "FPDI will extend this class but as it is also possible to use TCPDF or tFPDF as an alternative. There's no fixed dependency configured."
             },
-            "time": "2025-08-05T09:57:14+00:00",
             "type": "library",
-            "installation-source": "dist",
             "autoload": {
                 "psr-4": {
                     "setasign\\Fpdi\\": "src/"
@@ -118,12 +118,11 @@
                     "type": "tidelift"
                 }
             ],
-            "install-path": "../setasign/fpdi"
+            "time": "2025-08-05T09:57:14+00:00"
         },
         {
             "name": "setasign/fpdi-fpdf",
             "version": "v2.3.0",
-            "version_normalized": "2.3.0.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/Setasign/FPDI-FPDF.git",
@@ -139,9 +138,7 @@
                 "setasign/fpdf": "^1.8.2",
                 "setasign/fpdi": "^2.3"
             },
-            "time": "2020-02-19T12:21:53+00:00",
             "type": "library",
-            "installation-source": "dist",
             "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "MIT"
@@ -164,9 +161,19 @@
                 "source": "https://github.com/Setasign/FPDI-FPDF/tree/v2.3.0"
             },
             "abandoned": true,
-            "install-path": "../setasign/fpdi-fpdf"
+            "time": "2020-02-19T12:21:53+00:00"
         }
     ],
-    "dev": false,
-    "dev-package-names": []
+    "packages-dev": [],
+    "aliases": [],
+    "minimum-stability": "stable",
+    "stability-flags": {},
+    "prefer-stable": false,
+    "prefer-lowest": false,
+    "platform": {},
+    "platform-dev": {},
+    "platform-overrides": {
+        "php": "8.0"
+    },
+    "plugin-api-version": "2.9.0"
 }
