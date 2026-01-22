@@ -7,6 +7,7 @@ A mobile-first construction plan survey tool for viewing PDF plans, placing issu
 - Open the app in your browser. The left sidebar contains the **Plans** panel where you can upload a PDF plan or open an existing one.
 - To upload a plan, use the **PDF** file input and optionally add a name and revision. After upload the plan will appear in the list.
 - Click **Open** on a plan to view it.
+- To delete a plan (permanently) click **Delete** in the Plans list or use the **Delete Plan** button while viewing a plan. This deletes the plan file, all issues, photos, and generated exports (requires confirmation).
 
 ## Viewer basics
 

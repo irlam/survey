@@ -54,8 +54,32 @@ function planRow(plan) {
     }
   };
 
+  const del = document.createElement('button');
+  del.className = 'btn';
+  del.textContent = 'Delete';
+  del.style.borderColor = 'rgba(255,80,80,.28)';
+  del.style.color = '#ff7b7b';
+  del.onclick = async () => {
+    if (!confirm(`Delete plan "${plan.name || ('Plan ' + plan.id)}" and ALL its issues/photos/exports? This cannot be undone.`)) return;
+    try{
+      del.disabled = true;
+      const r = await fetch('/api/delete_plan.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: plan.id }), credentials: 'same-origin' });
+      const txt = await r.text(); let data; try{ data = JSON.parse(txt); }catch{ data = null; }
+      if(!r.ok || !data || !data.ok) throw new Error((data && data.error) ? data.error : ('Delete failed (HTTP ' + r.status + ')'));
+      showToast('Deleted plan');
+      await refreshPlans();
+    }catch(err){ showToast('Delete error: ' + (err.message || err)); console.error('delete plan', err); }
+    del.disabled = false;
+  };
+
+  const rightWrap = document.createElement('div');
+  rightWrap.style.display = 'flex';
+  rightWrap.style.gap = '8px';
+  rightWrap.appendChild(btn);
+  rightWrap.appendChild(del);
+
   li.appendChild(left);
-  li.appendChild(btn);
+  li.appendChild(rightWrap);
   return li;
 }
 

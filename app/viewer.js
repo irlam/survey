@@ -170,6 +170,24 @@ function bindUiOnce(){ if(window.__viewerBound) return; window.__viewerBound = t
   if(fitBtn) fitBtn.onclick = async ()=>{ fitMode = true; userZoom = 1.0; await renderPage(currentPage); };
   if(addBtn){ addBtn.onclick = async ()=>{ addIssueMode = !addIssueMode; addBtn.textContent = addIssueMode ? 'Done' : 'Add Issue'; setModeBadge(); if(pdfDoc) await renderPage(currentPage); }; }
   if(closeBtn){ closeBtn.onclick = ()=>{ const u = new URL(window.location.href); u.searchParams.delete('plan_id'); history.pushState({},'',u.pathname); setTitle('Select a plan'); setStatus(''); const c = qs('#pdfContainer'); if(c) c.innerHTML = ''; pdfDoc = null; totalPages = 0; currentPage = 1; userZoom = 1.0; addIssueMode = false; setModeBadge(); setBadges(); document.body.classList.remove('has-viewer'); }; }
+  const delPlanBtn = qs('#btnDeletePlan');
+  if(delPlanBtn){ delPlanBtn.style.borderColor = 'rgba(255,80,80,.28)'; delPlanBtn.style.color = '#ff7b7b'; delPlanBtn.onclick = async ()=>{
+    const planId = getPlanIdFromUrl(); if(!planId) return alert('No plan open');
+    const planTitle = qs('#planTitle') ? qs('#planTitle').textContent : ('Plan ' + planId);
+    if(!confirm(`Delete plan "${planTitle}" and all associated issues/photos/exports? This cannot be undone.`)) return;
+    delPlanBtn.disabled = true;
+    try{
+      const res = await fetch('/api/delete_plan.php',{method:'POST',headers:{'Content-Type':'application/json'},body: JSON.stringify({ id: planId }), credentials:'same-origin'});
+      const txt = await res.text(); let data; try{ data = JSON.parse(txt); }catch{ data = null; }
+      if(!res.ok || !data || !data.ok) throw new Error((data && data.error) ? data.error : ('Delete failed (HTTP ' + res.status + ')'));
+      localShowToast('Plan deleted');
+      // close viewer and refresh plans list
+      const u = new URL(window.location.href); u.searchParams.delete('plan_id'); history.pushState({},'',u.pathname);
+      setTitle('Select a plan'); setStatus(''); const c = qs('#pdfContainer'); if(c) c.innerHTML = ''; pdfDoc = null; totalPages = 0; currentPage = 1; userZoom = 1.0; addIssueMode = false; setModeBadge(); setBadges(); document.body.classList.remove('has-viewer');
+      try{ if(window.refreshPlans) window.refreshPlans(); }catch(e){}
+    }catch(err){ localShowToast('Delete failed: ' + (err.message || err)); console.error('delete plan', err); }
+    delPlanBtn.disabled = false;
+  }; }
   window.addEventListener('resize', ()=>{ if(pdfDoc) renderPage(currentPage); });
 }
 
