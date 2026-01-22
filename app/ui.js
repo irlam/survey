@@ -126,12 +126,35 @@ function showIssuesModal(planId) {
   const modalTitle = modal ? modal.querySelector('h2') : null;
   if (!modal || !issuesList || !pdfBtn || !pdfOut) return;
 
-  // hide the close 'x' button as per UX requirement (modal should not close via X)
-  if (closeBtn) closeBtn.style.display = 'none';
+  // Ensure close button is visible so the modal can be dismissed
+  if (closeBtn) closeBtn.style.display = '';
 
   modal.style.display = 'block';
   issuesList.innerHTML = '<div class="muted">Loading…</div>';
   pdfOut.textContent = '';
+  // Wire full-plan export button
+  if (pdfBtn) {
+    pdfBtn.onclick = async () => {
+      pdfBtn.disabled = true;
+      pdfOut.textContent = 'Generating PDF…';
+      try{
+        const r = await fetch('/api/export_report.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `plan_id=${encodeURIComponent(planId)}` });
+        let data = null;
+        try{ data = await r.json(); }catch(parseErr){ const txt = await r.text().catch(()=>null); console.error('export parse error, response text:', txt, parseErr); throw new Error(txt || 'Export failed (invalid JSON)'); }
+        if (!r.ok || !data || !data.ok) { console.error('Export error response', r.status, data); throw new Error((data && data.error) ? data.error : (`Export failed (HTTP ${r.status})`)); }
+        pdfOut.innerHTML = `<a href="/storage/exports/${encodeURIComponent(data.filename)}" target="_blank">Download PDF Report</a>`;
+      }catch(e){ console.error('Export failed', e); pdfOut.textContent = e.message || 'Export failed';
+        // Try debug retry to get more server-side info
+        try{
+          const dbg = await fetch('/api/export_report.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `plan_id=${encodeURIComponent(planId)}&debug=1` });
+          const dbgJson = await dbg.json().catch(()=>null);
+          if(dbgJson && dbgJson.error) pdfOut.textContent += ' — Debug: ' + dbgJson.error;
+          else if(dbgJson && dbgJson.exports) pdfOut.textContent += ' — Debug: ' + JSON.stringify(dbgJson.exports.slice(0,5));
+        }catch(_){ /* ignore */ }
+      }
+      pdfBtn.disabled = false;
+    };
+  }
 
   // fetch plan details to show in modal title
   (async ()=>{
@@ -182,7 +205,30 @@ function showIssuesModal(planId) {
         const jumpBtn = document.createElement('button'); jumpBtn.className='btn'; jumpBtn.textContent='Jump to page'; jumpBtn.onclick = ()=>{ try{ const u = new URL(window.location.href); u.searchParams.set('plan_id', String(planId)); history.pushState({},'',u.toString()); if(window.startViewer){ window.startViewer().then(()=>{ if(window.viewerGoToPage) window.viewerGoToPage(Number(issue.page||1)); // open modal after short delay
               setTimeout(()=>{ if(window.showIssueModal) window.showIssueModal(issue); }, 600);
             }); } }catch(e){ console.error(e); } };
-        const exportBtn = document.createElement('button'); exportBtn.className='btn'; exportBtn.textContent='Export PDF'; exportBtn.onclick = async ()=>{ exportBtn.disabled = true; try{ pdfOut.textContent = 'Generating PDF…'; const r = await fetch('/api/export_report.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `plan_id=${encodeURIComponent(planId)}&issue_id=${encodeURIComponent(issue.id)}` }); const data = await r.json(); if(!r.ok || !data || !data.ok) throw new Error(data && data.error ? data.error : 'Export failed'); pdfOut.innerHTML = `<a href="/storage/exports/${encodeURIComponent(data.filename)}" target="_blank">Download PDF</a>`; }catch(e){ pdfOut.textContent = e.message; } exportBtn.disabled = false; };
+        const exportBtn = document.createElement('button'); exportBtn.className='btn'; exportBtn.textContent='Export PDF'; exportBtn.onclick = async ()=>{
+          exportBtn.disabled = true;
+          try{
+            pdfOut.textContent = 'Generating PDF…';
+            const r = await fetch('/api/export_report.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `plan_id=${encodeURIComponent(planId)}&issue_id=${encodeURIComponent(issue.id)}` });
+            let data = null;
+            try{ data = await r.json(); }catch(parseErr){ const txt = await r.text().catch(()=>null); console.error('export parse error, response text:', txt, parseErr); throw new Error(txt || 'Export failed (invalid JSON)'); }
+            if (!r.ok || !data || !data.ok) {
+              console.error('Export error response', r.status, data);
+              throw new Error((data && data.error) ? data.error : (`Export failed (HTTP ${r.status})`));
+            }
+            pdfOut.innerHTML = `<a href="/storage/exports/${encodeURIComponent(data.filename)}" target="_blank">Download PDF</a>`;
+          }catch(e){
+            console.error('Export failed', e); pdfOut.textContent = e.message || 'Export failed';
+            // try debug retry
+            try{
+              const dbg = await fetch('/api/export_report.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `plan_id=${encodeURIComponent(planId)}&issue_id=${encodeURIComponent(issue.id)}&debug=1` });
+              const dbgJson = await dbg.json().catch(()=>null);
+              if(dbgJson && dbgJson.error) pdfOut.textContent += ' — Debug: ' + dbgJson.error;
+              else if(dbgJson && dbgJson.exports) pdfOut.textContent += ' — Debug: ' + JSON.stringify(dbgJson.exports.slice(0,5));
+            }catch(_){ /* ignore */ }
+          }
+          exportBtn.disabled = false;
+        };
         const saveBtn = document.createElement('button'); saveBtn.className='btnPrimary'; saveBtn.textContent='Save'; saveBtn.onclick = async ()=>{ saveBtn.disabled = true; try{ const payload = { id: issue.id, plan_id: planId, title: issue.title, notes: issue.notes, page: issue.page, x_norm: issue.x_norm, y_norm: issue.y_norm, status: statusSelect.value, priority: prioSelect.value }; const r = await fetch('/api/save_issue.php',{method:'POST',headers:{'Content-Type':'application/json'},body: JSON.stringify(payload), credentials:'same-origin'}); const txt = await r.text(); let resp; try{ resp = JSON.parse(txt); }catch{ resp = null; } if(!r.ok || !resp || !resp.ok) throw new Error((resp && resp.error) ? resp.error : 'Save failed'); showToast('Saved'); issue.status = statusSelect.value; issue.priority = prioSelect.value; }catch(err){ showToast('Save error: ' + err.message); } saveBtn.disabled = false; };
         btnRow.appendChild(viewBtn); btnRow.appendChild(jumpBtn); btnRow.appendChild(exportBtn); btnRow.appendChild(saveBtn);
         right.appendChild(metaRow); right.appendChild(assigneeSpan); right.appendChild(createdDiv); right.appendChild(btnRow);
@@ -195,7 +241,19 @@ function showIssuesModal(planId) {
   loadIssuesList();
   // refresh thumbnails/counts when photosUpdated event fires for this plan
   const photosListener = (ev)=>{ loadIssuesList(); };
-  document.addEventListener('photosUpdated', photosListener);}
+  document.addEventListener('photosUpdated', photosListener);
+
+  // allow closing with ESC key
+  const escKeyHandler = (ev) => { if (ev.key === 'Escape') { modal.style.display = 'none'; issuesList.innerHTML = ''; pdfOut.textContent = ''; document.removeEventListener('photosUpdated', photosListener); document.removeEventListener('keydown', escKeyHandler); } };
+  document.addEventListener('keydown', escKeyHandler);
+
+  // wire close button (X) to dismiss modal
+  if (closeBtn){
+    closeBtn.style.display = '';
+    closeBtn.onclick = () => { modal.style.display = 'none'; issuesList.innerHTML = ''; pdfOut.textContent = ''; document.removeEventListener('photosUpdated', photosListener); document.removeEventListener('keydown', escKeyHandler); };
+  }
+  // clicking outside modal content will also close
+  window.onclick = (event) => { if (event.target === modal) { modal.style.display = 'none'; issuesList.innerHTML = ''; pdfOut.textContent = ''; document.removeEventListener('photosUpdated', photosListener); document.removeEventListener('keydown', escKeyHandler); } };
 
 // Attach View Issues button logic after plan is opened
 function wireViewIssues(planId) {

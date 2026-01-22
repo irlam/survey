@@ -14,39 +14,26 @@ $plan_name = $plan['name'] ?? ('Plan ' . $plan_id);
 // Optional single-issue export
 $issue_id = safe_int($_POST['issue_id'] ?? null);
 
+// debug mode optionally enabled by POST param debug=1 or GET debug=1 (for troubleshooting only)
+$debug = !empty($_POST['debug']) || !empty($_GET['debug']);
+
 $format = strtolower($_POST['format'] ?? 'pdf');
 
-if ($format === 'csv') {
-    // Generate CSV report
-    $filename = 'report_' . $plan_id . '_' . time() . '.csv';
-    $path = storage_dir('exports/' . $filename);
-    $fh = fopen($path, 'w');
-    if (!$fh) error_response('Failed to create CSV file', 500);
-    // header
-    $header = ['issue_no','page','x_norm','y_norm','title','notes','category','status','priority','trade','assigned_to','due_date','created_at','updated_at'];
-    fputcsv($fh, $header);
-    foreach ($issues as $issue) {
-        $row = [
-            $issue['issue_no'] ?? '',
-            $issue['page'] ?? '',
-            $issue['x_norm'] ?? '',
-            $issue['y_norm'] ?? '',
-            $issue['title'] ?? '',
-            $issue['notes'] ?? '',
-            $issue['category'] ?? '',
-            $issue['status'] ?? '',
-            $issue['priority'] ?? '',
-            $issue['trade'] ?? '',
-            $issue['assigned_to'] ?? '',
-            $issue['due_date'] ?? '',
-            $issue['created_at'] ?? '',
-            $issue['updated_at'] ?? ''
-        ];
-        fputcsv($fh, $row);
+function get_exports_listing($limit = 20) {
+    $dir = storage_dir('exports');
+    if (!is_dir($dir)) return [];
+    $files = array_values(array_diff(scandir($dir, SCANDIR_SORT_DESCENDING), ['.','..']));
+    $res = [];
+    foreach ($files as $f) {
+        $full = $dir . '/' . $f;
+        if (!is_file($full)) continue;
+        $res[] = ['filename'=>$f, 'size'=>filesize($full), 'mtime'=>filemtime($full)];
+        if (count($res) >= $limit) break;
     }
-    fclose($fh);
-    json_response(['ok'=>true, 'filename'=>$filename, 'format'=>'csv']);
+    return $res;
 }
+
+
 
 // Default: PDF (if requested)
 if ($format !== 'pdf') {
@@ -55,16 +42,20 @@ if ($format !== 'pdf') {
 
 // Ensure PDF libs are available
 if (!file_exists(__DIR__ . '/../vendor/autoload.php')) {
-    error_response('PDF export not available: composer dependencies missing', 500);
+    error_log('export_report: composer autoload missing at ' . __DIR__ . '/../vendor/autoload.php');
+    $extra = $debug ? ['exports'=>get_exports_listing()] : [];
+    error_response('PDF export not available: composer dependencies missing', 500, $extra);
 }
 $requireAutoload = __DIR__ . '/../vendor/autoload.php';
 require_once $requireAutoload;
-if (class_exists('\\setasign\\Fpdf\\Fpdf')) {
+if (class_exists('\setasign\Fpdf\Fpdf')) {
     $pdf = new \setasign\Fpdf\Fpdf();
 } elseif (class_exists('FPDF')) {
     $pdf = new \FPDF();
 } else {
-    error_response('PDF export not available: setasign/fpdi-fpdf not installed', 500);
+    error_log('export_report: FPDI classes missing; declared classes count=' . count(get_declared_classes()));
+    $extra = $debug ? ['exports'=>get_exports_listing()] : [];
+    error_response('PDF export not available: setasign/fpdi-fpdf not installed', 500, $extra);
 }
 $pdf->AddPage();
 $pdf->SetFont('Arial','B',16);
@@ -171,4 +162,16 @@ foreach ($issue_list as $issue) {
 $filename = 'report_' . $plan_id . '_' . ($issue_id ? 'issue_' . $issue_id . '_' : '') . time() . '.pdf';
 $path = storage_dir('exports/' . $filename);
 $pdf->Output('F', $path);
-json_response(['ok'=>true, 'filename'=>$filename]);
+// ensure file was written
+clearstatcache(true, $path);
+if (!is_file($path) || filesize($path) <= 0) {
+    $last = error_get_last();
+    error_log('export_report: failed to write PDF to ' . $path . ' last error: ' . print_r($last, true));
+    $msg = 'Failed to write PDF file';
+    if ($last && !empty($last['message'])) $msg .= ': ' . $last['message'];
+    $extra = $debug ? ['exports'=>get_exports_listing()] : [];
+    error_response($msg, 500, $extra);
+}
+error_log('export_report: wrote ' . $path . ' size:' . filesize($path) . ' plan:' . $plan_id . ' issue:' . ($issue_id ?: 'all'));
+$extra = $debug ? ['exports'=>get_exports_listing()] : [];
+json_response(array_merge(['ok'=>true, 'filename'=>$filename, 'path'=>$path, 'size'=>filesize($path)], $extra));
