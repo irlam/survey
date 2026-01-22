@@ -37,7 +37,26 @@ foreach ($probeCmds as $c){ $p = cmd_exists($c); if ($p) $available[] = $c; }
 $outFilename = null;
 $outPath = null;
 
+// helper to run docker-based conversion if configured
+function try_docker_convert($image, $srcPath, $outPath, $cmdArgs) {
+    $docker = trim((string)shell_exec('command -v docker 2>/dev/null'));
+    if (!$docker) return ['ok'=>false, 'error'=>'docker not available'];
+    $srcDir = dirname($srcPath);
+    $srcBase = basename($srcPath);
+    $outBase = basename($outPath);
+    // mount srcDir into /data
+    $dockerCmd = escapeshellcmd($docker) . ' run --rm -v ' . escapeshellarg($srcDir . ':/data:ro') . ' -v ' . escapeshellarg(dirname($outPath) . ':/out') . ' ' . escapeshellarg($image) . ' sh -c ' . escapeshellarg($cmdArgs);
+    $out = shell_exec($dockerCmd . ' 2>&1');
+    // check for output file
+    if (is_file($outPath) && filesize($outPath) > 0) return ['ok'=>true];
+    return ['ok'=>false, 'error'=>$out];
+}
+
 try {
+    // load docker config
+    $cfg = load_config();
+    $dockerImage = $cfg['dwg_converter']['docker_image'] ?? '';
+
     if ($fmt === 'svg') {
         // prefer dwg2svg
         if ($p = cmd_exists('dwg2svg')) {
@@ -46,6 +65,12 @@ try {
             $outTxt = shell_exec($cmd);
             if (is_file($out) && filesize($out) > 0) { $outFilename = basename($out); $outPath = $out; }
             else throw new Exception('dwg2svg failed: ' . $outTxt);
+        } elseif (!empty($dockerImage)) {
+            $out = storage_dir('exports/' . $baseName . '.svg');
+            $cmdArgs = "dwg2svg /data/" . basename($dest) . " /out/" . basename($out);
+            $res = try_docker_convert($dockerImage, $dest, $out, $cmdArgs);
+            if ($res['ok']) { $outFilename = basename($out); $outPath = $out; }
+            else throw new Exception('docker dwg2svg failed: ' . ($res['error'] ?? 'unknown'));
         } elseif ($p = cmd_exists('dwg2pdf')) {
             // create PDF and then convert to SVG using pdf2svg if available
             $inter = storage_dir('exports/' . $baseName . '.pdf');
@@ -73,6 +98,12 @@ try {
             $outTxt = shell_exec($cmd);
             if (is_file($out) && filesize($out) > 0) { $outFilename = basename($out); $outPath = $out; }
             else throw new Exception('dwg2dxf failed: ' . $outTxt);
+        } elseif (!empty($dockerImage)) {
+            $out = storage_dir('exports/' . $baseName . '.dxf');
+            $cmdArgs = "dwg2dxf /data/" . basename($dest) . " /out/" . basename($out);
+            $res = try_docker_convert($dockerImage, $dest, $out, $cmdArgs);
+            if ($res['ok']) { $outFilename = basename($out); $outPath = $out; }
+            else throw new Exception('docker dwg2dxf failed: ' . ($res['error'] ?? 'unknown'));
         } else {
             throw new Exception('No DWG->DXF converter found');
         }
@@ -84,6 +115,12 @@ try {
             $outTxt = shell_exec($cmd);
             if (is_file($out) && filesize($out) > 0) { $outFilename = basename($out); $outPath = $out; }
             else throw new Exception('dwg2pdf failed: ' . $outTxt);
+        } elseif (!empty($dockerImage)) {
+            $out = storage_dir('exports/' . $baseName . '.pdf');
+            $cmdArgs = "dwg2pdf /data/" . basename($dest) . " /out/" . basename($out);
+            $res = try_docker_convert($dockerImage, $dest, $out, $cmdArgs);
+            if ($res['ok']) { $outFilename = basename($out); $outPath = $out; }
+            else throw new Exception('docker dwg2pdf failed: ' . ($res['error'] ?? 'unknown'));
         } elseif ($p = cmd_exists('dwg2svg')) {
             // convert via svg then to pdf if imagemagick present
             $tmpSvg = storage_dir('tmp/' . $baseName . '.svg');
@@ -107,7 +144,7 @@ try {
     }
 } catch (Exception $e) {
     // helpful guidance
-    $help = 'Conversion not available: please install LibreDWG (dwg2svg), dwg2pdf or ODA File Converter on the server. See README for details.';
+    $help = 'Conversion not available: please install LibreDWG (dwg2svg), dwg2pdf or ODA File Converter on the server, or configure a Docker image in api/config.php under dwg_converter.docker_image. See README for details.';
     error_response($e->getMessage() . ' — ' . $help, 500);
 }
 

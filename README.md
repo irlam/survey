@@ -33,3 +33,11 @@ Tools
 - A new **Tools** section is available from the Plans panel. The first tool is the **Crop PDF Tool** (`/tools/crop.html`) — it lets you select a plan or upload a PDF, draw a crop rectangle on a page, preview it, and export the cropped area as a new PDF.
   - **DPI settings**: choose a target DPI (e.g. 150, 300, 600, 1200) for raster exports. The tool will render the page at the selected DPI and crop to the selection — higher DPI means sharper output but larger file sizes and more memory usage.
   - **Vector crop (server)**: create a true, vector (non-raster) cropped PDF using the server-side FPDI-based crop endpoint. This preserves vector text and produces smaller, exact crops.
+
+DWG support
+- The Tools section also includes a **DWG Viewer & Converter** (`/tools/dwg.html`) that can upload DWG/DXF and convert them to PDF/SVG/DXF when server utilities are available.
+- Conversion requires one of the following on the server:
+  - system utilities (recommended): `dwg2pdf`, `dwg2svg`, `dwg2dxf`, `pdf2svg`, `convert` (ImageMagick)
+  - or configure a Docker image that contains conversion tools. Set `dwg_converter.docker_image` in `api/config.php` (see `api/config.sample.php`) to enable the Docker fallback.
+- Composer cannot install system binaries. If you want an automated Docker pull, run `docker pull <image>` or configure it in your deployment scripts. I can add a Composer script that pulls a configured image if you'd like.
+
