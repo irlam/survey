@@ -255,27 +255,6 @@ input:focus{border-color: rgba(0,255,231,.5); box-shadow: 0 0 0 3px rgba(0,255,2
   z-index: 2000;
   box-shadow: none !important;
   pointer-events: auto !important;
-  /* Inline SVG map-pin with transparent hole; keep background transparent */
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 140'>%3Cpath d='M50 0C28 0 10 18 10 40c0 28 30 58 38 70 1 1.5 3 1.5 4 0 8-12 38-42 38-70 0-22-18-40-40-40z' fill='%23e12b2b'/%3E%3Ccircle cx='50' cy='40' r='14' fill='white'/%3E%3C/svg>");
-  background-repeat: no-repeat;
-  background-size: contain;
-  background-position: center bottom;
-.pin{
-  position: absolute;
-  transform: translate(-50%, -100%);
-  width: 34px;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  font-size: 12px;
-  color: #ffffff; /* label color shown in the pin hole */
-  background-color: transparent;
-  border: none;
-  z-index: 2000;
-  box-shadow: none !important;
-  pointer-events: auto !important;
   /* Use provided raster/SVG asset in the same folder */
   background-image: url("pin.png");
   background-repeat: no-repeat;
@@ -347,13 +326,13 @@ input:focus{border-color: rgba(0,255,231,.5); box-shadow: 0 0 0 3px rgba(0,255,2
 }
 .close:hover { color: var(--neon); }
 
-/* LANDSCAPE TABLET RULES: collapse plans list, maximize viewer */
-@media (min-width: 900px) and (orientation: landscape){
+/* TABLET / Desktop RULES: place plans list on the left and viewer on the right */
+@media (min-width: 900px){
   .layout{grid-template-columns: 360px 1fr;}
   body.has-viewer:not(.sidebar-open) .layout{grid-template-columns: 0 1fr;}
   body.has-viewer:not(.sidebar-open) .sidebar{
     width:0; padding:0; border:none; overflow:hidden;
   }
   .main{padding:14px}
-  .pdfStage{height: calc(100vh - 210px);}
+  .pdfStage{height: calc(100vh - 210px);} 
 }
