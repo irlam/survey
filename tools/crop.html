@@ -27,7 +27,9 @@
           Select plan:
           <select id="planSelect"></select>
         </label>
-        <label style="width:300px">Or upload PDF: <input id="fileUploader" type="file" accept="application/pdf"></label>
+        <label style="width:230px">Or upload PDF: <input id="fileUploader" type="file" accept="application/pdf"></label>
+        <label style="width:150px">Quality: <select id="exportScale"><option value="1">1x</option><option value="2">2x</option><option value="3">3x</option><option value="4">4x</option></select></label>
+        <label style="width:170px"><input id="vectorCrop" type="checkbox"> Vector crop (server)</label>
         <button id="btnLoad" class="btn">Load</button>
       </div>
 
@@ -123,20 +125,57 @@
     document.getElementById('btnExportPdf').onclick = async ()=>{
       if(!rect) { alert('Draw a rectangle on the page to crop'); return; }
       const r = {x: Math.min(rect.x, rect.x+rect.w), y: Math.min(rect.y, rect.y+rect.h), w: Math.abs(rect.w), h: Math.abs(rect.h)};
-      // create image of cropped area
-      const tmp = document.createElement('canvas'); tmp.width = r.w; tmp.height = r.h; const tctx = tmp.getContext('2d'); tctx.drawImage(canvas, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h);
-      const blob = await new Promise(res=> tmp.toBlob(res, 'image/jpeg', 0.9));
-      const bytes = await blob.arrayBuffer();
-      // use pdf-lib to create a new PDF with the image
-      const pdflib = window.PDFLib;
-      const newPdf = await pdflib.PDFDocument.create();
-      const imgEmbed = await newPdf.embedJpg(bytes);
-      const page = newPdf.addPage([imgEmbed.width, imgEmbed.height]);
-      page.drawImage(imgEmbed, { x:0, y:0, width: imgEmbed.width, height: imgEmbed.height });
-      const pdfBytesOut = await newPdf.save();
-      const blobOut = new Blob([pdfBytesOut], {type:'application/pdf'});
-      const url = URL.createObjectURL(blobOut);
-      const a = document.createElement('a'); a.href = url; a.download = `crop_page_${curPage}.pdf`; a.textContent = 'Download cropped PDF'; a.style.display='inline-block'; a.style.marginTop='8px'; document.getElementById('previewOut').appendChild(a);
+      const exportScale = Number(document.getElementById('exportScale').value || '1');
+      const isVector = document.getElementById('vectorCrop').checked;
+      // If vector crop selected, send normalized rect to server for precise crop
+      if(isVector){
+        try{
+          const payload = new FormData();
+          if(planSelect.value){ payload.append('plan_id', planSelect.value); } else if(pdfBytes){ const blobFile = new Blob([pdfBytes], {type:'application/pdf'}); const f = new File([blobFile], 'upload.pdf', {type:'application/pdf'}); payload.append('file', f); }
+          payload.append('page', String(curPage));
+          // normalized coords (0..1) based on canvas size
+          payload.append('x_norm', String(r.x / canvas.width));
+          payload.append('y_norm', String(r.y / canvas.height));
+          payload.append('w_norm', String(r.w / canvas.width));
+          payload.append('h_norm', String(r.h / canvas.height));
+          payload.append('debug', '0');
+          const out = document.getElementById('previewOut'); out.textContent = 'Requesting server crop…';
+          const res = await fetch('/api/crop_pdf.php', { method:'POST', body: payload });
+          const txt = await res.text(); let data; try{ data = JSON.parse(txt); }catch{ data = null; }
+          if(!res.ok || !data || !data.ok){ throw new Error((data && data.error) ? data.error : 'Server crop failed'); }
+          out.innerHTML = `<a href="/storage/exports/${encodeURIComponent(data.filename)}" target="_blank">Download cropped PDF (vector)</a>`;
+        }catch(e){ const out = document.getElementById('previewOut'); out.textContent = 'Server crop failed: ' + e.message; }
+        return;
+      }
+
+      // Raster export at higher resolution: render an offscreen high-res page and then crop
+      try{
+        const page = await pdfDoc.getPage(curPage);
+        // calculate desired scale for render
+        const desiredScale = (pageViewport.scale || 1) * exportScale * 2; // *2 to boost base DPI
+        const viewportHR = page.getViewport({scale: desiredScale});
+        const off = document.createElement('canvas'); off.width = Math.ceil(viewportHR.width); off.height = Math.ceil(viewportHR.height);
+        const offCtx = off.getContext('2d');
+        await page.render({ canvasContext: offCtx, viewport: viewportHR }).promise;
+        // Map original rect on screen canvas to high-res canvas
+        const scaleFactor = off.width / canvas.width;
+        const rx = Math.round(r.x * scaleFactor);
+        const ry = Math.round(r.y * scaleFactor);
+        const rw = Math.round(r.w * scaleFactor);
+        const rh = Math.round(r.h * scaleFactor);
+        const tmp = document.createElement('canvas'); tmp.width = rw; tmp.height = rh; const tctx = tmp.getContext('2d'); tctx.drawImage(off, rx, ry, rw, rh, 0, 0, rw, rh);
+        const blob = await new Promise(res=> tmp.toBlob(res, 'image/jpeg', 0.95));
+        const bytes = await blob.arrayBuffer();
+        const pdflib = window.PDFLib;
+        const newPdf = await pdflib.PDFDocument.create();
+        const imgEmbed = await newPdf.embedJpg(bytes);
+        const pageNew = newPdf.addPage([imgEmbed.width, imgEmbed.height]);
+        pageNew.drawImage(imgEmbed, { x:0, y:0, width: imgEmbed.width, height: imgEmbed.height });
+        const pdfBytesOut = await newPdf.save();
+        const blobOut = new Blob([pdfBytesOut], {type:'application/pdf'});
+        const url = URL.createObjectURL(blobOut);
+        const a = document.createElement('a'); a.href = url; a.download = `crop_page_${curPage}.pdf`; a.textContent = 'Download cropped PDF'; a.style.display='inline-block'; a.style.marginTop='8px'; document.getElementById('previewOut').appendChild(a);
+      }catch(e){ document.getElementById('previewOut').textContent = 'Export failed: ' + e.message; console.error(e); }
     };
 
     // init
