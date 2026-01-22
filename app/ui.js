@@ -128,6 +128,16 @@ function showIssuesModal(planId) {
         issuesList.innerHTML = '<div class="muted">No issues for this plan.</div>';
         return;
       }
+      // prefetch photos for thumbnails/counts
+      let photosMap = {};
+      try{
+        const prs = await fetch(`/api/list_photos.php?plan_id=${encodeURIComponent(planId)}`);
+        const pjson = await prs.json().catch(()=>null);
+        if(pjson && pjson.ok && Array.isArray(pjson.photos)){
+          for(const ph of pjson.photos){ const key = String(ph.issue_id||''); photosMap[key] = photosMap[key] || []; photosMap[key].push(ph); }
+        }
+      }catch(e){ /* ignore */ }
+
       // build enhanced list
       issuesList.innerHTML = '';
       const container = document.createElement('div');
@@ -163,9 +173,20 @@ function showIssuesModal(planId) {
         // status / priority / assignee
         const metaRow = document.createElement('div');
         metaRow.style.display = 'flex'; metaRow.style.gap = '8px'; metaRow.style.alignItems = 'center';
-        const status = document.createElement('span'); status.className = 'pill'; status.textContent = issue.status || 'open'; status.style.fontSize = '12px';
-        const prio = document.createElement('span'); prio.textContent = (issue.priority || ''); prio.style.fontSize = '12px'; prio.className = 'muted';
-        metaRow.appendChild(status); metaRow.appendChild(prio);
+        // editable status select
+        const statusSelect = document.createElement('select'); statusSelect.style.minWidth='110px'; statusSelect.innerHTML = '<option value="open">Open</option><option value="in_progress">In Progress</option><option value="resolved">Resolved</option><option value="closed">Closed</option>'; statusSelect.value = issue.status || 'open';
+        const prioSelect = document.createElement('select'); prioSelect.style.minWidth='90px'; prioSelect.innerHTML = '<option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>'; prioSelect.value = issue.priority || 'medium';
+        metaRow.appendChild(statusSelect); metaRow.appendChild(prioSelect);
+
+        const assigneeSpan = document.createElement('div'); assigneeSpan.style.fontSize='12px'; assigneeSpan.style.color='var(--muted)'; assigneeSpan.textContent = issue.assignee || '';
+        // add thumbnails / counts into left area if present
+        const phs = photosMap[String(issue.id)] || [];
+        if(phs.length){
+          const thumbsWrap = document.createElement('div'); thumbsWrap.style.display='flex'; thumbsWrap.style.gap='6px'; thumbsWrap.style.marginTop='6px';
+          for(let i=0;i<Math.min(3, phs.length); i++){ const p = phs[i]; const img = document.createElement('img'); img.src = p.thumb_url || p.url; img.style.width='48px'; img.style.height='48px'; img.style.objectFit='cover'; img.style.borderRadius='6px'; img.style.cursor='pointer'; img.onclick = ()=>{ window.open(p.url || p.thumb_url, '_blank'); }; thumbsWrap.appendChild(img); }
+          const countBadge = document.createElement('span'); countBadge.className='pill'; countBadge.textContent = String(phs.length) + ' photos'; countBadge.style.fontSize='12px'; countBadge.style.marginLeft='6px';
+          left.appendChild(thumbsWrap); left.appendChild(countBadge);
+        }
 
         const createdDiv = document.createElement('div'); createdDiv.style.fontSize = '12px'; createdDiv.style.color = 'var(--muted)';
         if (issue.created_at) {
@@ -180,14 +201,26 @@ function showIssuesModal(planId) {
         const viewBtn = document.createElement('button'); viewBtn.className='btn'; viewBtn.textContent='View';
         viewBtn.onclick = ()=>{ try{ if(window.showIssueModal) window.showIssueModal(issue); else alert('Viewer not loaded'); }catch(e){ console.error(e); alert('Unable to open issue'); } };
         const jumpBtn = document.createElement('button'); jumpBtn.className='btn'; jumpBtn.textContent='Jump to page';
-        jumpBtn.onclick = ()=>{ try{ if(window.startViewer){ // ensure viewer loaded
-            // set plan id in URL then start viewer; viewer will render page where user can navigate
-            const u = new URL(window.location.href); u.searchParams.set('plan_id', String(planId)); history.pushState({},'',u.toString()); if(window.startViewer) window.startViewer().then(()=>{ try{ if(window.currentPage!==undefined){ /* best-effort */ } }catch(e){} });
-          } }catch(e){ console.error(e); } };
+        jumpBtn.onclick = ()=>{ try{ const u = new URL(window.location.href); u.searchParams.set('plan_id', String(planId)); history.pushState({},'',u.toString()); if(window.startViewer){ window.startViewer().then(()=>{ if(window.viewerGoToPage) window.viewerGoToPage(Number(issue.page||1)); }); } }catch(e){ console.error(e); } };
 
-        btnRow.appendChild(viewBtn); btnRow.appendChild(jumpBtn);
+        const saveBtn = document.createElement('button'); saveBtn.className='btnPrimary'; saveBtn.textContent='Save';
+        saveBtn.onclick = async ()=>{
+          saveBtn.disabled = true;
+          try{
+            const payload = { id: issue.id, plan_id: planId, title: issue.title, notes: issue.notes, page: issue.page, x_norm: issue.x_norm, y_norm: issue.y_norm, status: statusSelect.value, priority: prioSelect.value };
+            const r = await fetch('/api/save_issue.php',{method:'POST',headers:{'Content-Type':'application/json'},body: JSON.stringify(payload), credentials:'same-origin'});
+            const txt = await r.text(); let resp; try{ resp = JSON.parse(txt); }catch{ resp = null; }
+            if(!r.ok || !resp || !resp.ok) throw new Error((resp && resp.error) ? resp.error : 'Save failed');
+            alert('Saved');
+            // update local display
+            issue.status = statusSelect.value; issue.priority = prioSelect.value;
+          }catch(err){ alert('Save error: ' + err.message); }
+          saveBtn.disabled = false;
+        };
 
-        right.appendChild(metaRow); right.appendChild(createdDiv); right.appendChild(btnRow);
+        btnRow.appendChild(viewBtn); btnRow.appendChild(jumpBtn); btnRow.appendChild(saveBtn);
+
+        right.appendChild(metaRow); right.appendChild(assigneeSpan); right.appendChild(createdDiv); right.appendChild(btnRow);
 
         item.appendChild(left); item.appendChild(right);
         container.appendChild(item);
