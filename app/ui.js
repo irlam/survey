@@ -94,6 +94,7 @@ async function wireUpload() {
   });
 }
 
+
 async function renderPlansScreen() {
   setNetDot();
   window.addEventListener('online', setNetDot);
@@ -105,3 +106,69 @@ async function renderPlansScreen() {
   await refreshPlans();
 }
 window.renderPlansScreen = renderPlansScreen;
+
+// --- Issues Modal Logic ---
+function showIssuesModal(planId) {
+  const modal = document.getElementById('issuesModal');
+  const closeBtn = document.getElementById('closeIssuesModal');
+  const issuesList = document.getElementById('issuesList');
+  const pdfBtn = document.getElementById('btnGeneratePdf');
+  const pdfOut = document.getElementById('pdfReportOut');
+  if (!modal || !closeBtn || !issuesList || !pdfBtn || !pdfOut) return;
+
+  modal.style.display = 'block';
+  issuesList.innerHTML = '<div class="muted">Loading…</div>';
+  pdfOut.textContent = '';
+
+  fetch(`/api/list_issues.php?plan_id=${encodeURIComponent(planId)}`)
+    .then(r => r.json())
+    .then(data => {
+      if (!data.ok) throw new Error(data.error || 'Failed to load issues');
+      if (!data.issues.length) {
+        issuesList.innerHTML = '<div class="muted">No issues for this plan.</div>';
+        return;
+      }
+      issuesList.innerHTML = '<ul>' + data.issues.map(issue =>
+        `<li><strong>${escapeHtml(issue.title)}</strong><br><span class='muted'>${escapeHtml(issue.description)}</span></li>`
+      ).join('') + '</ul>';
+    })
+    .catch(e => {
+      issuesList.innerHTML = `<div class="error">${escapeHtml(e.message)}</div>`;
+    });
+
+  closeBtn.onclick = () => { modal.style.display = 'none'; };
+  window.onclick = (event) => { if (event.target === modal) modal.style.display = 'none'; };
+
+  pdfBtn.onclick = () => {
+    pdfOut.textContent = 'Generating PDF…';
+    fetch('/api/export_report.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `plan_id=${encodeURIComponent(planId)}`
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (!data.ok) throw new Error(data.error || 'Failed to generate PDF');
+        pdfOut.innerHTML = `<a href="/storage/exports/${encodeURIComponent(data.filename)}" target="_blank">Download PDF Report</a>`;
+      })
+      .catch(e => {
+        pdfOut.textContent = e.message;
+      });
+  };
+}
+
+// Attach View Issues button logic after plan is opened
+function wireViewIssues(planId) {
+  const btn = document.getElementById('btnViewIssues');
+  if (btn) {
+    btn.onclick = () => showIssuesModal(planId);
+  }
+}
+
+// Patch openPlanInApp to wire up View Issues button
+import * as viewer from './viewer.js?v=20260120_2';
+const origOpenPlanInApp = viewer.openPlanInApp;
+viewer.openPlanInApp = async function(planId) {
+  await origOpenPlanInApp(planId);
+  wireViewIssues(planId);
+}
