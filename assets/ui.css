@@ -249,31 +249,27 @@ input:focus{border-color: rgba(0,255,231,.5); box-shadow: 0 0 0 3px rgba(0,255,2
   justify-content: center;
   font-weight: 800;
   font-size: 13px;
-  color: transparent; /* label will be provided by .pinLabel */
+  color: transparent;
   background-color: transparent;
   border: none;
   z-index: 2000;
   box-shadow: none !important;
   pointer-events: auto !important;
-  /* Use user-supplied transparent PNG asset */
-  background-image: url("/assets/pin.png");
-  background-repeat: no-repeat;
-  background-size: contain;
-  background-position: center bottom;
-  /* lift the label area so the label (span) sits inside the pin hole */
-  padding-bottom: 14px;
+  /* SVG-based pin (no raster PNG). The SVG is injected inline by JS so it scales crisply and keeps transparency. */
+  padding: 0;
 }
 
+/* For legacy span labels (if any remain) make them black and centered */
 .pinLabel{
   display:inline-block;
-  transform: translateY(-6px);
-  color: #e12b2b; /* red issue number */
+  transform: none;
+  color: #000; /* black number inside pin */
   font-weight: 900;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1;
   pointer-events: none; /* clicks should hit the pin container */
-  text-shadow: 0 1px 0 rgba(255,255,255,0.02);
 }
+
 
 .pdfOverlay {
   position: absolute;

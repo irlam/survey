@@ -97,11 +97,26 @@ function renderPinsForPage(overlay, viewportWidth, viewportHeight){ clearOverlay
     el.title = p.title || '';
     el.style.left = `${p.x_norm * viewportWidth}px`;
     el.style.top = `${p.y_norm * viewportHeight}px`;
-    const labelText = p.label || p.title || '!';
-    const span = document.createElement('span');
-    span.className = 'pinLabel';
-    span.textContent = labelText;
-    el.appendChild(span);
+    // Prefer numeric issue id when available so the number fits in the pin center
+    const labelText = String(p.id || p.label || p.title || '!');
+    // dynamic font-size so multi-digit ids fit in the pin head
+    const fontSize = labelText.length <= 2 ? 12 : (labelText.length === 3 ? 10 : 9);
+    // Inline SVG pin: circular head for the number + tapered tail
+    el.innerHTML = `
+      <svg viewBox="0 0 64 80" width="56" height="72" aria-hidden="true" focusable="false">
+        <defs>
+          <filter id="pinShadow" x="-50%" y="-50%" width="200%" height="200%">
+            <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000" flood-opacity="0.25" />
+          </filter>
+        </defs>
+        <!-- head -->
+        <circle cx="32" cy="20" r="16" fill="#e12b2b" filter="url(#pinShadow)" />
+        <!-- tail -->
+        <path d="M32 36 C24 48, 16 60, 32 76 C48 60, 40 48, 32 36 Z" fill="#e12b2b" />
+        <!-- number -->
+        <text x="32" y="20" text-anchor="middle" dominant-baseline="central" fill="#000" font-weight="900" font-size="${fontSize}">${labelText}</text>
+      </svg>
+    `;
     overlay.appendChild(el);
     el.addEventListener('click', ()=> showIssueModal(p));
   }
@@ -110,10 +125,15 @@ function renderPinsForPage(overlay, viewportWidth, viewportHeight){ clearOverlay
     el.className = 'pin temp-pin';
     el.style.left = `${p.x_norm * viewportWidth}px`;
     el.style.top = `${p.y_norm * viewportHeight}px`;
-    const span = document.createElement('span');
-    span.className = 'pinLabel';
-    span.textContent = p.label;
-    el.appendChild(span);
+    const labelText = String(p.label);
+    const fontSize = labelText.length <= 2 ? 12 : (labelText.length === 3 ? 10 : 9);
+    el.innerHTML = `
+      <svg viewBox="0 0 64 80" width="56" height="72" aria-hidden="true" focusable="false">
+        <circle cx="32" cy="20" r="16" fill="#e12b2b" />
+        <path d="M32 36 C24 48, 16 60, 32 76 C48 60, 40 48, 32 36 Z" fill="#e12b2b" />
+        <text x="32" y="20" text-anchor="middle" dominant-baseline="central" fill="#000" font-weight="900" font-size="${fontSize}">${labelText}</text>
+      </svg>
+    `;
     overlay.appendChild(el);
   }
 }
