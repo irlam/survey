@@ -64,6 +64,7 @@
           <button id="btnFit" class="btn">Fit</button>
 
           <button id="btnAddIssueMode" class="btn">Add Issue</button>
+          <button id="btnViewIssues" class="btn">View Issues</button>
         </div>
 
         <div id="viewerMsg" class="muted" style="margin:6px 2px 10px 2px;"></div>
@@ -73,6 +74,17 @@
         </div>
       </div>
     </main>
+  </div>
+
+  <!-- Issues Modal -->
+  <div id="issuesModal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <span id="closeIssuesModal" class="close">&times;</span>
+      <h2>Issues for this Plan</h2>
+      <div id="issuesList"></div>
+      <button id="btnGeneratePdf" class="btnPrimary" style="margin-top:16px;">Generate PDF Report</button>
+      <div id="pdfReportOut" class="muted" style="margin-top:8px"></div>
+    </div>
   </div>
 
   <!-- PDF.js -->

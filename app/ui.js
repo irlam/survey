@@ -165,10 +165,21 @@ function wireViewIssues(planId) {
   }
 }
 
-// Patch openPlanInApp to wire up View Issues button
-import * as viewer from './viewer.js?v=20260120_2';
-const origOpenPlanInApp = viewer.openPlanInApp;
-viewer.openPlanInApp = async function(planId) {
-  await origOpenPlanInApp(planId);
-  wireViewIssues(planId);
-}
+// Attempt to wrap the global `openPlanInApp` when it becomes available
+(function waitAndWire(){
+  function tryWrap(){
+    if (window.openPlanInApp && !window.__viewIssuesPatched){
+      const orig = window.openPlanInApp;
+      window.openPlanInApp = async function(planId){
+        await orig(planId);
+        try { wireViewIssues(planId); } catch(e) { console.error('wireViewIssues error', e); }
+      };
+      window.__viewIssuesPatched = true;
+      return true;
+    }
+    return false;
+  }
+  if (!tryWrap()){
+    const iv = setInterval(()=>{ if (tryWrap()) clearInterval(iv); }, 200);
+  }
+})();
