@@ -170,7 +170,7 @@ async function showIssueModal(pin){
         <div style="width:220px;border-left:1px solid rgba(255,255,255,.04);padding-left:12px;font-size:13px;">
           <div><strong>ID:</strong> <span id="issueId">${pin.id||''}</span></div>
           <div><strong>Page:</strong> <span id="issuePage">${pin.page||''}</span></div>
-          <div><strong>Coords:</strong> <span id="issueCoords">${pin.x_norm? (Math.round(pin.x_norm*1000)/1000):''}, ${pin.y_norm? (Math.round(pin.y_norm*1000)/1000):''}</span></div>
+
           <div><strong>Created by:</strong> <span id="issueCreatedBy">${pin.created_by||pin.author||''}</span></div>
           <div style="margin-top:6px;"><strong>Created:</strong><div id="issueCreated" style="font-weight:700;margin-top:2px;">&nbsp;</div></div>
         </div>

@@ -123,11 +123,24 @@ function showIssuesModal(planId) {
   const issuesList = document.getElementById('issuesList');
   const pdfBtn = document.getElementById('btnGeneratePdf');
   const pdfOut = document.getElementById('pdfReportOut');
-  if (!modal || !closeBtn || !issuesList || !pdfBtn || !pdfOut) return;
+  const modalTitle = modal ? modal.querySelector('h2') : null;
+  if (!modal || !issuesList || !pdfBtn || !pdfOut) return;
+
+  // hide the close 'x' button as per UX requirement (modal should not close via X)
+  if (closeBtn) closeBtn.style.display = 'none';
 
   modal.style.display = 'block';
   issuesList.innerHTML = '<div class="muted">Loading…</div>';
   pdfOut.textContent = '';
+
+  // fetch plan details to show in modal title
+  (async ()=>{
+    try{
+      const data = await apiJson('/api/get_plan.php?plan_id=' + encodeURIComponent(planId));
+      const plan = data.plan || {};
+      if (modalTitle) modalTitle.textContent = `Issues for: ${plan.name || ('Plan ' + planId)} (#${planId})`;
+    }catch(e){ /* ignore */ }
+  })();
 
   // helper to load and render issues list (used initially and on photo updates)
   async function loadIssuesList(){
@@ -154,7 +167,7 @@ function showIssuesModal(planId) {
         const item = document.createElement('div'); item.className = 'card'; item.dataset.issueId = String(issue.id||'');
         item.style.display = 'flex'; item.style.alignItems = 'center'; item.style.justifyContent = 'space-between';
         const left = document.createElement('div'); left.style.flex = '1';
-        left.innerHTML = `\n          <div style="font-weight:800;">${escapeHtml(issue.title || ('Issue #' + issue.id))}</div>\n          <div style="font-size:13px;color:var(--muted);margin-top:4px;">${escapeHtml(issue.notes||issue.description||'')}</div>\n          <div style="margin-top:6px;font-size:13px;color:var(--muted);">\n            <strong>ID:</strong> ${escapeHtml(String(issue.id||''))} &nbsp; \n            <strong>Page:</strong> ${escapeHtml(String(issue.page||''))} &nbsp; \n            <strong>Coords:</strong> ${issue.x_norm!=null ? (Math.round(issue.x_norm*1000)/1000) : ''}, ${issue.y_norm!=null ? (Math.round(issue.y_norm*1000)/1000) : ''}\n          </div>\n        `;
+        left.innerHTML = `\n          <div style="font-weight:800;">${escapeHtml(issue.title || ('Issue #' + issue.id))}</div>\n          <div style="font-size:13px;color:var(--muted);margin-top:4px;">${escapeHtml(issue.notes||issue.description||'')}</div>\n          <div style="margin-top:6px;font-size:13px;color:var(--muted);">\n            <strong>ID:</strong> ${escapeHtml(String(issue.id||''))} &nbsp; \n            <strong>Page:</strong> ${escapeHtml(String(issue.page||''))} &nbsp; \n\n          </div>\n        `;
         const right = document.createElement('div'); right.style.display = 'flex'; right.style.flexDirection = 'column'; right.style.alignItems = 'flex-end'; right.style.gap = '6px';
         const metaRow = document.createElement('div'); metaRow.style.display = 'flex'; metaRow.style.gap = '8px'; metaRow.style.alignItems = 'center';
         const statusSelect = document.createElement('select'); statusSelect.style.minWidth='110px'; statusSelect.innerHTML = '<option value="open">Open</option><option value="in_progress">In Progress</option><option value="resolved">Resolved</option><option value="closed">Closed</option>'; statusSelect.value = issue.status || 'open';
@@ -169,8 +182,9 @@ function showIssuesModal(planId) {
         const jumpBtn = document.createElement('button'); jumpBtn.className='btn'; jumpBtn.textContent='Jump to page'; jumpBtn.onclick = ()=>{ try{ const u = new URL(window.location.href); u.searchParams.set('plan_id', String(planId)); history.pushState({},'',u.toString()); if(window.startViewer){ window.startViewer().then(()=>{ if(window.viewerGoToPage) window.viewerGoToPage(Number(issue.page||1)); // open modal after short delay
               setTimeout(()=>{ if(window.showIssueModal) window.showIssueModal(issue); }, 600);
             }); } }catch(e){ console.error(e); } };
+        const exportBtn = document.createElement('button'); exportBtn.className='btn'; exportBtn.textContent='Export PDF'; exportBtn.onclick = async ()=>{ exportBtn.disabled = true; try{ pdfOut.textContent = 'Generating PDF…'; const r = await fetch('/api/export_report.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `plan_id=${encodeURIComponent(planId)}&issue_id=${encodeURIComponent(issue.id)}` }); const data = await r.json(); if(!r.ok || !data || !data.ok) throw new Error(data && data.error ? data.error : 'Export failed'); pdfOut.innerHTML = `<a href="/storage/exports/${encodeURIComponent(data.filename)}" target="_blank">Download PDF</a>`; }catch(e){ pdfOut.textContent = e.message; } exportBtn.disabled = false; };
         const saveBtn = document.createElement('button'); saveBtn.className='btnPrimary'; saveBtn.textContent='Save'; saveBtn.onclick = async ()=>{ saveBtn.disabled = true; try{ const payload = { id: issue.id, plan_id: planId, title: issue.title, notes: issue.notes, page: issue.page, x_norm: issue.x_norm, y_norm: issue.y_norm, status: statusSelect.value, priority: prioSelect.value }; const r = await fetch('/api/save_issue.php',{method:'POST',headers:{'Content-Type':'application/json'},body: JSON.stringify(payload), credentials:'same-origin'}); const txt = await r.text(); let resp; try{ resp = JSON.parse(txt); }catch{ resp = null; } if(!r.ok || !resp || !resp.ok) throw new Error((resp && resp.error) ? resp.error : 'Save failed'); showToast('Saved'); issue.status = statusSelect.value; issue.priority = prioSelect.value; }catch(err){ showToast('Save error: ' + err.message); } saveBtn.disabled = false; };
-        btnRow.appendChild(viewBtn); btnRow.appendChild(jumpBtn); btnRow.appendChild(saveBtn);
+        btnRow.appendChild(viewBtn); btnRow.appendChild(jumpBtn); btnRow.appendChild(exportBtn); btnRow.appendChild(saveBtn);
         right.appendChild(metaRow); right.appendChild(assigneeSpan); right.appendChild(createdDiv); right.appendChild(btnRow);
         item.appendChild(left); item.appendChild(right); container.appendChild(item);
       }
