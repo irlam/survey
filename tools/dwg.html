@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>DWG Tools</title>
+<link rel="stylesheet" href="/assets/ui.css">
+<style>
+  .toolsCard{max-width:900px;margin:20px auto}
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <button onclick="history.back()" class="iconBtn">←</button>
+    <div class="brand">DWG Tools</div>
+    <div style="margin-left:auto" class="muted">View and convert DWG files (server-side conversion if available)</div>
+  </header>
+
+  <main style="padding:16px;">
+    <div class="card toolsCard">
+      <h2>DWG Viewer & Converter</h2>
+      <p>Upload a DWG file and convert it to PDF, SVG or DXF if conversion utilities are available on the server (LibreDWG, ODA, ImageMagick).</p>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+        <label style="flex:1">File: <input id="dwgFile" type="file" accept=".dwg,.dxf"></label>
+        <label>Output: <select id="outFmt"><option value="pdf">PDF</option><option value="svg">SVG</option><option value="dxf">DXF</option></select></label>
+        <button id="btnConvert" class="btn">Convert</button>
+      </div>
+      <div id="dwgOut" class="muted">No conversion yet.</div>
+      <hr>
+      <h3>Available converters (server probe)</h3>
+      <div id="probeOut" class="muted">Probing server...</div>
+      <script>
+        async function probe(){
+          const r = await fetch('/api/diagnostics.php?probe=dwg');
+          const j = await r.json().catch(()=>null);
+          const el = document.getElementById('probeOut');
+          if(!j || !j.ok){ el.textContent = 'Unable to probe server.'; return; }
+          const parts = [];
+          if(j.dwgs && j.dwgs.length) parts.push('Converters: ' + j.dwgs.join(', ')); else parts.push('No DWG converters found');
+          if(j.imagemagick) parts.push('ImageMagick: available'); else parts.push('ImageMagick: not found');
+          el.innerHTML = parts.join(' — ');
+        }
+        probe();
+
+        document.getElementById('btnConvert').onclick = async ()=>{
+          const f = document.getElementById('dwgFile').files && document.getElementById('dwgFile').files[0];
+          const fmt = document.getElementById('outFmt').value;
+          const out = document.getElementById('dwgOut');
+          if(!f){ out.textContent = 'Please choose a DWG or DXF file first.'; return; }
+          out.textContent = 'Uploading...';
+          const fd = new FormData(); fd.append('file', f); fd.append('format', fmt);
+          try{
+            const r = await fetch('/api/convert_dwg.php', { method: 'POST', body: fd });
+            const txt = await r.text(); let data; try{ data = JSON.parse(txt); }catch{ data = null; }
+            if(!r.ok || !data || !data.ok) { out.textContent = 'Conversion failed: ' + (data && data.error ? data.error : txt); return; }
+            const a = document.createElement('a'); a.href = '/storage/exports/' + encodeURIComponent(data.filename); a.target='_blank'; a.textContent = 'Download: ' + data.filename; a.style.display='block'; out.innerHTML = ''; out.appendChild(a);
+          }catch(e){ out.textContent = 'Network error: ' + e.message; }
+        };
+      </script>
+    </div>
+  </main>
+</body>
+</html>

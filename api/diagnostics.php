@@ -47,6 +47,16 @@ if ($vendorAutoload) {
   }
 }
 
+// Probe for DWG/graphics utilities (if probe=dwg query param present)
+if (!empty($_GET['probe']) && $_GET['probe'] === 'dwg') {
+  function cmd_exists_probe($c){ $p = trim((string)shell_exec('command -v ' . escapeshellarg($c) . ' 2>/dev/null')); return $p ? $p : false; }
+  $cands = ['dwg2pdf','dwg2svg','dwg2dxf','pdf2svg','convert','pdfimages','ODAFileConverter','TeighaFileConverter','libredwg'];
+  $found = [];
+  foreach ($cands as $c){ $p = cmd_exists_probe($c); if ($p) $found[] = $c; }
+  $info['dwg'] = ['found' => $found, 'imagemagick' => (bool)cmd_exists_probe('convert')];
+  json_response($info);
+}
+
 // viewer.js file info
 $viewerPath = realpath(__DIR__ . '/../app/viewer.js');
 if ($viewerPath && file_exists($viewerPath)) {
