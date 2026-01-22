@@ -36,6 +36,7 @@ Tools
 
 DWG support
 - The Tools section also includes a **DWG Viewer & Converter** (`/tools/dwg.html`) that can upload DWG/DXF and convert them to PDF/SVG/DXF when server utilities are available.
+- A new **Annotate PDF** tool (`/tools/annotate.html`) allows you to draw arrows, lines, rectangles, freehand strokes and add text with a color picker and width control; you can export the annotated page to PDF or save it as a plan.
 - Conversion requires system utilities on the server (recommended): `dwg2pdf`, `dwg2svg`, `dwg2dxf`, `pdf2svg`, `convert` (ImageMagick). These are system binaries and cannot be installed via Composer; instead install via your OS package manager.
 - For Debian/Ubuntu, a helper script is provided at `tools/install_dwg_tools.sh` which attempts to install `libredwg-tools` and `imagemagick` (run with `sudo`).
 - If you cannot install system packages or want an isolated runtime, you may configure a Docker image with conversion utilities and set `dwg_converter.docker_image` in `api/config.php`. (This is optional — you indicated you prefer not to use Docker.)
