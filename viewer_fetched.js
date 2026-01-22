@@ -101,28 +101,45 @@ function bindUiOnce(){ if(window.__viewerBound) return; window.__viewerBound = t
 // Issue modal with photo upload
 async function showIssueModal(pin){
   let modal = document.getElementById('issueModal');
-  if(!modal){ modal = document.createElement('div'); modal.id='issueModal'; modal.style.position='fixed'; modal.style.left='50%'; modal.style.top='50%'; modal.style.transform='translate(-50%,-50%)'; modal.style.background='#222'; modal.style.color='#fff'; modal.style.zIndex=100000; modal.style.padding='20px'; modal.style.borderRadius='12px'; modal.style.boxShadow='0 0 24px #0ff8'; modal.style.maxWidth='90vw'; modal.style.width='320px'; modal.style.fontSize='16px'; modal.innerHTML = `
-      <div style="margin-bottom:12px;">
-        <label>Title:<br>
-          <input id="issueTitle" type="text" style="width:100%;font-size:16px;" value="${pin.title||''}" maxlength="255" />
-        </label>
+  if(!modal){
+    modal = document.createElement('div');
+    modal.id='issueModal';
+    modal.style.position='fixed'; modal.style.left='50%'; modal.style.top='50%'; modal.style.transform='translate(-50%,-50%)'; modal.style.background='#222'; modal.style.color='#fff'; modal.style.zIndex=100000; modal.style.padding='20px'; modal.style.borderRadius='12px'; modal.style.boxShadow='0 0 24px #0ff8'; modal.style.maxWidth='90vw'; modal.style.width='420px'; modal.style.fontSize='16px';
+    modal.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px;">
+        <div style="flex:1;">
+          <label style="font-size:14px;">Title:<br>
+            <input id="issueTitle" type="text" style="width:100%;font-size:16px;" value="${pin.title||''}" maxlength="255" />
+          </label>
+        </div>
+        <div style="width:190px;border-left:1px solid rgba(255,255,255,.04);padding-left:12px;font-size:13px;">
+          <div><strong>ID:</strong> <span id="issueId">${pin.id||''}</span></div>
+          <div><strong>Page:</strong> <span id="issuePage">${pin.page||''}</span></div>
+          <div><strong>Coords:</strong> <span id="issueCoords">${pin.x_norm? (Math.round(pin.x_norm*1000)/1000):''}, ${pin.y_norm? (Math.round(pin.y_norm*1000)/1000):''}</span></div>
+          <div><strong>Status:</strong> <span id="issueStatus">${pin.status||'open'}</span></div>
+          <div><strong>Created by:</strong> <span id="issueCreatedBy">${pin.created_by||pin.author||''}</span></div>
+          <div style="margin-top:6px;"><strong>Created:</strong><div id="issueCreated" style="font-weight:700;margin-top:2px;">&nbsp;</div></div>
+        </div>
       </div>
       <div style="margin-bottom:12px;">
         <label>Notes:<br>
-          <textarea id="issueNotes" style="width:100%;height:60px;font-size:15px;">${pin.notes||''}</textarea>
+          <textarea id="issueNotes" style="width:100%;height:80px;font-size:15px;">${pin.notes||''}</textarea>
         </label>
       </div>
-      <div id="photoThumbs" style="margin-bottom:12px;"></div>
-      <div style="margin-bottom:12px;">
-        <label>Upload Photo:<br>
-          <input id="issuePhotoInput" type="file" accept="image/jpeg,image/png" style="width:100%;" />
+      <div id="photoThumbs" style="margin-bottom:12px;display:flex;flex-wrap:wrap;"></div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+        <label style="flex:1">Upload Photo:<br>
+          <input id="issuePhotoInput" type="file" accept="image/*" style="width:100%;" />
         </label>
+        <button id="issueTakePhotoBtn" class="btn" style="flex:0 0 auto;min-width:120px;">Take Photo</button>
       </div>
       <div style="text-align:right;">
         <button id="issueSaveBtn" style="background:#0ff;color:#222;font-weight:bold;padding:8px 16px;border-radius:6px;">Save</button>
         <button id="issueCancelBtn" style="background:#444;color:#fff;padding:8px 16px;border-radius:6px;">Cancel</button>
       </div>
-    `; document.body.appendChild(modal); }
+    `;
+    document.body.appendChild(modal);
+  }
   modal.style.display='block'; modal.querySelector('#issueTitle').value = pin.title||''; modal.querySelector('#issueNotes').value = pin.notes||'';
 
   async function loadPhotoThumbs(){
@@ -172,7 +189,12 @@ async function reloadDbPins() {
       y_norm: issue.y_norm,
       title: issue.title,
       notes: issue.notes,
-      label: issue.label || issue.id
+      label: issue.label || issue.id,
+      created_at: issue.created_at || issue.created || issue.createdAt || issue.ts,
+      created_by: issue.created_by || issue.author || issue.user || null,
+      status: issue.status || 'open',
+      priority: issue.priority || null,
+      assignee: issue.assignee || null
     }));
   } catch (e) {
     dbPins = [];
