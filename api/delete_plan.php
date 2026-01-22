@@ -16,6 +16,44 @@ if (!$plan) error_response('Plan not found', 404);
 
 $storageBase = resolve_storage_path();
 $deleted = [ 'plan_file' => null, 'photos' => [], 'thumbs' => [], 'exports' => [], 'issues_deleted' => 0, 'photos_deleted' => 0 ];
+// helper to move files into storage/trash/<timestamp> for soft-delete (best-effort)
+$trashTs = date('Ymd_His') . '_' . bin2hex(random_bytes(4));
+$trashDir = storage_dir('trash/' . $trashTs);
+ensure_dir($trashDir);
+
+// Gather full manifest data before we delete DB rows so we can optionally restore
+$manifest = [
+    'plan' => $plan,
+    'plan_id' => $plan_id,
+    'notes' => 'Deleted by delete_plan.php',
+    'timestamp' => date('c'),
+    'files' => [],
+    'issues' => [],
+    'photos' => []
+];
+// fetch issues to include in manifest
+$stmtIssues = $pdo->prepare('SELECT * FROM issues WHERE plan_id=? ORDER BY id');
+$stmtIssues->execute([$plan_id]);
+$issues = $stmtIssues->fetchAll(PDO::FETCH_ASSOC);
+foreach ($issues as $iss) {
+    $manifest['issues'][] = $iss;
+}
+// fetch photos to include in manifest (we already fetch later, but ensure we have them now)
+$stmtp = $pdo->prepare('SELECT * FROM photos WHERE plan_id=?');
+$stmtp->execute([$plan_id]);
+$photos = $stmtp->fetchAll(PDO::FETCH_ASSOC);
+foreach ($photos as $ph) {
+    $manifest['photos'][] = $ph;
+}
+
+function move_to_trash_file($src, $trashDir) {
+    if (!is_file($src)) return false;
+    $leaf = basename($src);
+    $dest = rtrim($trashDir, '/') . '/' . $leaf;
+    if (@rename($src, $dest)) return $dest;
+    if (@copy($src, $dest) && @unlink($src)) return $dest;
+    return false;
+}
 
 try {
   $pdo->beginTransaction();
@@ -46,18 +84,19 @@ try {
   error_response('Failed to delete plan: ' . $e->getMessage(), 500);
 }
 
-// Remove plan file from storage
+// Move plan file to trash (soft-delete)
 if (!empty($plan['file_path'])) {
   $planRel = ltrim($plan['file_path'], '/');
   $planPath = storage_dir($planRel);
   if (is_file($planPath)) {
-    if (@unlink($planPath)) {
-      $deleted['plan_file'] = $planRel;
+    $moved = move_to_trash_file($planPath, $trashDir);
+    if ($moved) {
+      $deleted['plan_file'] = ['from' => $planRel, 'to' => str_replace(resolve_storage_path() . '/', '', $moved)];
     } else {
-      error_log('delete_plan: failed to unlink plan file: ' . $planPath);
+      error_log('delete_plan: failed to move plan file to trash: ' . $planPath);
     }
   }
-}
+} 
 
 // Remove photo files and thumbs (best-effort)
 foreach ($photos as $ph) {
@@ -72,8 +111,11 @@ foreach ($photos as $ph) {
   if ($fileRel) {
     $p = storage_dir($fileRel);
     if (is_file($p) && strpos(realpath($p), $storageBase) === 0) {
-      if (@unlink($p)) $deleted['photos'][] = $fileRel;
-      else error_log('delete_plan: failed to unlink photo: ' . $p);
+      $m = move_to_trash_file($p, $trashDir);
+      if ($m) {
+        $deleted['photos'][] = $fileRel . ' -> ' . str_replace(resolve_storage_path() . '/', '', $m);
+        $manifest['files'][] = ['type'=>'photo', 'from'=>$fileRel, 'to'=>str_replace(resolve_storage_path() . '/', '', $m)];
+      } else error_log('delete_plan: failed to move photo to trash: ' . $p);
     }
   }
   // thumb
@@ -87,8 +129,11 @@ foreach ($photos as $ph) {
   if ($thumbRel) {
     $t = storage_dir($thumbRel);
     if (is_file($t) && strpos(realpath($t), $storageBase) === 0) {
-      if (@unlink($t)) $deleted['thumbs'][] = $thumbRel;
-      else error_log('delete_plan: failed to unlink thumb: ' . $t);
+      $m = move_to_trash_file($t, $trashDir);
+      if ($m) {
+        $deleted['thumbs'][] = $thumbRel . ' -> ' . str_replace(resolve_storage_path() . '/', '', $m);
+        $manifest['files'][] = ['type'=>'thumb', 'from'=>$thumbRel, 'to'=>str_replace(resolve_storage_path() . '/', '', $m)];
+      } else error_log('delete_plan: failed to move thumb to trash: ' . $t);
     }
   }
 }
@@ -102,11 +147,18 @@ if ($files !== false) {
     if (preg_match('/^report_' . preg_quote($plan_id, '/') . '_/', $f)) {
       $full = $exportsDir . '/' . $f;
       if (is_file($full)) {
-        if (@unlink($full)) $deleted['exports'][] = 'exports/' . $f;
-        else error_log('delete_plan: failed to unlink export: ' . $full);
+        $m = move_to_trash_file($full, $trashDir);
+        if ($m) {
+          $deleted['exports'][] = 'exports/' . $f . ' -> ' . str_replace(resolve_storage_path() . '/', '', $m);
+          $manifest['files'][] = ['type'=>'export', 'from'=>'exports/' . $f, 'to'=>str_replace(resolve_storage_path() . '/', '', $m)];
+        } else error_log('delete_plan: failed to move export to trash: ' . $full);
       }
     }
   }
 }
 
-json_response(['ok'=>true, 'deleted'=>$deleted]);
+// Write manifest into trash
+$manifestFile = rtrim($trashDir, '/') . '/manifest.json';
+@file_put_contents($manifestFile, json_encode($manifest, JSON_PRETTY_PRINT));
+
+json_response(['ok'=>true, 'deleted'=>$deleted, 'trash' => str_replace(resolve_storage_path() . '/', '', $trashDir), 'manifest' => basename($manifestFile)]);

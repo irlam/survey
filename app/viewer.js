@@ -174,7 +174,7 @@ function bindUiOnce(){ if(window.__viewerBound) return; window.__viewerBound = t
   if(delPlanBtn){ delPlanBtn.style.borderColor = 'rgba(255,80,80,.28)'; delPlanBtn.style.color = '#ff7b7b'; delPlanBtn.onclick = async ()=>{
     const planId = getPlanIdFromUrl(); if(!planId) return alert('No plan open');
     const planTitle = qs('#planTitle') ? qs('#planTitle').textContent : ('Plan ' + planId);
-    if(!confirm(`Delete plan "${planTitle}" and all associated issues/photos/exports? This cannot be undone.`)) return;
+    if(!confirm(`Move plan "${planTitle}" to trash? This will remove the plan and all associated issues, photos and exports from the app, but files will be kept in storage/trash. This action cannot be undone from the UI. Continue?`)) return; 
     delPlanBtn.disabled = true;
     try{
       const res = await fetch('/api/delete_plan.php',{method:'POST',headers:{'Content-Type':'application/json'},body: JSON.stringify({ id: planId }), credentials:'same-origin'});

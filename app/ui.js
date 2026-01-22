@@ -60,7 +60,7 @@ function planRow(plan) {
   del.style.borderColor = 'rgba(255,80,80,.28)';
   del.style.color = '#ff7b7b';
   del.onclick = async () => {
-    if (!confirm(`Delete plan "${plan.name || ('Plan ' + plan.id)}" and ALL its issues/photos/exports? This cannot be undone.`)) return;
+    if (!confirm(`Move plan "${plan.name || ('Plan ' + plan.id)}" to trash? This will remove the plan and ALL its issues, photos and generated exports from the app, but files will be kept in storage/trash. This action cannot be undone from the UI. Continue?`)) return; 
     try{
       del.disabled = true;
       const r = await fetch('/api/delete_plan.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: plan.id }), credentials: 'same-origin' });
@@ -137,8 +137,55 @@ async function renderPlansScreen() {
   if (menuBtn) menuBtn.onclick = () => document.body.classList.toggle('sidebar-open');
   await wireUpload();
   await refreshPlans();
+  // wire trash button
+  const trashBtn = document.getElementById('btnTrash');
+  if (trashBtn) trashBtn.onclick = async ()=>{ showTrashModal(); };
+
 }
 window.renderPlansScreen = renderPlansScreen;
+
+// --- Trash Modal Logic ---
+function showTrashModal(){
+  const modalId = 'trashModal';
+  let modal = document.getElementById(modalId);
+  if(!modal){
+    modal = document.createElement('div'); modal.id = modalId; modal.className='modal';
+    modal.innerHTML = `<div class="modal-content"><span class="close" id="closeTrashModal">&times;</span><h2>Trash</h2><div id="trashList">Loading…</div></div>`;
+    document.body.appendChild(modal);
+    document.getElementById('closeTrashModal').onclick = ()=>{ modal.style.display='none'; };
+  }
+  modal.style.display = 'block';
+  const list = modal.querySelector('#trashList'); list.innerHTML = 'Loading…';
+  (async ()=>{
+    try{
+      const res = await fetch('/api/list_trash.php');
+      const txt = await res.text(); const data = JSON.parse(txt);
+      if(!res.ok || !data.ok) throw new Error(data.error||'Failed to list trash');
+      if(!data.trash.length){ list.innerHTML = '<div class="muted">Trash is empty</div>'; return; }
+      list.innerHTML = '';
+      for(const t of data.trash){
+        const card = document.createElement('div'); card.className='card'; card.style.marginBottom='8px';
+        const hdr = document.createElement('div'); hdr.style.display='flex'; hdr.style.justifyContent='space-between'; hdr.style.alignItems='center';
+        const left = document.createElement('div'); left.innerHTML = `<div style="font-weight:800;">${escapeHtml(t.dir)}</div><div class="muted">${escapeHtml(t.manifest? (t.manifest.plan?.name||('Plan ' + (t.manifest.plan_id||''))) : '')}</div>`;
+        const right = document.createElement('div'); right.style.display='flex'; right.style.gap='8px';
+        const restoreBtn = document.createElement('button'); restoreBtn.className='btn'; restoreBtn.textContent='Restore'; restoreBtn.onclick = async ()=>{
+          if(!confirm('Restore this trash entry? This will move files back and attempt to recreate DB rows (plans/issues/photos).')) return;
+          restoreBtn.disabled = true; try{ const r2 = await fetch('/api/restore_trash.php', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ trash: t.dir }) }); const txt2 = await r2.text(); const j2 = JSON.parse(txt2); if(!r2.ok || !j2.ok) throw new Error(j2.error||'Restore failed'); showToast('Restored: '+ (j2.results.restored || []).length + ' files'); modal.style.display='none'; await refreshPlans(); }catch(e){ showToast('Restore error: ' + e.message); console.error(e); } restoreBtn.disabled = false; };
+        const purgeBtn = document.createElement('button'); purgeBtn.className='btn'; purgeBtn.textContent='Delete permanently'; purgeBtn.onclick = async ()=>{
+          if(!confirm('Permanently delete this trash folder and all files inside? This action cannot be undone.')) return;
+          purgeBtn.disabled = true; try{ const r3 = await fetch('/api/purge_trash.php',{method:'POST',headers:{'Content-Type':'application/json'},body: JSON.stringify({ trash: t.dir })}); const txt3 = await r3.text(); const j3 = JSON.parse(txt3); if(!r3.ok || !j3.ok) throw new Error(j3.error||'Purge failed'); showToast('Trash folder deleted'); modal.style.display='none'; }catch(e){ showToast('Delete error: ' + e.message); console.error(e); } purgeBtn.disabled = false; };
+        right.appendChild(restoreBtn); right.appendChild(purgeBtn);
+        hdr.appendChild(left); hdr.appendChild(right); card.appendChild(hdr);
+        // file list
+        const fl = document.createElement('div'); fl.style.marginTop='8px';
+        for(const f of t.files){ const fi = document.createElement('div'); fi.textContent = `${f.name} (${Math.round(f.size/1024)} KB)`; fl.appendChild(fi); }
+        card.appendChild(fl);
+        list.appendChild(card);
+      }
+    }catch(e){ list.innerHTML = `<div class="error">${escapeHtml(e.message)}</div>`; }
+  })();
+}
+
 
 // --- Issues Modal Logic ---
 function showIssuesModal(planId) {
