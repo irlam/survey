@@ -28,3 +28,6 @@ A mobile-first construction plan survey tool for viewing PDF plans, placing issu
 - If the viewer fails to load, try refreshing or clearing the service worker and cache.
 
 For developers: see the `app/` directory for client code and `api/` for server endpoints (PHP). Pull requests welcome.
+
+Tools
+- A new **Tools** section is available from the Plans panel. The first tool is the **Crop PDF Tool** (`/tools/crop.html`) — it lets you select a plan or upload a PDF, draw a crop rectangle on a page, preview it, and export the cropped area as a new PDF.
