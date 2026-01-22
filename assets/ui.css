@@ -260,6 +260,29 @@ input:focus{border-color: rgba(0,255,231,.5); box-shadow: 0 0 0 3px rgba(0,255,2
   background-repeat: no-repeat;
   background-size: contain;
   background-position: center bottom;
+.pin{
+  position: absolute;
+  transform: translate(-50%, -100%);
+  width: 34px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 12px;
+  color: #ffffff; /* label color shown in the pin hole */
+  background-color: transparent;
+  border: none;
+  z-index: 2000;
+  box-shadow: none !important;
+  pointer-events: auto !important;
+  /* Use provided raster/SVG asset in the same folder */
+  background-image: url("pin.png");
+  background-repeat: no-repeat;
+  background-size: contain;
+  background-position: center bottom;
+  /* lift the label up so it sits inside the pin hole */
+  padding-bottom: 12px;
 }
 
 .pdfOverlay {
