@@ -28,8 +28,8 @@
           <select id="planSelect"></select>
         </label>
         <label style="width:230px">Or upload PDF: <input id="fileUploader" type="file" accept="application/pdf"></label>
-        <label style="width:150px">Quality: <select id="exportScale"><option value="1">1x</option><option value="2">2x</option><option value="3">3x</option><option value="4">4x</option></select></label>
-        <label style="width:170px"><input id="vectorCrop" type="checkbox"> Vector crop (server)</label>
+        <label style="width:220px">DPI: <select id="dpiSelect"><option value="150">150</option><option value="300" selected>300</option><option value="600">600</option><option value="1200">1200</option></select></label>
+        <label style="width:180px"><input id="vectorCrop" type="checkbox"> Vector crop (server)</label>
         <button id="btnLoad" class="btn">Load</button>
       </div>
 
@@ -75,6 +75,8 @@
 
     pdfjsLib.GlobalWorkerOptions.workerSrc = '/vendor/pdfjs/pdf.worker.min.js';
 
+    document.getElementById('dpiSelect').addEventListener('change', ()=>{ updateDpiInfo(); });
+
     async function loadPlansList(){
       try{
         const r = await fetch('/api/list_plans.php');
@@ -100,7 +102,7 @@
       totalPages = pdfDoc.numPages; document.getElementById('pageInput').max = totalPages; document.getElementById('pageInput').value = 1; curPage = 1; await renderPage(curPage);
     }
 
-    async function renderPage(pageNo){ if(!pdfDoc) return; const page = await pdfDoc.getPage(pageNo); const viewport = page.getViewport({scale:1}); const w = Math.min(viewport.width, 1200); scale = w / viewport.width; pageViewport = page.getViewport({scale}); canvas.width = Math.floor(pageViewport.width); canvas.height = Math.floor(pageViewport.height); canvas.style.width = canvas.width + 'px'; canvas.style.height = canvas.height + 'px'; const renderContext = { canvasContext: ctx, viewport: pageViewport }; await page.render(renderContext).promise; }
+    async function renderPage(pageNo){ if(!pdfDoc) return; const page = await pdfDoc.getPage(pageNo); const viewport = page.getViewport({scale:1}); const w = Math.min(viewport.width, 1200); scale = w / viewport.width; pageViewport = page.getViewport({scale}); canvas.width = Math.floor(pageViewport.width); canvas.height = Math.floor(pageViewport.height); canvas.style.width = canvas.width + 'px'; canvas.style.height = canvas.height + 'px'; const renderContext = { canvasContext: ctx, viewport: pageViewport }; await page.render(renderContext).promise; updateDpiInfo(); }
 
     document.getElementById('btnPrev').onclick = async ()=>{ if(curPage>1) { curPage--; document.getElementById('pageInput').value = curPage; await renderPage(curPage); } };
     document.getElementById('btnNext').onclick = async ()=>{ if(curPage<totalPages) { curPage++; document.getElementById('pageInput').value = curPage; await renderPage(curPage); } };
@@ -115,17 +117,41 @@
 
     function updateRect(){ // draw rect in overlay
       overlay.innerHTML = '';
-      if(!rect) return;
+      if(!rect) { updateDpiInfo(); return; }
       const r = {x: Math.min(rect.x, rect.x+rect.w), y: Math.min(rect.y, rect.y+rect.h), w: Math.abs(rect.w), h: Math.abs(rect.h)};
       const div = document.createElement('div'); div.className='cropRect'; div.style.left = r.x + 'px'; div.style.top = r.y + 'px'; div.style.width = Math.max(0,r.w) + 'px'; div.style.height = Math.max(0,r.h) + 'px'; overlay.appendChild(div);
+      updateDpiInfo();
     }
 
-    document.getElementById('btnCropPreview').onclick = ()=>{ if(!rect){ alert('Draw a rectangle on the page to crop'); return; } const r = {x: Math.min(rect.x, rect.x+rect.w), y: Math.min(rect.y, rect.y+rect.h), w: Math.abs(rect.w), h: Math.abs(rect.h)}; const tmp = document.createElement('canvas'); tmp.width = r.w; tmp.height = r.h; const tctx = tmp.getContext('2d'); tctx.drawImage(canvas, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h); const img = tmp.toDataURL('image/jpeg', 0.9); const out = document.getElementById('previewOut'); out.innerHTML = `<div style="margin-top:8px"><img src="${img}" style="max-width:100%"></div>`; };
+    function updateDpiInfo(){
+      const out = document.getElementById('previewOut'); out.textContent = '';
+      if(!pdfDoc || !rect) return;
+      (async ()=>{
+        try{
+          const dpi = Number(document.getElementById('dpiSelect').value || '300');
+          const page = await pdfDoc.getPage(curPage);
+          const desiredScale = dpi / 72; // PDF points are 72 per inch
+          const viewportHR = page.getViewport({scale: desiredScale});
+          // map rect (canvas coords) to high-res coordinates
+          const scaleFactor = viewportHR.width / canvas.width;
+          const rw = Math.max(1, Math.round(Math.abs(rect.w) * scaleFactor));
+          const rh = Math.max(1, Math.round(Math.abs(rect.h) * scaleFactor));
+          const kb = Math.round((rw * rh * 3) / 1024);
+          out.innerHTML = `Estimated output: <strong>${rw} × ${rh}</strong> px (~${kb} KB image) at ${dpi} DPI`;
+          // warn if large
+          if (rw > 8000 || rh > 8000) {
+            out.innerHTML += ` <span style="color:#ffb86b">(Large - may fail or be slow)</span>`;
+          }
+        }catch(e){ console.warn('dpi info error', e); }
+      })();
+    }
+
+    document.getElementById('btnCropPreview').onclick = ()=>{ if(!rect){ alert('Draw a rectangle on the page to crop'); return; } const r = {x: Math.min(rect.x, rect.x+rect.w), y: Math.min(rect.y, rect.y+rect.h), w: Math.abs(rect.w), h: Math.abs(rect.h)}; const tmp = document.createElement('canvas'); tmp.width = r.w; tmp.height = r.h; const tctx = tmp.getContext('2d'); tctx.drawImage(canvas, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h); const img = tmp.toDataURL('image/jpeg', 0.9); const out = document.getElementById('previewOut'); out.innerHTML = `<div style="margin-top:8px"><img src="${img}" style="max-width:100%"></div>`; updateDpiInfo(); };
 
     document.getElementById('btnExportPdf').onclick = async ()=>{
       if(!rect) { alert('Draw a rectangle on the page to crop'); return; }
       const r = {x: Math.min(rect.x, rect.x+rect.w), y: Math.min(rect.y, rect.y+rect.h), w: Math.abs(rect.w), h: Math.abs(rect.h)};
-      const exportScale = Number(document.getElementById('exportScale').value || '1');
+      const dpi = Number(document.getElementById('dpiSelect').value || '300');
       const isVector = document.getElementById('vectorCrop').checked;
       // If vector crop selected, send normalized rect to server for precise crop
       if(isVector){
@@ -148,21 +174,29 @@
         return;
       }
 
-      // Raster export at higher resolution: render an offscreen high-res page and then crop
+      // Raster export at higher resolution (DPI): render an offscreen high-res page and then crop
       try{
         const page = await pdfDoc.getPage(curPage);
-        // calculate desired scale for render
-        const desiredScale = (pageViewport.scale || 1) * exportScale * 2; // *2 to boost base DPI
+        // calculate desired scale for render using DPI: scale = DPI / 72
+        const desiredScale = dpi / 72;
         const viewportHR = page.getViewport({scale: desiredScale});
-        const off = document.createElement('canvas'); off.width = Math.ceil(viewportHR.width); off.height = Math.ceil(viewportHR.height);
-        const offCtx = off.getContext('2d');
-        await page.render({ canvasContext: offCtx, viewport: viewportHR }).promise;
         // Map original rect on screen canvas to high-res canvas
-        const scaleFactor = off.width / canvas.width;
+        const scaleFactor = viewportHR.width / canvas.width;
         const rx = Math.round(r.x * scaleFactor);
         const ry = Math.round(r.y * scaleFactor);
         const rw = Math.round(r.w * scaleFactor);
         const rh = Math.round(r.h * scaleFactor);
+
+        // safety caps
+        const MAX_PIX = 10000; // avoid OOM
+        if (rw > MAX_PIX || rh > MAX_PIX) {
+          if (!confirm(`Cropped area is ${rw}×${rh} px at ${dpi} DPI. This may be very large and could fail. Continue?`)) return;
+        }
+
+        const off = document.createElement('canvas'); off.width = Math.ceil(viewportHR.width); off.height = Math.ceil(viewportHR.height);
+        const offCtx = off.getContext('2d');
+        await page.render({ canvasContext: offCtx, viewport: viewportHR }).promise;
+
         const tmp = document.createElement('canvas'); tmp.width = rw; tmp.height = rh; const tctx = tmp.getContext('2d'); tctx.drawImage(off, rx, ry, rw, rh, 0, 0, rw, rh);
         const blob = await new Promise(res=> tmp.toBlob(res, 'image/jpeg', 0.95));
         const bytes = await blob.arrayBuffer();

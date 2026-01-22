@@ -31,5 +31,5 @@ For developers: see the `app/` directory for client code and `api/` for server e
 
 Tools
 - A new **Tools** section is available from the Plans panel. The first tool is the **Crop PDF Tool** (`/tools/crop.html`) — it lets you select a plan or upload a PDF, draw a crop rectangle on a page, preview it, and export the cropped area as a new PDF.
-  - **Quality**: choose 1x..4x export quality for higher-resolution raster crops. Higher settings produce larger files but better legibility.
+  - **DPI settings**: choose a target DPI (e.g. 150, 300, 600, 1200) for raster exports. The tool will render the page at the selected DPI and crop to the selection — higher DPI means sharper output but larger file sizes and more memory usage.
   - **Vector crop (server)**: create a true, vector (non-raster) cropped PDF using the server-side FPDI-based crop endpoint. This preserves vector text and produces smaller, exact crops.
