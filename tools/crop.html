@@ -88,6 +88,20 @@
       }catch(e){ console.warn('Failed to load plans', e); }
     }
 
+    // support loading via ?pdf_url=/storage/exports/xxx.pdf
+    (async function(){
+      try{
+        const params = new URLSearchParams(window.location.search);
+        const pdfUrl = params.get('pdf_url');
+        if(pdfUrl){
+          // fetch PDF as arraybuffer
+          const r = await fetch(pdfUrl, {cache:'no-cache'});
+          if(!r.ok) { console.warn('Failed to fetch pdf_url', r.status); return; }
+          const ab = await r.arrayBuffer(); pdfBytes = ab; await openPdfFromBytes(ab);
+        }
+      }catch(e){ console.warn('pdf_url load failed', e); }
+    })();
+
     planSelect.onchange = async ()=>{
       const id = planSelect.value; if(!id) return; const sel = planSelect.options[planSelect.selectedIndex]; const fp = sel.dataset.file; if(!fp) return; const url = fp.startsWith('/') ? fp : '/storage/' + fp; // storage path
       try{ const res = await fetch(url); const ab = await res.arrayBuffer(); pdfBytes = ab; await openPdfFromBytes(ab); }catch(e){ alert('Failed to fetch plan PDF: '+e.message); }

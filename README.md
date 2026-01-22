@@ -36,8 +36,8 @@ Tools
 
 DWG support
 - The Tools section also includes a **DWG Viewer & Converter** (`/tools/dwg.html`) that can upload DWG/DXF and convert them to PDF/SVG/DXF when server utilities are available.
-- Conversion requires one of the following on the server:
-  - system utilities (recommended): `dwg2pdf`, `dwg2svg`, `dwg2dxf`, `pdf2svg`, `convert` (ImageMagick)
-  - or configure a Docker image that contains conversion tools. Set `dwg_converter.docker_image` in `api/config.php` (see `api/config.sample.php`) to enable the Docker fallback.
-- Composer cannot install system binaries. If you want an automated Docker pull, run `docker pull <image>` or configure it in your deployment scripts. I can add a Composer script that pulls a configured image if you'd like.
+- Conversion requires system utilities on the server (recommended): `dwg2pdf`, `dwg2svg`, `dwg2dxf`, `pdf2svg`, `convert` (ImageMagick). These are system binaries and cannot be installed via Composer; instead install via your OS package manager.
+- For Debian/Ubuntu, a helper script is provided at `tools/install_dwg_tools.sh` which attempts to install `libredwg-tools` and `imagemagick` (run with `sudo`).
+- If you cannot install system packages or want an isolated runtime, you may configure a Docker image with conversion utilities and set `dwg_converter.docker_image` in `api/config.php`. (This is optional — you indicated you prefer not to use Docker.)
+
 

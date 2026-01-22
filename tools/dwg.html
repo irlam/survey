@@ -54,6 +54,25 @@
             const txt = await r.text(); let data; try{ data = JSON.parse(txt); }catch{ data = null; }
             if(!r.ok || !data || !data.ok) { out.textContent = 'Conversion failed: ' + (data && data.error ? data.error : txt); return; }
             const a = document.createElement('a'); a.href = '/storage/exports/' + encodeURIComponent(data.filename); a.target='_blank'; a.textContent = 'Download: ' + data.filename; a.style.display='block'; out.innerHTML = ''; out.appendChild(a);
+            // Add Save as Plan and Crop buttons
+            const saveBtn = document.createElement('button'); saveBtn.className='btn'; saveBtn.textContent='Save as Plan'; saveBtn.onclick = async ()=>{
+              saveBtn.disabled = true; try{
+                const r2 = await fetch('/api/save_export_as_plan.php',{method:'POST',headers:{'Content-Type':'application/json'},body: JSON.stringify({ filename: data.filename, name: '' })});
+                const t2 = await r2.text(); const j2 = JSON.parse(t2);
+                if(!r2.ok || !j2.ok) throw new Error(j2.error || 'Save failed');
+                out.innerHTML += `<div>Saved as plan: <a href="/" onclick="event.preventDefault(); window.open('/?plan_id=${j2.plan.id}','_self');">${j2.plan.name} (#${j2.plan.id})</a></div>`;
+                // optionally refresh plans via parent UI if available
+                try{ if(window.refreshPlans) window.refreshPlans(); }catch(e){}
+              }catch(err){ out.textContent = 'Save failed: ' + err.message; }
+              saveBtn.disabled = false;
+            };
+            const cropBtn = document.createElement('button'); cropBtn.className='btn'; cropBtn.textContent='Crop converted PDF'; cropBtn.onclick = ()=>{
+              // open crop tool with pdf_url param
+              const url = '/tools/crop.html?pdf_url=' + encodeURIComponent('/storage/exports/' + data.filename);
+              window.open(url, '_blank');
+            };
+            out.appendChild(saveBtn);
+            out.appendChild(cropBtn);
           }catch(e){ out.textContent = 'Network error: ' + e.message; }
         };
       </script>
