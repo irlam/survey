@@ -14,6 +14,28 @@
   /* small loader */
   .loader{width:18px;height:18px;border:3px solid rgba(255,255,255,0.12);border-top-color:var(--neon);border-radius:50%;animation:spin 1s linear infinite;display:inline-block;vertical-align:middle;margin-left:8px}
   @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* Neon-style selects / inputs to match the buttons */
+  select, input[type="number"], input[type="color"], input[type="file"] {
+    background: linear-gradient(180deg,#04262a,#021617);
+    color: #e6fff9;
+    border: 1px solid rgba(0,255,231,0.12);
+    padding: 6px 10px;
+    border-radius: 8px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.02);
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    font-size: 14px;
+  }
+  select:focus, input[type="number"]:focus, input[type="color"]:focus { box-shadow: 0 0 12px rgba(0,255,231,0.15); border-color: rgba(0,255,231,0.5); }
+  /* widen primary plan select to look nicer */
+  #planSelect{ min-width:360px; max-width:70%; }
+  #iconSelect{ min-width:120px; }
+  /* file input sits inside label; make it compact */
+  #fileUploader{ padding:6px 8px; background:transparent; border:none; }
+  /* small styling for the page input */
+  #pageInput{ width:80px; }
 </style>
 </head>
 <body>
