@@ -261,12 +261,15 @@ fileUploader.onchange = (e)=>{ const f=e.target.files&&e.target.files[0]; if(!f)
       const page = await pdfDoc.getPage(n);
       pageViewport = page.getViewport({scale:1});
       console.log('original viewport', {width: pageViewport.width, height: pageViewport.height});
-      // calculate available width from the annot stage so viewer fills the page like main viewer
+      // calculate available width: prefer stage width, but fall back to a large portion of the window
       const stageEl = document.getElementById('annotStage');
       const stagePadding = 24; // allow some breathing room
-      const avail = stageEl ? Math.max(320, stageEl.clientWidth - stagePadding) : Math.min(pageViewport.width, 1200);
+      const fallback = Math.max(600, Math.floor(window.innerWidth * 0.72));
+      const stageAvail = stageEl ? Math.max(320, stageEl.clientWidth - stagePadding) : 0;
+      const avail = Math.min(pageViewport.width, Math.max(stageAvail || 0, fallback));
       const w = Math.min(pageViewport.width, avail);
       const s = w / pageViewport.width;
+      console.log('renderPage sizing', {windowInner: window.innerWidth, stageAvail, fallback, chosenWidth: w, scale: s});
       pageViewport = page.getViewport({scale:s});
       console.log('scaled viewport', {scale:s, width: pageViewport.width, height: pageViewport.height});
       canvas.width = Math.floor(pageViewport.width);
