@@ -182,7 +182,6 @@ fileUploader.onchange = (e)=>{ const f=e.target.files&&e.target.files[0]; if(!f)
   aCanvas.addEventListener('pointerdown',(e)=>{ const r=aCanvas.getBoundingClientRect(); const x=e.clientX-r.left; const y=e.clientY-r.top; if(tool==='text'){ const txt = prompt('Text to add'); if(txt){ shapes.push({type:'text', x,y, text:txt, color, size:16}); redrawAnnotations(); } return; } current={tool, color, stroke, startX:x, startY:y, points: [{x,y}]}; if(tool==='free'){ aCanvas.setPointerCapture(e.pointerId); }
   });
   aCanvas.addEventListener('pointermove',(e)=>{ if(!current) return; const r=aCanvas.getBoundingClientRect(); const x=e.clientX-r.left; const y=e.clientY-r.top; if(current.tool==='free'){ current.points.push({x,y}); drawTemp(); } else { current.endX=x; current.endY=y; drawTemp(); } });
-  aCanvas.addEventListener('pointerup',(e)=>{ if(!current) return; if(current.tool==='icon'){ const id = document.getElementById('iconSelect').value; current.icon = id; current.size = 28; } shapes.push(Object.assign({}, current)); current=null; aCanvas.releasePointerCapture(e.pointerId); redrawAnnotations(); });
   aCanvas.addEventListener('pointerup',(e)=>{
     if(!current) return;
     if(current.tool==='icon'){
