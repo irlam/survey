@@ -5,6 +5,32 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Tools — Survey</title>
   <link rel="stylesheet" href="/assets/ui.css">
+  <style>
+    .tools-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      margin-top: 12px;
+    }
+    .tool-card {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 16px;
+      border-radius: 12px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      box-shadow: 0 6px 18px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.03);
+      transition: transform .12s ease, box-shadow .12s ease;
+      text-decoration: none;
+      color: inherit;
+    }
+    .tool-card:hover { transform: translateY(-4px); box-shadow: 0 12px 30px rgba(0,0,0,0.5); }
+    .tool-card h3 { margin: 0 0 6px 0; font-size: 1.05rem; }
+    .tool-card p { margin: 0; opacity: .92; }
+    .tools-intro { margin-bottom: 8px; color: var(--muted, #d0d7de); }
+    @media (max-width:420px){ .tool-card{ padding:12px } }
+  </style>
 </head>
 <body>
   <header class="topbar">
@@ -15,12 +41,29 @@
   <main style="padding:16px;">
     <div class="card">
       <h2>Available tools</h2>
-      <ul>
-        <li><a href="/tools/crop.html">Crop PDF Tool</a> — Crop a page from a plan and export as a new PDF.</li>
-        <li><a href="/tools/dwg.html">DWG Viewer & Converter</a> — upload DWG/DXF and convert to PDF/SVG/DXF when supported (server-side converters required).</li>
-        <li><a href="/tools/annotate.html">Annotate PDF</a> — add arrows, lines, text and icons with color picker and save as a plan.</li>
-        <li><a href="/tools/convert.html">Convert / Other tools</a> (existing)</li>
-      </ul>
+      <div class="tools-intro">Choose a tool below — descriptions are kept from the original list.</div>
+
+      <div class="tools-grid">
+        <a class="tool-card" href="/tools/crop.html">
+          <h3>Crop PDF Tool</h3>
+          <p>Crop a page from a plan and export as a new PDF.</p>
+        </a>
+
+        <a class="tool-card" href="/tools/dwg.html">
+          <h3>DWG Viewer & Converter</h3>
+          <p>Upload DWG/DXF and convert to PDF/SVG/DXF when supported (server-side converters required).</p>
+        </a>
+
+        <a class="tool-card" href="/tools/annotate.html">
+          <h3>Annotate PDF</h3>
+          <p>Add arrows, lines, text and icons with color picker and save as a plan.</p>
+        </a>
+
+        <a class="tool-card" href="/tools/convert.html">
+          <h3>Convert / Other tools</h3>
+          <p>(existing)</p>
+        </a>
+      </div>
     </div>
   </main>
 </body>
