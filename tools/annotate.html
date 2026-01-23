@@ -17,23 +17,30 @@
 
   /* Neon-style selects / inputs to match the buttons */
   select, input[type="number"], input[type="color"], input[type="file"] {
-    background: linear-gradient(180deg,#04262a,#021617);
-    color: #e6fff9;
-    border: 1px solid rgba(0,255,231,0.12);
-    padding: 6px 10px;
-    border-radius: 8px;
-    box-shadow: 0 6px 18px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.02);
-    outline: none;
-    -webkit-appearance: none;
-    appearance: none;
-    font-size: 14px;
+    background: linear-gradient(180deg,#04262a,#021617) !important;
+    color: #e6fff9 !important;
+    border: 1px solid rgba(0,255,231,0.12) !important;
+    padding: 6px 10px !important;
+    border-radius: 8px !important;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.02) !important;
+    outline: none !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    font-size: 14px !important;
   }
-  select:focus, input[type="number"]:focus, input[type="color"]:focus { box-shadow: 0 0 12px rgba(0,255,231,0.15); border-color: rgba(0,255,231,0.5); }
+  select:focus, input[type="number"]:focus, input[type="color"]:focus { box-shadow: 0 0 12px rgba(0,255,231,0.15) !important; border-color: rgba(0,255,231,0.5) !important; }
   /* widen primary plan select to look nicer */
   #planSelect{ min-width:360px; max-width:70%; }
   #iconSelect{ min-width:120px; }
   /* file input sits inside label; make it compact */
-  #fileUploader{ padding:6px 8px; background:transparent; border:none; }
+  #fileUploader{ padding:6px 8px; background:transparent; border:none; color:var(--text); }
+  /* style file input button in WebKit/Blink */
+  input[type=file]::-webkit-file-upload-button{ background: linear-gradient(90deg, var(--neon), var(--neon2)); color:#041013; border:none; padding:6px 10px; border-radius:8px; margin-right:8px; }
+  /* style file input button in Firefox */
+  input[type=file]::file-selector-button{ background: linear-gradient(90deg, var(--neon), var(--neon2)); color:#041013; border:none; padding:6px 10px; border-radius:8px; margin-right:8px; }
+  /* hide default select arrow on WebKit and show our own via background-image if desired */
+  select::-ms-expand{display:none}
+  select::-webkit-inner-spin-button, select::-webkit-outer-spin-button{ -webkit-appearance:none; margin:0; }
   /* small styling for the page input */
   #pageInput{ width:80px; }
 </style>
