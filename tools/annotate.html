@@ -8,6 +8,8 @@
 <style>
   .toolsRow{display:flex;gap:8px;align-items:center;margin-bottom:8px}
   #annotStage{position:relative;padding:12px}
+  /* make the viewer stage wider and centered like main viewer */
+  #annotStage{ max-width: calc(100% - 48px); margin: 0 auto; }
   #pdfCanvas{border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.2);background:#f6f7f9;display:block;z-index:1}
   #annotCanvas{border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.2);background:transparent;display:block;z-index:2}
   .toolBtn.active{outline:2px solid rgba(0,255,231,.2)}
@@ -259,18 +261,26 @@ fileUploader.onchange = (e)=>{ const f=e.target.files&&e.target.files[0]; if(!f)
       const page = await pdfDoc.getPage(n);
       pageViewport = page.getViewport({scale:1});
       console.log('original viewport', {width: pageViewport.width, height: pageViewport.height});
-      const w = Math.min(pageViewport.width, 1200);
+      // calculate available width from the annot stage so viewer fills the page like main viewer
+      const stageEl = document.getElementById('annotStage');
+      const stagePadding = 24; // allow some breathing room
+      const avail = stageEl ? Math.max(320, stageEl.clientWidth - stagePadding) : Math.min(pageViewport.width, 1200);
+      const w = Math.min(pageViewport.width, avail);
       const s = w / pageViewport.width;
       pageViewport = page.getViewport({scale:s});
       console.log('scaled viewport', {scale:s, width: pageViewport.width, height: pageViewport.height});
       canvas.width = Math.floor(pageViewport.width);
       canvas.height = Math.floor(pageViewport.height);
-      canvas.style.width = canvas.width+'px';
+      // make canvas scale responsively to the stage width
+      canvas.style.width = Math.min(canvas.width, (stageEl ? stageEl.clientWidth - 12 : canvas.width)) + 'px';
       canvas.style.height = canvas.height+'px';
       aCanvas.width = canvas.width;
       aCanvas.height = canvas.height;
       aCanvas.style.left = canvas.offsetLeft+'px';
       aCanvas.style.top = canvas.offsetTop+'px';
+      // match displayed CSS size so annotation overlay lines up when canvas is scaled
+      aCanvas.style.width = canvas.style.width;
+      aCanvas.style.height = canvas.style.height;
       // clear canvas so we can see if render leaves it blank
       ctx.clearRect(0,0,canvas.width,canvas.height);
       ctx.fillStyle = '#f6f7f9';
