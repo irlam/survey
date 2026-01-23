@@ -41,6 +41,21 @@
   /* hide default select arrow on WebKit and show our own via background-image if desired */
   select::-ms-expand{display:none}
   select::-webkit-inner-spin-button, select::-webkit-outer-spin-button{ -webkit-appearance:none; margin:0; }
+
+  /* explicit neon select box style (chevron, padding) */
+  .neonSelect{
+    padding-right: 40px !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24'%3E%3Cpath fill='%2300FFE7' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat !important;
+    background-position: right 10px center !important;
+    background-size: 18px 18px !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+  }
+
+  /* Match button visuals for disabled/hover states */
+  .neonSelect:hover{ box-shadow: 0 10px 22px rgba(0,255,231,0.06); }
+  .neonSelect:disabled{ opacity:0.5; cursor:not-allowed }
   /* small styling for the page input */
   #pageInput{ width:80px; }
 </style>
@@ -55,7 +70,7 @@
   <main style="padding:14px;">
     <div class="card">
       <div class="toolsRow">
-        <label style="flex:1">Select plan: <select id="planSelect"></select><span id="annotLoader" class="loader" style="display:none"></span></label>
+          <label style="flex:1">Select plan: <select id="planSelect" class="neonSelect"></select><span id="annotLoader" class="loader" style="display:none"></span></label>
         <label style="width:300px">Or upload PDF: <input id="fileUploader" type="file" accept="application/pdf"></label>
         <label>Page: <input id="pageInput" type="number" min="1" value="1" style="width:80px"></label>
       </div>
@@ -69,7 +84,7 @@
           <button class="btn toolBtn" id="tool_free" data-tool="free">Freehand</button>
           <button class="btn toolBtn" id="tool_text" data-tool="text">Text</button>
           <button class="btn toolBtn" id="tool_icon" data-tool="icon">Icon</button>
-          <select id="iconSelect" style="width:120px">
+          <select id="iconSelect" class="neonSelect" style="width:120px">
             <option value="pin">Pin</option>
             <option value="star">Star</option>
             <option value="flag">Flag</option>
