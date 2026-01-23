@@ -8,10 +8,8 @@
 <style>
   .toolsRow{display:flex;gap:8px;align-items:center;margin-bottom:8px}
   #annotStage{position:relative;padding:12px}
-  #pdfCanvas, #annotCanvas{border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.2);background:#fff;display:block}
-
-  /* make PDF canvas slightly grey so missing renders are visible */
-  #pdfCanvas{background:#f6f7f9}
+  #pdfCanvas{border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.2);background:#f6f7f9;display:block;z-index:1}
+  #annotCanvas{border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.2);background:transparent;display:block;z-index:2}
   .toolBtn.active{outline:2px solid rgba(0,255,231,.2)}
   /* small loader */
   .loader{width:18px;height:18px;border:3px solid rgba(255,255,255,0.12);border-top-color:var(--neon);border-radius:50%;animation:spin 1s linear infinite;display:inline-block;vertical-align:middle;margin-left:8px}
