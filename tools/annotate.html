@@ -68,6 +68,12 @@
   .customSelect .selectList li:hover, .customSelect .selectList li[aria-selected="true"]{ background: rgba(0,255,231,0.06); color:var(--neon); }
   /* small styling for the page input */
   #pageInput{ width:80px; }
+  /* layout for larger viewer with right-side controls */
+  .annotLayout{ display:flex; gap:18px; align-items:flex-start; }
+  .viewerCol{ flex:1 1 auto; }
+  .controlsCol{ width:320px; display:flex; flex-direction:column; align-items:flex-end; gap:12px; }
+  .controlsCol .btn, .controlsCol .btnPrimary{ min-width:120px }
+  @media (max-width:900px){ .annotLayout{ flex-direction:column; } .controlsCol{ width:100%; align-items:flex-start } }
 </style>
 </head>
 <body>
@@ -87,8 +93,6 @@
             </div>
             <span id="annotLoader" class="loader" style="display:none"></span>
           </label>
-        <label style="width:300px">Or upload PDF: <input id="fileUploader" type="file" accept="application/pdf"></label>
-        <label>Page: <input id="pageInput" type="number" min="1" value="1" style="width:80px"></label>
       </div>
 
       <div class="toolsRow" style="margin-bottom:12px;">
@@ -115,17 +119,28 @@
             <input id="strokeWidth" type="number" min="1" max="24" value="3" style="width:60px">
           </div>
         </div>
-        <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
-          <button class="btn" id="btnUndo">Undo</button>
-          <button class="btn" id="btnClear">Clear</button>
-          <button class="btn" id="btnExport">Export PDF</button>
-          <button class="btnPrimary" id="btnSavePlan">Save as Plan</button>
-        </div>
       </div>
 
-      <div id="annotStage">
-        <canvas id="pdfCanvas"></canvas>
-        <canvas id="annotCanvas" style="position:absolute;left:0;top:0"></canvas>
+      <div class="annotLayout">
+        <div class="viewerCol">
+          <div id="annotStage">
+            <canvas id="pdfCanvas"></canvas>
+            <canvas id="annotCanvas" style="position:absolute;left:0;top:0"></canvas>
+          </div>
+        </div>
+        <aside class="controlsCol">
+          <label style="display:block;margin-bottom:10px">Or upload PDF: <input id="fileUploader" type="file" accept="application/pdf"></label>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+            <label class="muted">Page:</label>
+            <input id="pageInput" type="number" min="1" value="1" style="width:80px">
+            <button id="btnUndo" class="btn">Undo</button>
+            <button id="btnClear" class="btn">Clear</button>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:8px;">
+            <button class="btn" id="btnExport">Export PDF</button>
+            <button class="btnPrimary" id="btnSavePlan">Save as Plan</button>
+          </div>
+        </aside>
       </div>
       <div id="annotOut" class="muted" style="margin-top:8px"></div>
     </div>
