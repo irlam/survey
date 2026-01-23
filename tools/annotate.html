@@ -183,6 +183,21 @@ fileUploader.onchange = (e)=>{ const f=e.target.files&&e.target.files[0]; if(!f)
   });
   aCanvas.addEventListener('pointermove',(e)=>{ if(!current) return; const r=aCanvas.getBoundingClientRect(); const x=e.clientX-r.left; const y=e.clientY-r.top; if(current.tool==='free'){ current.points.push({x,y}); drawTemp(); } else { current.endX=x; current.endY=y; drawTemp(); } });
   aCanvas.addEventListener('pointerup',(e)=>{ if(!current) return; if(current.tool==='icon'){ const id = document.getElementById('iconSelect').value; current.icon = id; current.size = 28; } shapes.push(Object.assign({}, current)); current=null; aCanvas.releasePointerCapture(e.pointerId); redrawAnnotations(); });
+  aCanvas.addEventListener('pointerup',(e)=>{
+    if(!current) return;
+    if(current.tool==='icon'){
+      const id = document.getElementById('iconSelect').value;
+      current.icon = id;
+      current.size = 28;
+    }
+    // normalize saved shape to use `type` (redrawAnnotations checks `type`)
+    const saved = Object.assign({}, current);
+    if(!saved.type && saved.tool) saved.type = saved.tool;
+    shapes.push(saved);
+    current=null;
+    try{ aCanvas.releasePointerCapture(e.pointerId); }catch(ignore){}
+    redrawAnnotations();
+  });
 
   function drawTemp(){ redrawAnnotations(); if(!current) return; aCtx.save(); aCtx.strokeStyle=current.color; aCtx.lineWidth=current.stroke; aCtx.fillStyle=current.color; if(current.tool==='free'){ aCtx.beginPath(); aCtx.moveTo(current.points[0].x, current.points[0].y); for(let p of current.points) aCtx.lineTo(p.x,p.y); aCtx.stroke(); } else if(current.tool==='line' || current.tool==='arrow'){ aCtx.beginPath(); aCtx.moveTo(current.startX,current.startY); aCtx.lineTo(current.endX,current.endY); aCtx.stroke(); if(current.tool==='arrow') drawArrowHead(aCtx,current.startX,current.startY,current.endX,current.endY,current.stroke,current.color); } else if(current.tool==='rect'){ aCtx.strokeRect(Math.min(current.startX,current.endX), Math.min(current.startY,current.endY), Math.abs(current.endX-current.startX), Math.abs(current.endY-current.startY)); } else if(current.tool==='icon'){ drawIconPreview(aCtx, current); } aCtx.restore(); }
   function drawArrowHead(ctx,x1,y1,x2,y2,w, color){ const dx=x2-x1, dy=y2-y1; const ang=Math.atan2(dy,dx); const len=12; ctx.fillStyle=color; ctx.beginPath(); ctx.moveTo(x2,y2); ctx.lineTo(x2 - len*Math.cos(ang - Math.PI/6), y2 - len*Math.sin(ang - Math.PI/6)); ctx.lineTo(x2 - len*Math.cos(ang + Math.PI/6), y2 - len*Math.sin(ang + Math.PI/6)); ctx.closePath(); ctx.fill(); }
