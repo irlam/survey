@@ -281,7 +281,8 @@ fileUploader.onchange = (e)=>{ const f=e.target.files&&e.target.files[0]; if(!f)
       const stagePadding = 24; // allow some breathing room
       const fallback = Math.max(600, Math.floor(window.innerWidth * 0.72));
       const stageAvail = stageEl ? Math.max(320, stageEl.clientWidth - stagePadding) : 0;
-      const avail = Math.min(pageViewport.width, Math.max(stageAvail || 0, fallback));
+      // Do NOT cap avail by the pageViewport.width here — we want to allow upscaling to fill the stage
+      const avail = Math.max(stageAvail || 0, fallback);
         const originalWidth = pageViewport.width;
         const originalHeight = pageViewport.height;
         console.log('original viewport', {width: originalWidth, height: originalHeight});
