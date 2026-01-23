@@ -9,6 +9,9 @@
   .toolsRow{display:flex;gap:8px;align-items:center;margin-bottom:8px}
   #annotStage{position:relative;padding:12px}
   #pdfCanvas, #annotCanvas{border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.2);background:#fff;display:block}
+
+  /* make PDF canvas slightly grey so missing renders are visible */
+  #pdfCanvas{background:#f6f7f9}
   .toolBtn.active{outline:2px solid rgba(0,255,231,.2)}
   /* small loader */
   .loader{width:18px;height:18px;border:3px solid rgba(255,255,255,0.12);border-top-color:var(--neon);border-radius:50%;animation:spin 1s linear infinite;display:inline-block;vertical-align:middle;margin-left:8px}
@@ -70,7 +73,16 @@
 <script src="/vendor/pdfjs/pdf.min.js"></script>
 <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
 <script>
-  pdfjsLib.GlobalWorkerOptions.workerSrc = '/vendor/pdfjs/pdf.worker.min.js';
+  // ensure pdfjsLib is available (some builds attach to window)
+  if (typeof pdfjsLib === 'undefined' && window && window.pdfjsLib) {
+    pdfjsLib = window.pdfjsLib;
+  }
+  if (typeof pdfjsLib === 'undefined') {
+    console.error('PDF.js not found at /vendor/pdfjs/pdf.min.js');
+    document.getElementById('annotOut').textContent = 'PDF.js not loaded; check /vendor/pdfjs/pdf.min.js';
+  } else {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '/vendor/pdfjs/pdf.worker.min.js';
+  }
   const planSelect = document.getElementById('planSelect');
   const fileUploader = document.getElementById('fileUploader');
   const btnLoad = document.getElementById('btnLoad');
@@ -89,7 +101,25 @@
   function showAnnotLoader(){ try{ document.getElementById('annotLoader').style.display = 'inline-block'; }catch(e){} }
   function hideAnnotLoader(){ try{ document.getElementById('annotLoader').style.display = 'none'; }catch(e){} }
 
-  planSelect.onchange = async ()=>{ const id = planSelect.value; if(!id) return; showAnnotLoader(); try{ const res = await fetch('/api/get_plan.php?plan_id=' + encodeURIComponent(id)); const txt = await res.text(); let j; try{ j = JSON.parse(txt); }catch{ throw new Error('Invalid JSON from get_plan'); } if(!res.ok || !j.ok) throw new Error(j.error || 'Failed to fetch plan info'); const pdfUrl = j.pdf_url || (j.plan && (j.plan.file_path ? ('/storage/' + j.plan.file_path) : null)); if(!pdfUrl) throw new Error('No PDF URL for plan'); const r2 = await fetch(pdfUrl); if(!r2.ok) throw new Error('Failed to fetch PDF: HTTP ' + r2.status); const ab = await r2.arrayBuffer(); await openPdfFromBytes(ab); }catch(e){ alert('Failed to load plan: '+e.message); out.textContent = 'Load failed: ' + e.message; console.error(e); } finally{ hideAnnotLoader(); } };
+  planSelect.onchange = async ()=>{
+    const id = planSelect.value; if(!id) return; showAnnotLoader();
+    try{
+      console.log('Loading plan id', id);
+      const res = await fetch('/api/get_plan.php?plan_id=' + encodeURIComponent(id));
+      const txt = await res.text(); let j;
+      try{ j = JSON.parse(txt); }catch(err){ console.error('get_plan.php returned non-JSON', txt); throw new Error('Invalid JSON from get_plan'); }
+      if(!res.ok || !j.ok) throw new Error(j.error || 'Failed to fetch plan info');
+      const pdfUrl = j.pdf_url || (j.plan && (j.plan.file_path ? ('/storage/' + j.plan.file_path) : null));
+      if(!pdfUrl) throw new Error('No PDF URL for plan');
+      console.log('Fetching PDF URL:', pdfUrl);
+      const r2 = await fetch(pdfUrl);
+      console.log('PDF fetch response', r2.status, r2.headers.get('content-type'));
+      if(!r2.ok) throw new Error('Failed to fetch PDF: HTTP ' + r2.status);
+      const ab = await r2.arrayBuffer();
+      await openPdfFromBytes(ab);
+    }catch(e){ alert('Failed to load plan: '+e.message); out.textContent = 'Load failed: ' + e.message; console.error(e); }
+    finally{ hideAnnotLoader(); }
+  };
 fileUploader.onchange = (e)=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=async ()=>{ pdfBytes=r.result; showAnnotLoader(); try{ await openPdfFromBytes(pdfBytes); }finally{ hideAnnotLoader(); } }; r.readAsArrayBuffer(f); };
 
   async function openPdfFromBytes(ab){ try{ pdfDoc = await pdfjsLib.getDocument({data:ab}).promise; totalPages = pdfDoc.numPages; document.getElementById('pageInput').max = totalPages; document.getElementById('pageInput').value = 1; curPage=1; await renderPage(curPage); }catch(e){ throw e; }finally{ hideAnnotLoader(); } }
