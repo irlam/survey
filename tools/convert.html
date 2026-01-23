@@ -1,3 +1,96 @@
-<!-- Milestone 6: Convert tool stub -->
-<!DOCTYPE html>
-<html><body><h1>Convert PDF Tool</h1></body></html>
+<!-- DWG/DXF Convert Tool -->
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1" />
+	<title>Convert DWG/DXF</title>
+	<link rel="stylesheet" href="/assets/ui.css">
+	<style>
+		.card{max-width:960px;margin:20px auto;padding:16px}
+		.row{display:flex;gap:12px;align-items:center}
+		.formats{display:flex;gap:8px;margin:12px 0}
+		.outArea{margin-top:12px}
+		.loader{width:18px;height:18px;border:3px solid rgba(255,255,255,0.12);border-top-color:var(--neon);border-radius:50%;animation:spin 1s linear infinite;display:inline-block;vertical-align:middle;margin-left:8px}
+		@keyframes spin{to{transform:rotate(360deg)}}
+		.hint{color:var(--muted);font-size:13px;margin-top:8px}
+	</style>
+</head>
+<body>
+	<header class="topbar">
+		<button onclick="history.back()" class="iconBtn">←</button>
+		<div class="brand">Convert DWG / DXF</div>
+	</header>
+
+	<main class="main">
+		<div class="card">
+			<h2>Convert DWG / DXF to PDF, SVG or DXF</h2>
+			<p class="hint">Upload a .dwg or .dxf file and choose an output format. Server-side converters (LibreDWG, dwg2pdf or a Docker image) are required.</p>
+
+			<div class="row" style="margin-top:12px;">
+				<label style="flex:1">File: <input id="fileInput" type="file" accept=".dwg,.dxf"></label>
+				<div style="width:220px">
+					<label>Format</label>
+					<select id="formatSelect">
+						<option value="pdf">PDF</option>
+						<option value="svg">SVG</option>
+						<option value="dxf">DXF</option>
+					</select>
+				</div>
+				<button id="btnConvert" class="btnPrimary">Convert</button>
+			</div>
+
+			<div class="formats" id="advancedOptions" style="margin-top:6px;">
+				<label class="muted">Options:</label>
+				<label><input type="checkbox" id="optRaster"/> Rasterize complex entities</label>
+				<label><input type="checkbox" id="optPreview"/> Show preview when ready</label>
+			</div>
+
+			<div class="outArea" id="outArea"></div>
+			<div class="hint">If conversion fails, check server logs and ensure conversion utilities are installed or configure a Docker conversion image in server config.</div>
+		</div>
+	</main>
+
+	<script>
+		const fileInput = document.getElementById('fileInput');
+		const formatSelect = document.getElementById('formatSelect');
+		const btnConvert = document.getElementById('btnConvert');
+		const outArea = document.getElementById('outArea');
+
+		function showLoader(msg){ outArea.innerHTML = msg + ' <span class="loader"></span>'; }
+		function showError(msg){ outArea.innerHTML = '<div class="error">'+msg+'</div>'; }
+		function showResult(filename, path){
+			const url = path && path.indexOf('/')===0 ? path : ('/storage/exports/' + filename);
+			outArea.innerHTML = `<div>Conversion complete: <a href="${url}" target="_blank">${filename}</a></div>`;
+			if(formatSelect.value==='svg' || formatSelect.value==='pdf'){
+				const preview = document.createElement('div'); preview.style.marginTop='12px';
+				if(formatSelect.value==='svg'){
+					const img = document.createElement('object'); img.type='image/svg+xml'; img.data = url; img.style.width='100%'; img.style.height='600px'; preview.appendChild(img);
+				} else {
+					const iframe = document.createElement('iframe'); iframe.src = url; iframe.style.width='100%'; iframe.style.height='600px'; preview.appendChild(iframe);
+				}
+				outArea.appendChild(preview);
+			}
+		}
+
+		btnConvert.addEventListener('click', async ()=>{
+			const f = fileInput.files && fileInput.files[0];
+			if(!f) return showError('Choose a DWG or DXF file first');
+			const fm = formatSelect.value || 'pdf';
+			showLoader('Uploading and converting...');
+			try{
+				const fd = new FormData(); fd.append('file', f); fd.append('format', fm);
+				const res = await fetch('/api/convert_dwg.php', { method:'POST', body: fd });
+				const txt = await res.text(); let j;
+				try{ j = JSON.parse(txt); }catch(e){ throw new Error('Invalid server response: '+txt); }
+				if(!res.ok || !j.ok) throw new Error(j.error||'Conversion failed');
+				// server returns path possibly absolute
+				const filename = j.filename || '';
+				const path = j.path || ('/storage/exports/' + filename);
+				outArea.innerHTML = '';
+				showResult(filename, path);
+			}catch(e){ console.error(e); showError('Conversion error: '+(e.message || e)); }
+		});
+	</script>
+</body>
+</html>
