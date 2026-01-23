@@ -267,11 +267,12 @@ fileUploader.onchange = (e)=>{ const f=e.target.files&&e.target.files[0]; if(!f)
       const fallback = Math.max(600, Math.floor(window.innerWidth * 0.72));
       const stageAvail = stageEl ? Math.max(320, stageEl.clientWidth - stagePadding) : 0;
       const avail = Math.min(pageViewport.width, Math.max(stageAvail || 0, fallback));
-      const w = Math.min(pageViewport.width, avail);
-      const s = w / pageViewport.width;
-      console.log('renderPage sizing', {windowInner: window.innerWidth, stageAvail, fallback, chosenWidth: w, scale: s});
-      pageViewport = page.getViewport({scale:s});
-      console.log('scaled viewport', {scale:s, width: pageViewport.width, height: pageViewport.height});
+        const originalWidth = pageViewport.width;
+        const originalHeight = pageViewport.height;
+        console.log('original viewport', {width: originalWidth, height: originalHeight});
+        const desiredScale = Math.min(2.0, Math.max( (avail / originalWidth), 1 ));
+        pageViewport = page.getViewport({scale: desiredScale});
+        console.log('scaled viewport', {scale: desiredScale, width: pageViewport.width, height: pageViewport.height});
       canvas.width = Math.floor(pageViewport.width);
       canvas.height = Math.floor(pageViewport.height);
       // make canvas scale responsively to the stage width
