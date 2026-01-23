@@ -56,6 +56,14 @@
   /* Match button visuals for disabled/hover states */
   .neonSelect:hover{ box-shadow: 0 10px 22px rgba(0,255,231,0.06); }
   .neonSelect:disabled{ opacity:0.5; cursor:not-allowed }
+
+  /* Custom select dropdown styles */
+  .customSelect{ position:relative; display:inline-block; }
+  .customSelect .selectButton{ width:100%; text-align:left; background:transparent; border:none; padding:6px 12px; color:inherit; font-size:14px; cursor:pointer; }
+  .customSelect .selectList{ display:none; position:absolute; left:0; top:calc(100% + 8px); min-width:160px; max-height:300px; overflow:auto; background: linear-gradient(180deg,#031014,#021017); border:1px solid rgba(0,255,231,0.12); box-shadow: 0 10px 30px rgba(0,0,0,0.6); border-radius:10px; z-index:9999; padding:6px; list-style:none; margin:0; }
+  .customSelect .selectList.open{ display:block }
+  .customSelect .selectList li{ padding:8px 10px; border-radius:6px; color:var(--text); cursor:pointer }
+  .customSelect .selectList li:hover, .customSelect .selectList li[aria-selected="true"]{ background: rgba(0,255,231,0.06); color:var(--neon); }
   /* small styling for the page input */
   #pageInput{ width:80px; }
 </style>
@@ -70,7 +78,13 @@
   <main style="padding:14px;">
     <div class="card">
       <div class="toolsRow">
-          <label style="flex:1">Select plan: <select id="planSelect" class="neonSelect"></select><span id="annotLoader" class="loader" style="display:none"></span></label>
+          <label style="flex:1">Select plan: 
+            <div id="planSelect" class="neonSelect customSelect" role="combobox" aria-haspopup="listbox" aria-expanded="false" tabindex="0">
+              <button class="selectButton" aria-label="Select plan"><span class="selectedLabel">-- choose plan --</span></button>
+              <ul class="selectList" role="listbox" tabindex="-1"></ul>
+            </div>
+            <span id="annotLoader" class="loader" style="display:none"></span>
+          </label>
         <label style="width:300px">Or upload PDF: <input id="fileUploader" type="file" accept="application/pdf"></label>
         <label>Page: <input id="pageInput" type="number" min="1" value="1" style="width:80px"></label>
       </div>
@@ -84,11 +98,14 @@
           <button class="btn toolBtn" id="tool_free" data-tool="free">Freehand</button>
           <button class="btn toolBtn" id="tool_text" data-tool="text">Text</button>
           <button class="btn toolBtn" id="tool_icon" data-tool="icon">Icon</button>
-          <select id="iconSelect" class="neonSelect" style="width:120px">
-            <option value="pin">Pin</option>
-            <option value="star">Star</option>
-            <option value="flag">Flag</option>
-          </select>
+          <div id="iconSelect" class="neonSelect customSelect" role="combobox" aria-haspopup="listbox" aria-expanded="false" tabindex="0" style="width:120px">
+            <button class="selectButton" aria-label="Select icon"><span class="selectedLabel">Star</span></button>
+            <ul class="selectList" role="listbox" tabindex="-1">
+              <li role="option" data-value="pin">Pin</li>
+              <li role="option" data-value="star" aria-selected="true">Star</li>
+              <li role="option" data-value="flag">Flag</li>
+            </ul>
+          </div>
           <div style="display:flex;align-items:center;gap:6px;margin-left:8px;">
             <label class="muted">Color</label>
             <input type="color" id="colorPicker" value="#ff0000">
@@ -139,7 +156,61 @@
   let shapes = []; // undo stack
   let current = null; // current drawing
 
-  async function loadPlans(){ const r = await fetch('/api/list_plans.php'); const j = await r.json(); planSelect.innerHTML = '<option value="">-- choose plan --</option>'; if(j.ok){ for(const p of j.plans){ const opt=document.createElement('option'); opt.value=p.id; opt.textContent=`${p.name||'Plan #'+p.id} (#${p.id})`; opt.dataset.file=p.file_path||''; planSelect.appendChild(opt); } } }
+  async function loadPlans(){
+    const r = await fetch('/api/list_plans.php');
+    const j = await r.json();
+    const list = planSelect.querySelector('.selectList');
+    list.innerHTML = '<li role="option" data-value="">-- choose plan --</li>';
+    if(j.ok){
+      for(const p of j.plans){
+        const li = document.createElement('li');
+        li.setAttribute('role','option');
+        li.dataset.value = p.id;
+        li.dataset.file = p.file_path||'';
+        li.textContent = `${p.name||'Plan #'+p.id} (#${p.id})`;
+        li.onclick = ()=>{ selectCustomOption(planSelect, p.id, li.textContent, p.file_path||''); };
+        list.appendChild(li);
+      }
+    }
+    // wire click open/close
+    initCustomSelect(planSelect);
+  }
+
+  function selectCustomOption(wrapper, value, label, filePath){
+    wrapper.querySelector('.selectedLabel').textContent = label;
+    wrapper.value = value;
+    if(filePath) wrapper.dataset.file = filePath;
+    wrapper.querySelector('.selectList').classList.remove('open');
+    wrapper.setAttribute('aria-expanded','false');
+    // mark aria-selected
+    wrapper.querySelectorAll('.selectList li').forEach(li=> li.setAttribute('aria-selected', li.dataset.value==value ? 'true' : 'false'));
+    // emit change event
+    wrapper.dispatchEvent(new Event('change'));
+  }
+
+  function initCustomSelect(wrapper){
+    const btn = wrapper.querySelector('.selectButton');
+    const list = wrapper.querySelector('.selectList');
+    // initialize selected item if present
+    const pre = list.querySelector('li[aria-selected="true"]') || list.querySelector('li[data-value]:not([data-value=""])') || list.querySelector('li');
+    if(pre){ wrapper.querySelector('.selectedLabel').textContent = pre.textContent; wrapper.value = pre.dataset.value || ''; if(pre.dataset.file) wrapper.dataset.file = pre.dataset.file; }
+    btn.onclick = (e)=>{ const open = list.classList.toggle('open'); wrapper.setAttribute('aria-expanded', open ? 'true' : 'false'); if(open) list.focus(); };
+    wrapper.addEventListener('keydown', (e)=>{
+      const items = Array.from(list.querySelectorAll('li'));
+      const open = list.classList.contains('open');
+      if(e.key === 'ArrowDown'){ e.preventDefault(); if(!open){ list.classList.add('open'); wrapper.setAttribute('aria-expanded','true'); } const next = items.find(li=> li.getAttribute('aria-selected')!=='true') || items[0]; next && next.focus(); }
+      else if(e.key === 'ArrowUp'){ e.preventDefault(); if(!open){ list.classList.add('open'); wrapper.setAttribute('aria-expanded','true'); } items[items.length-1] && items[items.length-1].focus(); }
+      else if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); if(!open){ list.classList.add('open'); wrapper.setAttribute('aria-expanded','true'); } else{ const focused = document.activeElement; if(focused && focused.parentElement===list){ const v = focused.dataset.value; selectCustomOption(wrapper, v, focused.textContent, focused.dataset.file||''); } } }
+      else if(e.key === 'Escape'){ list.classList.remove('open'); wrapper.setAttribute('aria-expanded','false'); }
+    });
+    // make list items tabbable/clickable
+    list.querySelectorAll('li').forEach(li=>{
+      li.tabIndex = 0;
+      li.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); selectCustomOption(wrapper, li.dataset.value, li.textContent, li.dataset.file||''); } });
+    });
+    // click outside to close
+    document.addEventListener('click', (ev)=>{ if(!wrapper.contains(ev.target)) { list.classList.remove('open'); wrapper.setAttribute('aria-expanded','false'); } });
+  }
   function showAnnotLoader(){ try{ document.getElementById('annotLoader').style.display = 'inline-block'; }catch(e){} }
   function hideAnnotLoader(){ try{ document.getElementById('annotLoader').style.display = 'none'; }catch(e){} }
 
@@ -296,6 +367,8 @@ function redrawAnnotations(){ aCtx.clearRect(0,0,aCanvas.width,aCanvas.height); 
   (async function(){ const params=new URLSearchParams(window.location.search); const pdfUrl=params.get('pdf_url'); if(pdfUrl){ showAnnotLoader(); try{ const r=await fetch(pdfUrl); if(!r.ok) return; const ab=await r.arrayBuffer(); await openPdfFromBytes(ab);}catch(e){ console.warn('pdf_url load failed',e);} finally{ hideAnnotLoader(); } } })();
 
   loadPlans();
+  // init static icon select
+  try{ initCustomSelect(document.getElementById('iconSelect')); }catch(e){}
 </script>
 </body>
 </html>
