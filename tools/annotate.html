@@ -123,7 +123,56 @@
 fileUploader.onchange = (e)=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=async ()=>{ pdfBytes=r.result; showAnnotLoader(); try{ await openPdfFromBytes(pdfBytes); }finally{ hideAnnotLoader(); } }; r.readAsArrayBuffer(f); };
 
   async function openPdfFromBytes(ab){ try{ pdfDoc = await pdfjsLib.getDocument({data:ab}).promise; totalPages = pdfDoc.numPages; document.getElementById('pageInput').max = totalPages; document.getElementById('pageInput').value = 1; curPage=1; await renderPage(curPage); }catch(e){ throw e; }finally{ hideAnnotLoader(); } }
+  async function openPdfFromBytes(ab){
+    try{
+      console.log('openPdfFromBytes: creating PDF document');
+      pdfDoc = await pdfjsLib.getDocument({data:ab}).promise;
+      totalPages = pdfDoc.numPages;
+      console.log('PDF loaded, totalPages=', totalPages);
+      document.getElementById('pageInput').max = totalPages;
+      document.getElementById('pageInput').value = 1;
+      curPage=1;
+      await renderPage(curPage);
+    }catch(e){
+      console.error('openPdfFromBytes error', e);
+      throw e;
+    }finally{ hideAnnotLoader(); }
+  }
   async function renderPage(n){ if(!pdfDoc) return; const page = await pdfDoc.getPage(n); pageViewport = page.getViewport({scale:1}); const w = Math.min(pageViewport.width, 1200); const s = w / pageViewport.width; pageViewport = page.getViewport({scale:s}); canvas.width = Math.floor(pageViewport.width); canvas.height = Math.floor(pageViewport.height); canvas.style.width = canvas.width+'px'; canvas.style.height = canvas.height+'px'; aCanvas.width = canvas.width; aCanvas.height = canvas.height; aCanvas.style.left = canvas.offsetLeft+'px'; aCanvas.style.top = canvas.offsetTop+'px'; await page.render({canvasContext:ctx, viewport:pageViewport}).promise; redrawAnnotations(); }
+  async function renderPage(n){
+    if(!pdfDoc) return;
+    try{
+      console.log('renderPage: page=', n);
+      const page = await pdfDoc.getPage(n);
+      pageViewport = page.getViewport({scale:1});
+      console.log('original viewport', {width: pageViewport.width, height: pageViewport.height});
+      const w = Math.min(pageViewport.width, 1200);
+      const s = w / pageViewport.width;
+      pageViewport = page.getViewport({scale:s});
+      console.log('scaled viewport', {scale:s, width: pageViewport.width, height: pageViewport.height});
+      canvas.width = Math.floor(pageViewport.width);
+      canvas.height = Math.floor(pageViewport.height);
+      canvas.style.width = canvas.width+'px';
+      canvas.style.height = canvas.height+'px';
+      aCanvas.width = canvas.width;
+      aCanvas.height = canvas.height;
+      aCanvas.style.left = canvas.offsetLeft+'px';
+      aCanvas.style.top = canvas.offsetTop+'px';
+      // clear canvas so we can see if render leaves it blank
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle = '#f6f7f9';
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      try{
+        const renderTask = page.render({canvasContext:ctx, viewport:pageViewport});
+        await renderTask.promise;
+        console.log('page.render completed');
+      }catch(renderErr){
+        console.error('page.render failed', renderErr);
+        out.textContent = 'Render failed: ' + (renderErr && renderErr.message ? renderErr.message : String(renderErr));
+      }
+      redrawAnnotations();
+    }catch(e){ console.error('renderPage error', e); out.textContent = 'Render error: '+(e.message||e); }
+  }
 
   document.getElementById('pageInput').onchange = async (e)=>{ const v=parseInt(e.target.value||'1',10); if(v>=1 && v<=totalPages){ curPage=v; await renderPage(curPage); } };
 
