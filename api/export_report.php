@@ -63,7 +63,7 @@ $pdf->Cell(0,10,'Survey Report',0,1,'C');
 $pdf->SetFont('Arial','',12);
 
 if ($format === 'csv') {
-    // Generate CSV report for issues (no coords)
+    // Generate CSV report for issues (no coords) — format dates to UK style
     $filename = 'report_' . $plan_id . '_' . ($issue_id ? 'issue_' . $issue_id . '_' : '') . time() . '.csv';
     $path = storage_dir('exports/' . $filename);
     $fh = fopen($path, 'w');
@@ -81,6 +81,11 @@ if ($format === 'csv') {
         $list = $stmt->fetchAll();
     }
     foreach ($list as $issue) {
+        // format date fields to UK style if present
+        $due = !empty($issue['due_date']) ? date('d/m/Y', strtotime($issue['due_date'])) : '';
+        $created = !empty($issue['created_at']) ? date('d/m/Y H:i', strtotime($issue['created_at'])) : '';
+        $updated = !empty($issue['updated_at']) ? date('d/m/Y H:i', strtotime($issue['updated_at'])) : '';
+
         $row = [
             $issue['id'] ?? '',
             $issue['page'] ?? '',
@@ -90,9 +95,9 @@ if ($format === 'csv') {
             $issue['status'] ?? '',
             $issue['priority'] ?? '',
             $issue['assigned_to'] ?? '',
-            $issue['due_date'] ?? '',
-            $issue['created_at'] ?? '',
-            $issue['updated_at'] ?? ''
+            $due,
+            $created,
+            $updated
         ];
         fputcsv($fh, $row);
     }
@@ -115,7 +120,7 @@ if ($issue_id) {
 $pdf->SetFont('Arial','B',14);
 $pdf->Cell(0,8,"Plan: " . ($plan['name'] ?? 'Plan ' . $plan_id),0,1,'C');
 $pdf->SetFont('Arial','',10);
-$pdf->Cell(0,5,'Generated: ' . date('Y-m-d H:i'), 0, 1, 'C');
+$pdf->Cell(0,5,'Generated: ' . date('d/m/Y H:i'), 0, 1, 'C');
 $pdf->Ln(4);
 
 $allSkippedPhotos = [];
@@ -138,7 +143,13 @@ foreach ($issue_list as $issue) {
     if (!empty($issue['assigned_to'])) $meta[] = 'Assignee: ' . $issue['assigned_to'];
     if (!empty($issue['created_at'])) $meta[] = 'Created: ' . $issue['created_at'];
     if (!empty($issue['page'])) $meta[] = 'Page: ' . $issue['page'];
+    if (!empty($issue['created_at'])) { $issueCreated = date('d/m/Y H:i', strtotime($issue['created_at'])); } else { $issueCreated = null; }
+    if (!empty($issue['updated_at'])) { $issueUpdated = date('d/m/Y H:i', strtotime($issue['updated_at'])); } else { $issueUpdated = null; }
     if (count($meta)) {
+        // format created/updated into meta if present
+        if ($issueCreated) $meta[] = 'Created: ' . $issueCreated;
+        if ($issueUpdated) $meta[] = 'Updated: ' . $issueUpdated;
+
         $pdf->SetFont('Arial','I',10);
         $pdf->MultiCell(0,6, implode(' | ', $meta));
         $pdf->SetFont('Arial','',11);

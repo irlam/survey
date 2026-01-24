@@ -22,7 +22,7 @@ if (!@rename($src, $dest)) {
 // insert plan row
 $pdo = db();
 $stmt = $pdo->prepare('INSERT INTO plans (name, revision, file_path, sha1) VALUES (?, ?, ?, ?)');
-if ($name === '') $name = 'Imported plan ' . date('Y-m-d H:i');
+if ($name === '') $name = 'Imported plan ' . date('d/m/Y H:i');
 $stmt->execute([$name, $revision ?: null, $destFile, $sha]);
 $plan_id = (int)$pdo->lastInsertId();
 json_response(['ok'=>true, 'plan'=>['id'=>$plan_id,'name'=>$name,'file_path'=>$destFile,'sha1'=>$sha]]);
