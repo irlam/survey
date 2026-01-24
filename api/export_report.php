@@ -144,13 +144,10 @@ foreach ($issue_list as $issue) {
     if (!empty($issue['status'])) $meta[] = 'Status: ' . $issue['status'];
     if (!empty($issue['priority'])) $meta[] = 'Priority: ' . $issue['priority'];
     if (!empty($issue['assigned_to'])) $meta[] = 'Assignee: ' . $issue['assigned_to'];
-    if (!empty($issue['created_at'])) $meta[] = 'Created: ' . $issue['created_at'];
     if (!empty($issue['page'])) $meta[] = 'Page: ' . $issue['page'];
-    if (!empty($issue['created_at'])) { $issueCreated = date('d/m/Y H:i', strtotime($issue['created_at'])); } else { $issueCreated = null; }
     if (!empty($issue['updated_at'])) { $issueUpdated = date('d/m/Y H:i', strtotime($issue['updated_at'])); } else { $issueUpdated = null; }
     if (count($meta)) {
-        // format created/updated into meta if present
-        if ($issueCreated) $meta[] = 'Created: ' . $issueCreated;
+        // format updated into meta if present
         if ($issueUpdated) $meta[] = 'Updated: ' . $issueUpdated;
 
         $pdf->SetFont('Arial','I',10);
