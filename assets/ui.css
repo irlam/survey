@@ -146,6 +146,18 @@ select{ background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.or
 .neonSelect{ text-align:center; color: #041013; font-weight:800; }
 .neonSelect option{ color: #041013; }
 
+/* ===== Compact custom-select redesign (after) ===== */
+/* Keep the neon accent but make custom selects compact and darker */
+.customSelect { display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:12px; background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.04)); border:1px solid rgba(0,255,231,0.08); min-height:40px; box-shadow: none; }
+.customSelect.small{ padding:6px 8px; min-width:80px; }
+.customSelect .selectButton{ background:transparent; border:none; padding:4px 8px; color:var(--neon); font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+.customSelect .selectedLabel{ color:var(--neon); font-weight:800; font-size:1em; }
+.customSelect .selectList{ margin-top:8px; min-width:140px; }
+.customSelect.neonSelect{ background:linear-gradient(180deg, rgba(0,255,231,0.02), rgba(57,255,20,0.02)); border:1px solid rgba(0,255,231,0.08); }
+
+/* Subtle chevron on custom select button */
+.customSelect .selectButton::after{ content:''; display:inline-block; width:14px; height:14px; margin-left:8px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24'%3E%3Cpath fill='%2300FFE7' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:center; }
+
 
 /* Custom select dropdown list items (used in multiple pages) */
 .customSelect .selectList{ background: linear-gradient(180deg,#031014,#021017); border:1px solid rgba(0,255,231,0.12); box-shadow: 0 10px 30px rgba(0,0,0,0.6); border-radius:10px; z-index:9999; padding:6px; list-style:none; margin:0; }
