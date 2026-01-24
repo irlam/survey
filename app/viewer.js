@@ -199,7 +199,7 @@ async function showIssueModal(pin){
     modal.id='issueModal';
     modal.style.position='fixed'; modal.style.left='50%'; modal.style.top='50%'; modal.style.transform='translate(-50%,-50%)'; modal.style.background='#222'; modal.style.color='#fff'; modal.style.zIndex=100000; modal.style.padding='20px'; modal.style.borderRadius='12px'; modal.style.boxShadow='0 0 24px #0ff8'; modal.style.maxWidth='96vw'; modal.style.width='680px'; modal.style.fontSize='16px';
     modal.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px;">
+      <div class="issueTop" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px;">
         <div style="flex:1;">
           <label style="font-size:14px;">Title:<br>
             <input id="issueTitle" type="text" style="width:100%;font-size:16px;" value="${pin.title||''}" maxlength="255" />
@@ -239,7 +239,7 @@ async function showIssueModal(pin){
         </label>
       </div>
       <div id="photoThumbs" style="margin-bottom:12px;display:flex;flex-wrap:wrap;"></div>
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+      <div class="photoControls" style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
         <label style="flex:1">Select Photo:<br>
           <input id="issuePhotoInput" type="file" accept="image/*" style="width:100%;" />
         </label>
@@ -249,7 +249,7 @@ async function showIssueModal(pin){
         <img id="photoPreviewImg" style="max-width:160px;max-height:160px;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.6);" />
         <div style="flex:1;">
           <div id="photoPreviewInfo" style="color:var(--muted);font-size:13px;margin-bottom:8px;"></div>
-          <div style="display:flex;gap:8px;">
+          <div class="photoActions" style="display:flex;gap:8px;flex-wrap:wrap;">
             <button id="issueUploadConfirmBtn" class="btnPrimary">Upload Photo</button>
             <button id="issueUploadCancelBtn" class="btn">Cancel</button>
           </div>
