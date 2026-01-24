@@ -114,12 +114,23 @@ if ($issue_id) {
 // Header with plan name
 $pdf->SetFont('Arial','B',14);
 $pdf->Cell(0,8,"Plan: " . ($plan['name'] ?? 'Plan ' . $plan_id),0,1,'C');
+$pdf->SetFont('Arial','',10);
+$pdf->Cell(0,5,'Generated: ' . date('Y-m-d H:i'), 0, 1, 'C');
 $pdf->Ln(4);
 
+$allSkippedPhotos = [];
 foreach ($issue_list as $issue) {
+    $skippedPhotos = []; // per-issue debug info about skipped photos
+    // issue header with subtle background for a more modern look
     $pdf->SetFont('Arial','B',13);
     $title = $issue['title'] ?: ('Issue #' . ($issue['id'] ?? ''));
-    $pdf->Cell(0,7, $title, 0, 1);
+    $pdf->SetFillColor(230,248,245);
+    $pdf->SetTextColor(6,56,56);
+    $pdf->Cell(0,10, ' ' . $title, 0, 1, 'L', true);
+    // thin divider
+    $x1 = $pdf->GetX(); $y1 = $pdf->GetY(); $pdf->SetDrawColor(200,200,200); $pdf->Line(10, $y1, $pdf->GetPageWidth()-10, $y1);
+    $pdf->Ln(2);
+    $pdf->SetTextColor(0,0,0);
     $pdf->SetFont('Arial','',11);
     $meta = [];
     if (!empty($issue['status'])) $meta[] = 'Status: ' . $issue['status'];
@@ -140,21 +151,62 @@ foreach ($issue_list as $issue) {
     $stmtp->execute([$plan_id, $issue['id']]);
     $ips = $stmtp->fetchAll();
     if ($ips) {
+        // nicer photos block header
         $pdf->Ln(3);
         $pdf->SetFont('Arial','B',12);
         $pdf->Cell(0,6,'Photos:',0,1);
         foreach ($ips as $ph) {
             $fileRel = $ph['file_path'] ?? ($ph['filename'] ?? null);
             if (!$fileRel) continue;
-            $file = strpos($fileRel, '/') === 0 ? $fileRel : storage_dir($fileRel);
-            if (!is_file($file)) continue;
-            // ensure enough space
+            // Resolve file path: prefer explicit paths, otherwise assume photos/<filename>
+            if (preg_match('#^https?://#i', $fileRel)) {
+                // skip remote URLs for now
+                if ($debug) $skippedPhotos[] = ['issue_id'=>$issue['id']??null,'photo'=>$ph,'reason'=>'remote_url'];
+                continue;
+            }
+            if (strpos($fileRel, '/storage/') === 0) {
+                $file = $fileRel;
+            } elseif (strpos($fileRel, 'photos/') === 0 || strpos($fileRel, 'files/') === 0) {
+                $file = storage_dir($fileRel);
+            } elseif (strpos($fileRel, '/') === false) {
+                // plain filename -> photos directory
+                $file = storage_dir('photos/' . $fileRel);
+            } else {
+                // other relative path
+                $file = storage_dir($fileRel);
+            }
+            if (!is_file($file)) {
+                // try alternative: storage/photos/<filename>
+                $alt = storage_dir('photos/' . basename($fileRel));
+                if (is_file($alt)) {
+                    $file = $alt;
+                } else {
+                    if ($debug) $skippedPhotos[] = ['issue_id'=>$issue['id']??null,'photo'=>$ph,'reason'=>'file_missing','tried'=>$file,'alt'=>$alt];
+                    continue;
+                }
+            }
+
+            // ensure enough space on page
             $y = $pdf->GetY();
-            $maxH = 120;
-            if ($y + $maxH > ($pdf->GetPageHeight() - 20)) $pdf->AddPage();
-            $pdf->Image($file, null, null, 160, 0);
-            $pdf->Ln(6);
+            $pageH = $pdf->GetPageHeight();
+            $bottomMargin = 20;
+            $maxImgW = 60; // mm width for thumbnails
+            $maxImgH = 60;
+            if ($y + $maxImgH > ($pageH - $bottomMargin)) $pdf->AddPage();
+
+            // place image and caption
+            $x = $pdf->GetX();
+            $pdf->Image($file, $x, null, $maxImgW, 0);
+            // caption beneath image (filename or note)
+            $pdf->Ln(2);
+            $pdf->SetFont('Arial','',9);
+            $caption = $ph['caption'] ?? ($ph['filename'] ?? basename($file));
+            $pdf->MultiCell(0,5, $caption);
+            $pdf->Ln(4);
         }
+    }
+    if ($debug && !empty($skippedPhotos)) {
+        $allSkippedPhotos = array_merge($allSkippedPhotos, $skippedPhotos);
     }
     $pdf->Ln(8);
 }
@@ -174,4 +226,8 @@ if (!is_file($path) || filesize($path) <= 0) {
 }
 error_log('export_report: wrote ' . $path . ' size:' . filesize($path) . ' plan:' . $plan_id . ' issue:' . ($issue_id ?: 'all'));
 $extra = $debug ? ['exports'=>get_exports_listing()] : [];
+// attach any skipped photo info (if collected)
+if ($debug && isset($allSkippedPhotos) && count($allSkippedPhotos)) {
+    $extra['skipped_photos'] = $allSkippedPhotos;
+}
 json_response(array_merge(['ok'=>true, 'filename'=>$filename, 'path'=>$path, 'size'=>filesize($path)], $extra));
