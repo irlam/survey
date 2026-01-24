@@ -166,8 +166,9 @@ select:focus{ outline:none; box-shadow: 0 0 0 4px rgba(0,255,231,.12); transform
 .customSelect .selectedLabel{ color:#041013; font-weight:900; font-size:1rem; line-height:1; display:block; width:100%; text-align:center; text-shadow: 0 1px 0 rgba(255,255,255,0.12); }
 
 /* Ensure issue modal selects are explicit and match neon theme */
-#issueStatusSelect .selectButton, #issuePrioritySelect .selectButton, .modal .customSelect .selectButton{ background: linear-gradient(90deg, var(--neon), var(--neon2)); border:none; color:#041013; box-shadow: 0 9px 34px rgba(0,255,231,.16); }
-#issueStatusSelect .selectedLabel, #issuePrioritySelect .selectedLabel, .modal .customSelect .selectedLabel{ color:#041013; font-weight:800; }
+#issueStatusSelect .selectButton, #issuePrioritySelect .selectButton, .modal .customSelect .selectButton{ background: linear-gradient(90deg, var(--neon), var(--neon2)); border:none; color:#041013; box-shadow: 0 9px 34px rgba(0,255,231,.16); min-width:84px; padding:12px 18px; }
+#issueStatusSelect .selectedLabel, #issuePrioritySelect .selectedLabel, .modal .customSelect .selectedLabel{ color:#041013 !important; font-weight:900; font-size:1rem; line-height:1; display:block; text-align:center; }
+#issuesModal .customSelect .selectButton .selectedLabel{ color:#041013 !important; font-weight:900; font-size:1rem; line-height:1; text-shadow: 0 1px 0 rgba(255,255,255,0.12); }
 
 /* Ensure selects inside issue list cards show visible labels */
 .card .customSelect .selectButton{ min-height:44px; padding:10px 12px; display:flex; align-items:center; justify-content:center; }
