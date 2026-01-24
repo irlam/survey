@@ -160,18 +160,26 @@ select:focus{ outline:none; box-shadow: 0 0 0 4px rgba(0,255,231,.12); transform
 /* Keep the neon accent but make custom selects compact and darker */
 .customSelect { display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:12px; background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.04)); border:1px solid rgba(0,255,231,0.08); min-height:40px; box-shadow: none; }
 .customSelect.small{ padding:6px 8px; min-width:80px; }
-.customSelect .selectButton, .selectButton{ display:block; width:100%; background: linear-gradient(90deg, var(--neon), var(--neon2)); border:none; padding:10px 14px; color:#041013; font-weight:800; cursor:pointer; border-radius:12px; box-shadow: 0 9px 34px rgba(0,255,231,.16); transition: transform .08s ease, box-shadow .12s ease; }
+.customSelect .selectButton, .selectButton{ display:flex; align-items:center; justify-content:center; width:100%; min-height:44px; background: linear-gradient(90deg, var(--neon), var(--neon2)); border:none; padding:10px 14px; color:#041013; font-weight:900; cursor:pointer; border-radius:12px; box-shadow: 0 9px 34px rgba(0,255,231,.16); transition: transform .08s ease, box-shadow .12s ease; }
 .customSelect .selectButton:focus, .selectButton:focus{ outline:none; box-shadow: 0 0 0 4px rgba(0,255,231,.14); transform: translateY(-1px); }
-.customSelect.small .selectButton{ padding:8px 10px; border-radius:10px; min-width:56px; font-size:0.95em; }
-.customSelect .selectedLabel{ color:#041013; font-weight:800; font-size:0.98em; }
+.customSelect.small .selectButton{ padding:8px 10px; border-radius:10px; min-width:56px; font-size:0.95em; min-height:44px; }
+.customSelect .selectedLabel{ color:#041013; font-weight:900; font-size:1rem; line-height:1; display:block; width:100%; text-align:center; text-shadow: 0 1px 0 rgba(255,255,255,0.12); }
 
 /* Ensure issue modal selects are explicit and match neon theme */
 #issueStatusSelect .selectButton, #issuePrioritySelect .selectButton, .modal .customSelect .selectButton{ background: linear-gradient(90deg, var(--neon), var(--neon2)); border:none; color:#041013; box-shadow: 0 9px 34px rgba(0,255,231,.16); }
 #issueStatusSelect .selectedLabel, #issuePrioritySelect .selectedLabel, .modal .customSelect .selectedLabel{ color:#041013; font-weight:800; }
 
+/* Ensure selects inside issue list cards show visible labels */
+.card .customSelect .selectButton{ min-height:44px; padding:10px 12px; display:flex; align-items:center; justify-content:center; }
+.card .customSelect .selectedLabel{ color:#041013; font-weight:800; }
 /* Modal-specific: make dropdown list items readable in the Issues modal */
 .modal .customSelect .selectList{ background: linear-gradient(180deg, rgba(10,12,14,0.96), rgba(18,22,26,0.96)); border-radius:12px; }
 .modal .customSelect .selectList li{ color: var(--text) !important; font-weight:700; background: transparent; text-shadow: 0 1px 0 rgba(0,0,0,0.6); }
+
+/* Ensure selects inside the Issues modal have adequate width so labels are visible */
+#issuesModal .customSelect{ min-width:110px; }
+#issuesModal .customSelect.small{ min-width:90px; }
+#issuesModal .customSelect .selectButton .selectedLabel{ font-size:1rem; text-shadow: 0 1px 0 rgba(255,255,255,0.12); }
 
 
 /* Fallback: make any unstyled buttons match secondary neon style */
