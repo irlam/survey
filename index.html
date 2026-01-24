@@ -90,8 +90,11 @@
       <span id="closeIssuesModal" class="close">&times;</span>
       <h2>Issues for this Plan</h2>
       <div id="issuesList"></div>
-      <button id="btnGeneratePdf" class="btnPrimary" style="margin-top:16px;">Generate PDF Report</button>
-      <div id="pdfReportOut" class="muted" style="margin-top:8px"></div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:16px;">
+        <button id="btnGeneratePdf" class="btnPrimary">Generate PDF Report</button>
+        <button id="btnDownloadPdf" class="btn" style="display:none;">Download PDF</button>
+        <div id="pdfReportOut" class="muted" style="margin-left:8px;flex:1"></div>
+      </div>
     </div>
   </div>
 

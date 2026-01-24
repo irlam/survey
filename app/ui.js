@@ -193,6 +193,7 @@ function showIssuesModal(planId) {
   const closeBtn = document.getElementById('closeIssuesModal');
   const issuesList = document.getElementById('issuesList');
   const pdfBtn = document.getElementById('btnGeneratePdf');
+  const downloadBtn = document.getElementById('btnDownloadPdf');
   const pdfOut = document.getElementById('pdfReportOut');
   const modalTitle = modal ? modal.querySelector('h2') : null;
   if (!modal || !issuesList || !pdfBtn || !pdfOut) return;
@@ -203,9 +204,12 @@ function showIssuesModal(planId) {
   modal.style.display = 'block';
   issuesList.innerHTML = '<div class="muted">Loading…</div>';
   pdfOut.textContent = '';
+  if (downloadBtn) { downloadBtn.style.display = 'none'; downloadBtn.disabled = true; downloadBtn.onclick = null; }
   // Wire full-plan export button
   if (pdfBtn) {
     pdfBtn.onclick = async () => {
+      // hide/disable existing download button while generating
+      if (downloadBtn) { downloadBtn.style.display = 'none'; downloadBtn.disabled = true; downloadBtn.onclick = null; }
       pdfBtn.disabled = true;
       pdfOut.textContent = 'Generating PDF…';
       try{
@@ -213,7 +217,17 @@ function showIssuesModal(planId) {
         let data = null;
         try{ data = await r.json(); }catch(parseErr){ const txt = await r.text().catch(()=>null); console.error('export parse error, response text:', txt, parseErr); throw new Error(txt || 'Export failed (invalid JSON)'); }
         if (!r.ok || !data || !data.ok) { console.error('Export error response', r.status, data); throw new Error((data && data.error) ? data.error : (`Export failed (HTTP ${r.status})`)); }
-        pdfOut.innerHTML = `<a href="/storage/exports/${encodeURIComponent(data.filename)}" target="_blank">Download PDF Report</a>`;
+        // show download button to the right of generate
+        if (downloadBtn) {
+          downloadBtn.textContent = 'Download PDF';
+          downloadBtn.style.display = '';
+          downloadBtn.disabled = false;
+          const url = '/storage/exports/' + encodeURIComponent(data.filename);
+          downloadBtn.onclick = () => { window.open(url, '_blank'); };
+          pdfOut.textContent = 'Ready: ' + data.filename;
+        } else {
+          pdfOut.innerHTML = `<a href="/storage/exports/${encodeURIComponent(data.filename)}" target="_blank">Download PDF Report</a>`;
+        }
       }catch(e){ console.error('Export failed', e); pdfOut.textContent = e.message || 'Export failed';
         // Try debug retry to get more server-side info
         try{
@@ -262,7 +276,7 @@ function showIssuesModal(planId) {
         item.style.display = 'flex'; item.style.alignItems = 'center'; item.style.justifyContent = 'space-between';
         const left = document.createElement('div'); left.style.flex = '1';
         left.innerHTML = `\n          <div style="font-weight:800;">${escapeHtml(issue.title || ('Issue #' + issue.id))}</div>\n          <div style="font-size:13px;color:var(--muted);margin-top:4px;">${escapeHtml(issue.notes||issue.description||'')}</div>\n          <div style="margin-top:6px;font-size:13px;color:var(--muted);">\n            <strong>ID:</strong> ${escapeHtml(String(issue.id||''))} &nbsp; \n            <strong>Page:</strong> ${escapeHtml(String(issue.page||''))} &nbsp; \n\n          </div>\n        `;
-        const right = document.createElement('div'); right.style.display = 'flex'; right.style.flexDirection = 'column'; right.style.alignItems = 'flex-end'; right.style.gap = '6px';
+        const right = document.createElement('div'); right.style.display = 'flex'; right.style.flexDirection = 'column'; right.style.alignItems = 'flex-end'; right.style.gap = '6px'; right.style.flex = '0 0 260px'; right.style.minWidth = '220px';
         const metaRow = document.createElement('div'); metaRow.style.display = 'flex'; metaRow.style.gap = '8px'; metaRow.style.alignItems = 'center';
         const statusSelect = document.createElement('select'); statusSelect.style.minWidth='110px'; statusSelect.innerHTML = '<option value="open">Open</option><option value="in_progress">In Progress</option><option value="resolved">Resolved</option><option value="closed">Closed</option>'; statusSelect.value = issue.status || 'open';
         const prioSelect = document.createElement('select'); prioSelect.style.minWidth='90px'; prioSelect.innerHTML = '<option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>'; prioSelect.value = issue.priority || 'medium';
@@ -280,6 +294,8 @@ function showIssuesModal(planId) {
             }); } }catch(e){ console.error(e); } };
         const exportBtn = document.createElement('button'); exportBtn.className='btn'; exportBtn.textContent='Export PDF'; exportBtn.onclick = async ()=>{
           exportBtn.disabled = true;
+          // hide/disable global download while generating
+          if (downloadBtn) { downloadBtn.style.display = 'none'; downloadBtn.disabled = true; downloadBtn.onclick = null; }
           try{
             pdfOut.textContent = 'Generating PDF…';
             const r = await fetch('/api/export_report.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `plan_id=${encodeURIComponent(planId)}&issue_id=${encodeURIComponent(issue.id)}` });
@@ -289,7 +305,16 @@ function showIssuesModal(planId) {
               console.error('Export error response', r.status, data);
               throw new Error((data && data.error) ? data.error : (`Export failed (HTTP ${r.status})`));
             }
-            pdfOut.innerHTML = `<a href="/storage/exports/${encodeURIComponent(data.filename)}" target="_blank">Download PDF</a>`;
+            if (downloadBtn) {
+              downloadBtn.textContent = 'Download PDF';
+              downloadBtn.style.display = '';
+              downloadBtn.disabled = false;
+              const url = '/storage/exports/' + encodeURIComponent(data.filename);
+              downloadBtn.onclick = () => { window.open(url, '_blank'); };
+              pdfOut.textContent = 'Ready: ' + data.filename;
+            } else {
+              pdfOut.innerHTML = `<a href="/storage/exports/${encodeURIComponent(data.filename)}" target="_blank">Download PDF</a>`;
+            }
           }catch(e){
             console.error('Export failed', e); pdfOut.textContent = e.message || 'Export failed';
             // try debug retry
