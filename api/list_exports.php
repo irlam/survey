@@ -11,4 +11,5 @@ if ($plan_id) {
 } else {
     $rows = $pdo->query('SELECT * FROM exports ORDER BY created_at DESC')->fetchAll();
 }
+$rows = format_dates_in_rows($rows);
 json_response(['ok'=>true, 'exports'=>$rows]);

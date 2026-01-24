@@ -52,3 +52,30 @@ function storage_dir($subpath) {
   ensure_dir(dirname($full));
   return $full;
 }
+
+// Format known date fields in a row to UK format (d/m/Y H:i or d/m/Y for dates)
+function format_date_field($key, $value) {
+  if (empty($value)) return '';
+  // try parseable date
+  $ts = strtotime($value);
+  if ($ts === false) return $value;
+  // keys that are date-only
+  $date_only = ['due_date'];
+  if (in_array($key, $date_only)) return date('d/m/Y', $ts);
+  // default to datetime
+  return date('d/m/Y H:i', $ts);
+}
+
+function format_dates_in_row(array $row) : array {
+  $keys = array_keys($row);
+  foreach ($keys as $k) {
+    if (in_array($k, ['created_at','updated_at','due_date','saved_at','mtime','modified'])) {
+      $row[$k] = format_date_field($k, $row[$k]);
+    }
+  }
+  return $row;
+}
+
+function format_dates_in_rows(array $rows) : array {
+  return array_map('format_dates_in_row', $rows);
+}

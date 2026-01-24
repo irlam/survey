@@ -26,7 +26,7 @@ $manifest = [
     'plan' => $plan,
     'plan_id' => $plan_id,
     'notes' => 'Deleted by delete_plan.php',
-    'timestamp' => date('c'),
+    'timestamp' => date('c'), 'uk' => date('d/m/Y H:i'),
     'files' => [],
     'issues' => [],
     'photos' => []

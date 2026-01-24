@@ -22,5 +22,5 @@ $st = $pdo->prepare('
 ');
 $st->execute([$drawing_id]);
 $rows = $st->fetchAll();
-
+$rows = format_dates_in_rows($rows);
 json_response(['ok' => true, 'revisions' => $rows]);

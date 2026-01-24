@@ -26,7 +26,7 @@ foreach ($rows as $r) {
 		'filename' => $fileField,
 		'url' => $fileField ? '/storage/photos/' . $fileField : null,
 		'thumb_url' => $thumbField ? (isset($r['thumb_path']) ? '/storage/' . $r['thumb_path'] : '/storage/photos/' . $thumbField) : null,
-		'created_at' => $r['created_at']
+		'created_at' => format_date_field('created_at', $r['created_at'])
 	];
 }
 json_response(['ok'=>true, 'photos'=>$photos]);

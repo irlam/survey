@@ -176,7 +176,8 @@ foreach ($issue_list as $issue) {
                 continue;
             }
             if (strpos($fileRel, '/storage/') === 0) {
-                $file = $fileRel;
+                // convert web path /storage/xxx to filesystem path
+                $file = realpath(__DIR__ . '/..' . $fileRel);
             } elseif (strpos($fileRel, 'photos/') === 0 || strpos($fileRel, 'files/') === 0) {
                 $file = storage_dir($fileRel);
             } elseif (strpos($fileRel, '/') === false) {
@@ -207,6 +208,9 @@ foreach ($issue_list as $issue) {
 
             // place image and caption
             $x = $pdf->GetX();
+            if ($debug) {
+                $includedPhotos[] = ['issue_id'=>$issue['id']??null,'file'=>$file,'size'=>is_file($file)?filesize($file):null];
+            }
             $pdf->Image($file, $x, null, $maxImgW, 0);
             // caption beneath image (filename or note)
             $pdf->Ln(2);
@@ -240,5 +244,8 @@ $extra = $debug ? ['exports'=>get_exports_listing()] : [];
 // attach any skipped photo info (if collected)
 if ($debug && isset($allSkippedPhotos) && count($allSkippedPhotos)) {
     $extra['skipped_photos'] = $allSkippedPhotos;
+}
+if ($debug && isset($includedPhotos) && count($includedPhotos)) {
+    $extra['included_photos'] = $includedPhotos;
 }
 json_response(array_merge(['ok'=>true, 'filename'=>$filename, 'path'=>$path, 'size'=>filesize($path)], $extra));

@@ -25,4 +25,10 @@ $st = $pdo->prepare('
 $st->execute([$project_id]);
 $rows = $st->fetchAll();
 
+// format any date fields
+foreach ($rows as &$r) {
+    if (isset($r['created_at'])) $r['created_at'] = format_date_field('created_at', $r['created_at']);
+    if (isset($r['plan_uploaded_at'])) $r['plan_uploaded_at'] = format_date_field('uploaded_at', $r['plan_uploaded_at']);
+}
+
 json_response(['ok' => true, 'drawings' => $rows]);

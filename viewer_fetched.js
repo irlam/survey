@@ -241,7 +241,7 @@ async function showIssueModal(pin){
     if(statusSelect) statusSelect.value = details.status || 'open'; if(prioSelect) prioSelect.value = details.priority || 'medium'; if(assigneeInput) assigneeInput.value = details.assignee || '';
     const createdByEl = modal.querySelector('#issueCreatedBy'); if(createdByEl) createdByEl.textContent = details.created_by||details.author||'';
     const createdVal = details.created_at || details.created || details.createdAt || details.ts;
-    const createdEl = modal.querySelector('#issueCreated'); if(createdEl){ if(createdVal){ const d = new Date(createdVal); const pad=(n)=>n.toString().padStart(2,'0'); createdEl.textContent = `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; createdEl.style.display='block'; } else createdEl.style.display='none'; }
+    const createdEl = modal.querySelector('#issueCreated'); if(createdEl){ if(createdVal){ if (typeof createdVal === 'string' && createdVal.indexOf('/') !== -1) { createdEl.textContent = createdVal; } else { const d = new Date(createdVal); const pad=(n)=>n.toString().padStart(2,'0'); createdEl.textContent = `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; } createdEl.style.display='block'; } else createdEl.style.display='none'; }
   })();
 
   // helper used by both file inputs -- will resize/compress client-side then upload
