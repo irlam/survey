@@ -194,16 +194,10 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
 
 
 /* Custom select dropdown list items (used in multiple pages) */
-.customSelect .selectList{ background: linear-gradient(180deg,#031014,#021017); border:1px solid rgba(0,255,231,0.12); box-shadow: 0 10px 30px rgba(0,0,0,0.6); border-radius:10px; z-index:9999; padding:6px; list-style:none; margin:0; }
-.customSelect .selectList li{ padding:10px 12px; border-radius:6px; color:var(--text); cursor:pointer; }
-.customSelect .selectList li:hover{ background: rgba(0,255,231,0.06); color:var(--neon); }
-.customSelect .selectList li[aria-selected='true']{ background: rgba(0,255,231,0.12); color:var(--neon); font-weight:800; }
-
-/* Custom select dropdown list items (used in multiple pages) */
-.customSelect .selectList{ background: linear-gradient(180deg,#031014,#021017); border:1px solid rgba(0,255,231,0.12); box-shadow: 0 10px 30px rgba(0,0,0,0.6); border-radius:10px; z-index:9999; padding:6px; list-style:none; margin:0; }
-.customSelect .selectList li{ padding:10px 12px; border-radius:6px; color:var(--text); cursor:pointer; }
-.customSelect .selectList li:hover{ background: rgba(0,255,231,0.06); color:var(--neon); }
-.customSelect .selectList li[aria-selected='true']{ background: rgba(0,255,231,0.12); color:var(--neon); font-weight:800; }
+.customSelect .selectList{ background: linear-gradient(180deg, rgba(7,10,15,0.98), rgba(14,20,28,0.98)); border:1px solid rgba(0,255,231,0.12); box-shadow: 0 18px 48px rgba(0,0,0,0.6); border-radius:12px; z-index:9999; padding:8px; list-style:none; margin:0; min-width:160px; }
+.customSelect .selectList li{ padding:12px 14px; border-radius:8px; color:var(--text); cursor:pointer; transition: background .12s ease, color .08s ease, transform .06s ease; }
+.customSelect .selectList li:hover{ background: linear-gradient(90deg, rgba(0,255,231,0.06), rgba(57,255,20,0.04)); color:#041013; font-weight:800; transform: translateY(-1px); box-shadow: inset 0 6px 24px rgba(0,255,231,0.02); }
+.customSelect .selectList li[aria-selected='true']{ background: linear-gradient(90deg, var(--neon), var(--neon2)); color:#041013; font-weight:900; box-shadow: 0 10px 30px rgba(0,255,231,0.12); }
 
 /* Secondary buttons (dark) - use subtle neon border/text */
 .btn{
