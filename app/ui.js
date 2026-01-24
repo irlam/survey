@@ -278,8 +278,32 @@ function showIssuesModal(planId) {
         left.innerHTML = `\n          <div style="font-weight:800;">${escapeHtml(issue.title || ('Issue #' + issue.id))}</div>\n          <div style="font-size:13px;color:var(--muted);margin-top:4px;">${escapeHtml(issue.notes||issue.description||'')}</div>\n          <div style="margin-top:6px;font-size:13px;color:var(--muted);">\n            <strong>ID:</strong> ${escapeHtml(String(issue.id||''))} &nbsp; \n            <strong>Page:</strong> ${escapeHtml(String(issue.page||''))} &nbsp; \n\n          </div>\n        `;
         const right = document.createElement('div'); right.style.display = 'flex'; right.style.flexDirection = 'column'; right.style.alignItems = 'flex-end'; right.style.gap = '6px'; right.style.flex = '0 0 260px'; right.style.minWidth = '220px';
         const metaRow = document.createElement('div'); metaRow.style.display = 'flex'; metaRow.style.gap = '8px'; metaRow.style.alignItems = 'center';
-        const statusSelect = document.createElement('select'); statusSelect.className = 'neonSelect'; statusSelect.setAttribute('aria-label','Issue status'); statusSelect.title = 'Status'; statusSelect.style.minWidth='110px'; statusSelect.innerHTML = '<option value="open">Open</option><option value="in_progress">In Progress</option><option value="resolved">Resolved</option><option value="closed">Closed</option>'; statusSelect.value = issue.status || 'open';
-        const prioSelect = document.createElement('select'); prioSelect.className = 'neonSelect small'; prioSelect.setAttribute('aria-label','Issue priority'); prioSelect.title='Priority'; prioSelect.style.minWidth='90px'; prioSelect.innerHTML = '<option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>'; prioSelect.value = issue.priority || 'medium';
+        // Create custom-styled select widgets (neon / customSelect) so dropdown list is styled consistently
+        function createCustomSelect(opts, val, extraClass){
+          const wrap = document.createElement('div'); wrap.className = (extraClass ? extraClass + ' ' : '') + 'customSelect neonSelect';
+          wrap.tabIndex = 0; wrap.setAttribute('role','combobox');
+          const btn = document.createElement('button'); btn.className = 'selectButton'; btn.setAttribute('aria-label','Select'); btn.innerHTML = '<span class="selectedLabel"></span>';
+          const ul = document.createElement('ul'); ul.className = 'selectList'; ul.setAttribute('role','listbox');
+          for(const o of opts){ const li = document.createElement('li'); li.setAttribute('role','option'); li.dataset.value = o.value; li.textContent = o.label; if(o.value===val) li.setAttribute('aria-selected','true'); ul.appendChild(li); }
+          wrap.appendChild(btn); wrap.appendChild(ul);
+          // hidden value storage
+          wrap.value = val || (opts[0] && opts[0].value) || '';
+          const setSelected = (v)=>{ const sel = Array.from(ul.children).find(li=>li.dataset.value==v); if(sel){ wrap.querySelector('.selectedLabel').textContent = sel.textContent; wrap.value = v; ul.querySelectorAll('li').forEach(li=> li.setAttribute('aria-selected', li.dataset.value==v ? 'true' : 'false')); }};
+          setSelected(wrap.value);
+          btn.onclick = (e)=>{ e.stopPropagation(); const open = ul.classList.toggle('open'); wrap.setAttribute('aria-expanded', open? 'true':'false'); if(open) ul.focus(); };
+          ul.querySelectorAll('li').forEach(li=>{ li.tabIndex=0; li.onclick = (ev)=>{ ev.stopPropagation(); setSelected(li.dataset.value); ul.classList.remove('open'); wrap.setAttribute('aria-expanded','false'); wrap.dispatchEvent(new Event('change')); }; li.onkeydown = (ev)=>{ if(ev.key==='Enter' || ev.key===' '){ ev.preventDefault(); li.click(); } }; });
+          document.addEventListener('click', (ev)=>{ if(!wrap.contains(ev.target)) { ul.classList.remove('open'); wrap.setAttribute('aria-expanded','false'); } });
+          return wrap;
+        }
+        const statusSelect = createCustomSelect([
+          {value:'open',label:'Open'},{value:'in_progress',label:'In Progress'},{value:'resolved',label:'Resolved'},{value:'closed',label:'Closed'}
+        ], issue.status || 'open');
+        statusSelect.style.minWidth='110px'; statusSelect.title='Status'; statusSelect.setAttribute('aria-label','Issue status');
+        const prioSelect = createCustomSelect([
+          {value:'low',label:'Low'},{value:'medium',label:'Medium'},{value:'high',label:'High'}
+        ], issue.priority || 'medium', 'small');
+        prioSelect.style.minWidth='90px'; prioSelect.title='Priority'; prioSelect.setAttribute('aria-label','Issue priority');
+
         metaRow.appendChild(statusSelect); metaRow.appendChild(prioSelect);
         const assigneeSpan = document.createElement('div'); assigneeSpan.style.fontSize='12px'; assigneeSpan.style.color='var(--muted)'; assigneeSpan.textContent = issue.assignee || '';
         const phs = photosMap[String(issue.id)] || [];

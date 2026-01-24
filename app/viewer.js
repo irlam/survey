@@ -206,19 +206,25 @@ async function showIssueModal(pin){
           </label>
           <div style="display:flex;gap:8px;margin-top:8px;">
             <label style="flex:1">Status:<br>
-              <select id="issueStatusSelect" class="neonSelect selectLike" title="Status" aria-label="Issue status" style="width:100%;min-height:40px;font-size:14px;">
-                <option value="open">Open</option>
-                <option value="in_progress">In Progress</option>
-                <option value="resolved">Resolved</option>
-                <option value="closed">Closed</option>
-              </select>
+              <div id="issueStatusSelect" class="customSelect neonSelect selectLike" role="combobox" aria-haspopup="listbox" aria-expanded="false" tabindex="0">
+                <button class="selectButton" aria-label="Status"><span class="selectedLabel">Open</span></button>
+                <ul class="selectList" role="listbox" tabindex="-1">
+                  <li role="option" data-value="open">Open</li>
+                  <li role="option" data-value="in_progress">In Progress</li>
+                  <li role="option" data-value="resolved">Resolved</li>
+                  <li role="option" data-value="closed">Closed</li>
+                </ul>
+              </div>
             </label>
             <label style="width:120px">Priority:<br>
-              <select id="issuePrioritySelect" class="neonSelect small selectLike" title="Priority" aria-label="Issue priority" style="width:100%;min-height:40px;font-size:14px;">
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-              </select>
+              <div id="issuePrioritySelect" class="customSelect neonSelect small selectLike" role="combobox" aria-haspopup="listbox" aria-expanded="false" tabindex="0">
+                <button class="selectButton" aria-label="Priority"><span class="selectedLabel">Medium</span></button>
+                <ul class="selectList" role="listbox" tabindex="-1">
+                  <li role="option" data-value="low">Low</li>
+                  <li role="option" data-value="medium">Medium</li>
+                  <li role="option" data-value="high">High</li>
+                </ul>
+              </div>
             </label>
           </div>
           <label style="display:block;margin-top:8px;">Assignee:<br>
@@ -343,6 +349,23 @@ async function showIssueModal(pin){
     if(camBtn){ camBtn.onclick = ()=>{ camInput.click(); }; }
     await loadPhotoThumbs();
 
+    // helper to initialize and set values on customSelect widgets
+    function initCustomSelect(wrapper){
+      if(!wrapper) return;
+      const btn = wrapper.querySelector('.selectButton'); const ul = wrapper.querySelector('.selectList');
+      // set initial selected label if any aria-selected exists
+      const pre = ul.querySelector('li[aria-selected="true"]') || ul.querySelector('li[data-value]');
+      if(pre) wrapper.querySelector('.selectedLabel').textContent = pre.textContent;
+      wrapper.value = (pre && pre.dataset.value) || '';
+      const setSelected = (v)=>{ const sel = Array.from(ul.children).find(li=>li.dataset.value==v); if(sel){ wrapper.querySelector('.selectedLabel').textContent = sel.textContent; wrapper.value = v; ul.querySelectorAll('li').forEach(li=> li.setAttribute('aria-selected', li.dataset.value==v ? 'true' : 'false')); wrapper.dispatchEvent(new Event('change')); }};
+      ul.querySelectorAll('li').forEach(li=>{ li.tabIndex=0; li.onclick = (ev)=>{ ev.stopPropagation(); setSelected(li.dataset.value); ul.classList.remove('open'); wrapper.setAttribute('aria-expanded','false'); }; li.onkeydown = (ev)=>{ if(ev.key==='Enter' || ev.key===' '){ ev.preventDefault(); li.click(); } }; });
+      btn.onclick = (e)=>{ e.stopPropagation(); const open = ul.classList.toggle('open'); wrapper.setAttribute('aria-expanded', open? 'true':'false'); if(open) ul.focus(); };
+      document.addEventListener('click', (ev)=>{ if(!wrapper.contains(ev.target)) { ul.classList.remove('open'); wrapper.setAttribute('aria-expanded','false'); } });
+      // expose setter
+      wrapper.setValue = setSelected;
+      wrapper.setAttribute('role','combobox');
+    }
+
     // populate status/prio/assignee from fetched details if available
     (async ()=>{
       let details = pin;
@@ -350,7 +373,9 @@ async function showIssueModal(pin){
         const fetched = await fetchIssueDetails(pin.id); if(fetched) details = Object.assign({}, pin, fetched);
       }
       const statusSelect = modal.querySelector('#issueStatusSelect'); const prioSelect = modal.querySelector('#issuePrioritySelect'); const assigneeInput = modal.querySelector('#issueAssignee');
-      if(statusSelect) statusSelect.value = details.status || 'open'; if(prioSelect) prioSelect.value = details.priority || 'medium'; if(assigneeInput) assigneeInput.value = details.assignee || '';
+      if(statusSelect) initCustomSelect(statusSelect);
+      if(prioSelect) initCustomSelect(prioSelect);
+      if(statusSelect) statusSelect.setValue(details.status || 'open'); if(prioSelect) prioSelect.setValue(details.priority || 'medium'); if(assigneeInput) assigneeInput.value = details.assignee || '';
       const createdByEl = modal.querySelector('#issueCreatedBy'); if(createdByEl) createdByEl.textContent = details.created_by||details.author||'';
       const createdVal = details.created_at || details.created || details.createdAt || details.ts;
       const createdEl = modal.querySelector('#issueCreated'); if(createdEl){ if(createdVal){ if (typeof createdVal === 'string' && createdVal.indexOf('/') !== -1) { createdEl.textContent = createdVal; } else { const d = new Date(createdVal); const pad=(n)=>n.toString().padStart(2,'0'); createdEl.textContent = `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; } createdEl.style.display='block'; } else createdEl.style.display='none'; }
