@@ -111,6 +111,18 @@ input[type=file]::file-selector-button{ background: linear-gradient(90deg, var(-
 /* Neon select with chevron */
 select{ background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24'%3E%3Cpath fill='%2300FFE7' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; background-size: 18px 18px; padding-right: 40px; -webkit-appearance: none; appearance: none; }
 
+/* Primary neon select button style to match .btnPrimary */
+.neonSelect{ min-height:44px; border-radius:12px; padding:8px 12px; font-weight:800; border:none; background: linear-gradient(90deg, var(--neon), var(--neon2)); color:#041013; box-shadow: 0 8px 28px rgba(0,255,231,.14); }
+.neonSelect:focus{ outline: none; box-shadow: 0 0 0 4px rgba(0,255,231,.12); }
+/* small variant useful for DPI */
+.neonSelect.small{ min-width:80px; padding:6px 10px; font-size:0.95em; }
+
+/* Custom select dropdown list items (used in multiple pages) */
+.customSelect .selectList{ background: linear-gradient(180deg,#031014,#021017); border:1px solid rgba(0,255,231,0.12); box-shadow: 0 10px 30px rgba(0,0,0,0.6); border-radius:10px; z-index:9999; padding:6px; list-style:none; margin:0; }
+.customSelect .selectList li{ padding:10px 12px; border-radius:6px; color:var(--text); cursor:pointer; }
+.customSelect .selectList li:hover{ background: rgba(0,255,231,0.06); color:var(--neon); }
+.customSelect .selectList li[aria-selected='true']{ background: rgba(0,255,231,0.12); color:var(--neon); font-weight:800; }
+
 /* Custom select dropdown list items (used in multiple pages) */
 .customSelect .selectList{ background: linear-gradient(180deg,#031014,#021017); border:1px solid rgba(0,255,231,0.12); box-shadow: 0 10px 30px rgba(0,0,0,0.6); border-radius:10px; z-index:9999; padding:6px; list-style:none; margin:0; }
 .customSelect .selectList li{ padding:10px 12px; border-radius:6px; color:var(--text); cursor:pointer; }

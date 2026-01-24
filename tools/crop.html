@@ -35,10 +35,10 @@
       <div class="toolsRow">
         <label style="flex:1">
           Select plan:
-          <select id="planSelect"></select>
+          <select id="planSelect" class="neonSelect" style="width:100%; min-width:320px;"></select>
         </label>
         <label style="width:230px">Or upload PDF: <input id="fileUploader" type="file" accept="application/pdf" style="min-width:44px;min-height:44px;"></label>
-        <label style="width:220px">DPI: <select id="dpiSelect" style="min-width:44px;min-height:44px;"><option value="150">150</option><option value="300" selected>300</option><option value="600">600</option><option value="1200">1200</option></select></label>
+        <label style="width:220px">DPI: <select id="dpiSelect" class="neonSelect small"><option value="150">150</option><option value="300" selected>300</option><option value="600">600</option><option value="1200">1200</option></select></label>
         <label style="width:180px"><input id="vectorCrop" type="checkbox" style="min-width:44px;min-height:44px;"> Vector crop (server)</label>
         <button id="btnLoad" class="btn">Load</button>
       </div>
