@@ -124,6 +124,9 @@ $pdf->Cell(0,5,'Generated: ' . date('d/m/Y H:i'), 0, 1, 'C');
 $pdf->Ln(4);
 
 $allSkippedPhotos = [];
+$tempFiles = [];
+$fetchedPhotos = [];
+$includedPhotos = [];
 foreach ($issue_list as $issue) {
     $skippedPhotos = []; // per-issue debug info about skipped photos
     // issue header with subtle background for a more modern look
@@ -171,9 +174,67 @@ foreach ($issue_list as $issue) {
             if (!$fileRel) continue;
             // Resolve file path: prefer explicit paths, otherwise assume photos/<filename>
             if (preg_match('#^https?://#i', $fileRel)) {
-                // skip remote URLs for now
-                if ($debug) $skippedPhotos[] = ['issue_id'=>$issue['id']??null,'photo'=>$ph,'reason'=>'remote_url'];
-                continue;
+                // remote URL (http/https)
+                if (!empty($_POST['fetch_remote']) || !empty($_GET['fetch_remote'])) {
+                    // attempt to fetch remote image with safeguards
+                    $maxBytes = 5 * 1024 * 1024; // 5MB
+                    $tmp = tempnam(sys_get_temp_dir(), 'srp');
+                    $fp = fopen($tmp, 'w');
+                    $ch = curl_init($fileRel);
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, false);
+                    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+                    curl_setopt($ch, CURLOPT_TIMEOUT, 12);
+                    curl_setopt($ch, CURLOPT_FILE, $fp);
+                    curl_setopt($ch, CURLOPT_USERAGENT, 'SurveyReportBot/1.0');
+                    // do a HEAD first to check content-type and length
+                    curl_setopt($ch, CURLOPT_NOBODY, true);
+                    curl_exec($ch);
+                    $info = curl_getinfo($ch);
+                    $ct = $info['content_type'] ?? null;
+                    $cl = isset($info['download_content_length']) ? (int)$info['download_content_length'] : 0;
+                    curl_setopt($ch, CURLOPT_NOBODY, false);
+                    if (!$ct || stripos($ct, 'image/') !== 0) {
+                        fclose($fp);
+                        @unlink($tmp);
+                        if ($debug) $skippedPhotos[] = ['issue_id'=>$issue['id']??null,'photo'=>$ph,'reason'=>'remote_not_image','content_type'=>$ct];
+                        curl_close($ch);
+                        continue;
+                    }
+                    if ($cl > 0 && $cl > $maxBytes) {
+                        fclose($fp);
+                        @unlink($tmp);
+                        if ($debug) $skippedPhotos[] = ['issue_id'=>$issue['id']??null,'photo'=>$ph,'reason'=>'remote_too_large','content_length'=>$cl];
+                        curl_close($ch);
+                        continue;
+                    }
+                    // perform actual download (writing to $fp)
+                    // reset file pointer
+                    fseek($fp, 0);
+                    // reopen curl for GET to stream
+                    curl_close($ch);
+                    $ch2 = curl_init($fileRel);
+                    curl_setopt($ch2, CURLOPT_FILE, $fp);
+                    curl_setopt($ch2, CURLOPT_FOLLOWLOCATION, true);
+                    curl_setopt($ch2, CURLOPT_TIMEOUT, 20);
+                    curl_setopt($ch2, CURLOPT_USERAGENT, 'SurveyReportBot/1.0');
+                    $res = curl_exec($ch2);
+                    $err = curl_error($ch2);
+                    $status = curl_getinfo($ch2, CURLINFO_HTTP_CODE);
+                    curl_close($ch2);
+                    fclose($fp);
+                    if (!$res || $status >= 400) {
+                        @unlink($tmp);
+                        if ($debug) $skippedPhotos[] = ['issue_id'=>$issue['id']??null,'photo'=>$ph,'reason'=>'fetch_failed','http_status'=>$status,'error'=>$err];
+                        continue;
+                    }
+                    // success - use temp file as $file
+                    $file = $tmp;
+                    $tempFiles[] = $tmp; // remember to unlink later
+                    if ($debug) $fetchedPhotos[] = ['issue_id'=>$issue['id']??null,'photo'=>$ph,'tmp'=>$tmp,'size'=>is_file($tmp)?filesize($tmp):null];
+                } else {
+                    if ($debug) $skippedPhotos[] = ['issue_id'=>$issue['id']??null,'photo'=>$ph,'reason'=>'remote_url'];
+                    continue;
+                }
             }
             if (strpos($fileRel, '/storage/') === 0) {
                 // convert web path /storage/xxx to filesystem path
@@ -245,7 +306,15 @@ $extra = $debug ? ['exports'=>get_exports_listing()] : [];
 if ($debug && isset($allSkippedPhotos) && count($allSkippedPhotos)) {
     $extra['skipped_photos'] = $allSkippedPhotos;
 }
+if ($debug && isset($fetchedPhotos) && count($fetchedPhotos)) {
+    $extra['fetched_photos'] = $fetchedPhotos;
+}
 if ($debug && isset($includedPhotos) && count($includedPhotos)) {
     $extra['included_photos'] = $includedPhotos;
+}
+
+// cleanup any temporary files we created when fetching remote images
+if (!empty($tempFiles) && is_array($tempFiles)) {
+    foreach ($tempFiles as $tmpf) { if (is_file($tmpf)) @unlink($tmpf); }
 }
 json_response(array_merge(['ok'=>true, 'filename'=>$filename, 'path'=>$path, 'size'=>filesize($path)], $extra));
