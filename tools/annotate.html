@@ -132,8 +132,12 @@
           <div id="iconSelect" class="neonSelect customSelect" role="combobox" aria-haspopup="listbox" aria-expanded="false" tabindex="0" style="width:120px">
             <button class="selectButton" aria-label="Select icon"><span class="selectedLabel">Star</span></button>
             <ul class="selectList" role="listbox" tabindex="-1">
-              <li role="option" data-value="pin">Pin</li>
+              <li role="option" data-value="circle">Circle</li>
+              <li role="option" data-value="square">Square</li>
               <li role="option" data-value="star" aria-selected="true">Star</li>
+              <li role="option" data-value="checkmark">Check</li>
+              <li role="option" data-value="arrow">Arrow</li>
+              <li role="option" data-value="pin">Pin</li>
               <li role="option" data-value="flag">Flag</li>
             </ul>
           </div>
@@ -378,7 +382,7 @@ fileUploader.onchange = (e)=>{ const f=e.target.files&&e.target.files[0]; if(!f)
   function drawArrowHead(ctx,x1,y1,x2,y2,w, color){ const dx=x2-x1, dy=y2-y1; const dist = Math.hypot(dx,dy); const ang=Math.atan2(dy,dx); const len = Math.min( Math.max(12, dist * 0.15), 40 ); // scale arrow head with line length
     ctx.fillStyle=color; ctx.beginPath(); ctx.moveTo(x2,y2); ctx.lineTo(x2 - len*Math.cos(ang - Math.PI/6), y2 - len*Math.sin(ang - Math.PI/6)); ctx.lineTo(x2 - len*Math.cos(ang + Math.PI/6), y2 - len*Math.sin(ang + Math.PI/6)); ctx.closePath(); ctx.fill(); }
 
-  function drawIcon(ctx, type, x, y, size, color){ ctx.save(); ctx.fillStyle=color; ctx.strokeStyle=color; ctx.lineWidth=2; if(type==='pin'){ ctx.beginPath(); ctx.arc(x, y - size*0.25, size*0.35, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x - size*0.4, y + size*0.6, x, y + size); ctx.quadraticCurveTo(x + size*0.4, y + size*0.6, x, y); ctx.fill(); } else if(type==='star'){ const spikes=5; const outer=size*0.5; const inner=outer*0.5; let rot=Math.PI/2*3; let cx=x; let cy=y; ctx.beginPath(); for(let i=0;i<spikes;i++){ let ox = cx + Math.cos(rot) * outer; let oy = cy + Math.sin(rot) * outer; ctx.lineTo(ox,oy); rot += Math.PI / spikes; ox = cx + Math.cos(rot) * inner; oy = cy + Math.sin(rot) * inner; ctx.lineTo(ox,oy); rot += Math.PI / spikes; } ctx.closePath(); ctx.fill(); } else if(type==='flag'){ ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + size*0.6, y - size*0.3); ctx.lineTo(x + size*0.6, y + size*0.3); ctx.closePath(); ctx.fill(); ctx.fillRect(x - size*0.05, y - size*0.6, size*0.1, size*1.2); } ctx.restore(); }
+  function drawIcon(ctx, type, x, y, size, color){ ctx.save(); ctx.fillStyle=color; ctx.strokeStyle=color; ctx.lineWidth=2; if(type==='pin'){ ctx.beginPath(); ctx.arc(x, y - size*0.25, size*0.35, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x - size*0.4, y + size*0.6, x, y + size); ctx.quadraticCurveTo(x + size*0.4, y + size*0.6, x, y); ctx.fill(); } else if(type==='star'){ const spikes=5; const outer=size*0.5; const inner=outer*0.5; let rot=Math.PI/2*3; let cx=x; let cy=y; ctx.beginPath(); for(let i=0;i<spikes;i++){ let ox = cx + Math.cos(rot) * outer; let oy = cy + Math.sin(rot) * outer; ctx.lineTo(ox,oy); rot += Math.PI / spikes; ox = cx + Math.cos(rot) * inner; oy = cy + Math.sin(rot) * inner; ctx.lineTo(ox,oy); rot += Math.PI / spikes; } ctx.closePath(); ctx.fill(); } else if(type==='flag'){ ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + size*0.6, y - size*0.3); ctx.lineTo(x + size*0.6, y + size*0.3); ctx.closePath(); ctx.fill(); ctx.fillRect(x - size*0.05, y - size*0.6, size*0.1, size*1.2); } else if(type==='circle'){ ctx.beginPath(); ctx.arc(x, y, size*0.4, 0, Math.PI*2); ctx.fill(); } else if(type==='square'){ ctx.fillRect(x - size*0.4, y - size*0.4, size*0.8, size*0.8); } else if(type==='checkmark'){ ctx.beginPath(); ctx.moveTo(x - size*0.3, y); ctx.lineTo(x - size*0.1, y + size*0.2); ctx.lineTo(x + size*0.3, y - size*0.2); ctx.stroke(); } else if(type==='arrow'){ ctx.beginPath(); ctx.moveTo(x - size*0.4, y); ctx.lineTo(x + size*0.4, y); ctx.lineTo(x + size*0.2, y - size*0.2); ctx.moveTo(x + size*0.4, y); ctx.lineTo(x + size*0.2, y + size*0.2); ctx.stroke(); } ctx.restore(); }
 
 function drawIconPreview(ctx, current){ const size = 24; drawIcon(ctx, document.getElementById('iconSelect').value, current.startX, current.startY, size, current.color); }
 
