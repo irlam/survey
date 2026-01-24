@@ -148,7 +148,7 @@ async function showIssueModal(pin){
           </label>
           <div style="display:flex;gap:8px;margin-top:8px;">
             <label style="flex:1">Status:<br>
-              <select id="issueStatusSelect" class="neonSelect selectLike" style="width:100%;min-height:40px;font-size:14px;">
+              <select id="issueStatusSelect" class="neonSelect selectLike" title="Status" aria-label="Issue status" style="width:100%;min-height:40px;font-size:14px;">
                 <option value="open">Open</option>
                 <option value="in_progress">In Progress</option>
                 <option value="resolved">Resolved</option>
@@ -156,7 +156,7 @@ async function showIssueModal(pin){
               </select>
             </label>
             <label style="width:120px">Priority:<br>
-              <select id="issuePrioritySelect" class="neonSelect small selectLike" style="width:100%;min-height:40px;font-size:14px;">
+              <select id="issuePrioritySelect" class="neonSelect small selectLike" title="Priority" aria-label="Issue priority" style="width:100%;min-height:40px;font-size:14px;">
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
                 <option value="high">High</option>
