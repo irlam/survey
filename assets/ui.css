@@ -138,7 +138,7 @@ select:focus{ outline:none; box-shadow: 0 0 0 4px rgba(0,255,231,.12); transform
 
 /* Dropdown menu content (site-wide) */
 .dropdownMenu{ position:absolute; min-width:160px; background: linear-gradient(180deg,#021017,#011014); border-radius:10px; border:1px solid rgba(0,255,231,0.12); box-shadow: 0 18px 40px rgba(0,0,0,0.6); padding:6px; z-index:9999; }
-.dropdownMenu li, .selectList li{ list-style:none; padding:10px 12px; border-radius:8px; color:#FFFFFF; cursor:pointer; }
+.dropdownMenu li, .selectList li{ list-style:none; padding:10px 12px; border-radius:8px; color:#041013; cursor:pointer; }
 .dropdownMenu li:hover, .selectList li:hover{ background: rgba(0,255,231,0.04); color:var(--neon); }
 .dropdownMenu li[aria-selected='true'], .selectList li[aria-selected='true']{ background: rgba(0,255,231,0.08); color:var(--neon); font-weight:800; }
 
@@ -177,10 +177,10 @@ select:focus{ outline:none; box-shadow: 0 0 0 4px rgba(0,255,231,.12); transform
 #issuesModal .customSelect, .card .customSelect{ min-width:120px; }
 #issuesModal .customSelect.small, .card .customSelect.small{ min-width:100px; }
 #issuesModal .customSelect .selectButton, .card .customSelect .selectButton{ padding:12px 18px; min-height:44px; color:#000000 !important; }
-#issuesModal .customSelect .selectedLabel, .card .customSelect .selectedLabel{ color:#000000 !important; font-weight:900; font-size:1rem; line-height:1; display:block; text-align:center; text-shadow: 0 1px 0 rgba(255,255,255,0.12); }
-#issuesModal .customSelect .selectList, .card .customSelect .selectList{ background: linear-gradient(180deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05)); border-radius:12px; padding:10px; border:1px solid rgba(0,255,231,0.08); box-shadow: 0 12px 30px rgba(0,0,0,0.5); }
-#issuesModal .customSelect .selectList li, .card .customSelect .selectList li{ color: #FFFFFF !important; font-weight:700; background: transparent; padding:12px 14px; border-radius:8px; }
-#issuesModal .customSelect .selectList li:hover, .card .customSelect .selectList li:hover{ background: linear-gradient(90deg, rgba(0,255,231,0.06), rgba(57,255,20,0.04)); color:#FFFFFF; }
+#issuesModal .customSelect .selectedLabel, .card .customSelect .selectedLabel{ color:#FFFFFF !important; font-weight:900; font-size:1rem; line-height:1; display:block; text-align:center; text-shadow: 0 1px 0 rgba(0,0,0,0.5); }
+#issuesModal .customSelect .selectList, .card .customSelect .selectList{ background: linear-gradient(180deg, rgba(255,255,255,0.15), rgba(255,255,255,0.08)); border-radius:12px; padding:10px; border:1px solid rgba(0,255,231,0.08); box-shadow: 0 12px 30px rgba(0,0,0,0.5); }
+#issuesModal .customSelect .selectList li, .card .customSelect .selectList li{ color: #041013 !important; font-weight:700; background: transparent; padding:12px 14px; border-radius:8px; }
+#issuesModal .customSelect .selectList li:hover, .card .customSelect .selectList li:hover{ background: linear-gradient(90deg, rgba(0,255,231,0.06), rgba(57,255,20,0.04)); color:#041013; }
 
 
 /* Fallback: make any unstyled buttons match secondary neon style */
@@ -208,9 +208,9 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
 
 
 /* Custom select dropdown list items (used in multiple pages) */
-.customSelect .selectList{ background: linear-gradient(180deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05)); border:1px solid rgba(0,255,231,0.08); box-shadow: 0 12px 30px rgba(0,0,0,0.5); border-radius:12px; z-index:9999; padding:8px; list-style:none; margin:0; min-width:160px; }
-.customSelect .selectList li{ padding:12px 14px; border-radius:8px; color:#FFFFFF !important; cursor:pointer; font-weight:700; text-shadow:none; transition: background .12s ease, color .08s ease, transform .06s ease; }
-.customSelect .selectList li:hover{ background: linear-gradient(90deg, rgba(0,255,231,0.06), rgba(57,255,20,0.04)); color:#FFFFFF; font-weight:800; transform: translateY(-1px); box-shadow: inset 0 6px 12px rgba(0,255,231,0.02); }
+.customSelect .selectList{ background: linear-gradient(180deg, rgba(255,255,255,0.15), rgba(255,255,255,0.08)); border:1px solid rgba(0,255,231,0.08); box-shadow: 0 12px 30px rgba(0,0,0,0.5); border-radius:12px; z-index:9999; padding:8px; list-style:none; margin:0; min-width:160px; }
+.customSelect .selectList li{ padding:12px 14px; border-radius:8px; color:#041013 !important; cursor:pointer; font-weight:700; text-shadow:none; transition: background .12s ease, color .08s ease, transform .06s ease; }
+.customSelect .selectList li:hover{ background: linear-gradient(90deg, rgba(0,255,231,0.06), rgba(57,255,20,0.04)); color:#041013; font-weight:800; transform: translateY(-1px); box-shadow: inset 0 6px 12px rgba(0,255,231,0.02); }
 .customSelect .selectList li[aria-selected='true']{ background: linear-gradient(90deg, var(--neon), var(--neon2)); color:#000000; font-weight:900; box-shadow: 0 10px 30px rgba(0,255,231,0.12); }
 
 /* Secondary buttons (dark) - use subtle neon border/text */
