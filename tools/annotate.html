@@ -1,3 +1,12 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Annotate PDF Tool</title>
+<link rel="stylesheet" href="/assets/ui.css">
+<style>
+  /* touch/tap friendly UI helpers */
   button, input, select {
     min-height: 44px;
     min-width: 44px;
@@ -8,17 +17,7 @@
     filter: brightness(0.85);
     box-shadow: 0 0 0 2px #0ff inset;
   }
-  .cropOverlay, .annotateOverlay, .splitOverlay, .mergeOverlay, .printOverlay {
-    touch-action: none;
-  }
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Annotate PDF Tool</title>
-<link rel="stylesheet" href="/assets/ui.css">
-<style>
+  .cropOverlay, .annotateOverlay, .splitOverlay, .mergeOverlay, .printOverlay { touch-action: none; }
   .toolsRow{display:flex;gap:8px;align-items:center;margin-bottom:8px}
   #annotStage{position:relative;padding:12px}
   /* make the viewer stage wider and centered like main viewer */
