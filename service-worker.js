@@ -1,8 +1,8 @@
-const CACHE_NAME = 'survey-pwa-v3';
+const CACHE_NAME = 'survey-pwa-v4';
 const ASSETS = [
   '/',
   '/index.html',
-  '/assets/ui.css',
+  '/assets/ui.css?v=20260124_1',
   '/app/app.js?v=20260121_2',
   '/app/router.js',
   '/app/viewer.js?v=20260121_2',

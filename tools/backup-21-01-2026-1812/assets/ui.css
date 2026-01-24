@@ -104,22 +104,37 @@ input{
 }
 input:focus{border-color: rgba(0,255,231,.5); box-shadow: 0 0 0 3px rgba(0,255,231,.12);}
 
-.btn,.btnPrimary{
+/* Secondary buttons (dark) */
+.btn{
   min-height:44px;
-  border-radius: 14px;
+  border-radius:14px;
   border:1px solid var(--border);
   background: rgba(11,18,32,.72);
   color: var(--neon);
   font-weight:700;
   cursor:pointer;
   padding: 10px 12px;
+  box-shadow: var(--shadow);
+  transition: transform .08s ease, box-shadow .12s ease;
 }
-.btn:active{transform: translateY(1px)}
+.btn:active{ transform: translateY(1px); }
+.btn:focus{ outline:none; box-shadow: 0 0 0 4px rgba(0,255,231,.08); transform: translateY(-1px); }
+
+/* Primary accent buttons */
 .btnPrimary{
+  min-height:44px;
+  border-radius:12px;
   border:none;
   color:#041013;
   background: linear-gradient(90deg, var(--neon), var(--neon2));
+  font-weight:800;
+  cursor:pointer;
+  padding:10px 14px;
+  box-shadow: 0 10px 36px rgba(0,255,231,.16);
+  transition: transform .08s ease, box-shadow .12s ease;
 }
+.btnPrimary:active{ transform: translateY(1px); }
+.btnPrimary:focus{ outline:none; box-shadow: 0 0 0 4px rgba(0,255,231,.12); transform: translateY(-1px); }
 
 .muted{color: var(--muted)}
 .error{color:#ff7b7b}
