@@ -32,6 +32,10 @@ function showToast(msg, timeout=2200){
   return el;
 }
 
+// Spinner helpers (adds/removes a small spinner element inside a button)
+function addSpinner(btn){ if(!btn) return; if(!btn.querySelector('.spinner')){ const s=document.createElement('span'); s.className='spinner'; btn.appendChild(s); } btn.setAttribute('aria-busy','true'); }
+function removeSpinner(btn){ if(!btn) return; const s = btn.querySelector('.spinner'); if(s) s.remove(); btn.removeAttribute('aria-busy'); }
+
 function planRow(plan) {
   const li = document.createElement('div');
   li.className = 'planRow';
@@ -210,7 +214,7 @@ function showIssuesModal(planId) {
     pdfBtn.onclick = async () => {
       // hide/disable existing download button while generating
       if (downloadBtn) { downloadBtn.style.display = 'none'; downloadBtn.disabled = true; downloadBtn.onclick = null; }
-      pdfBtn.disabled = true;
+      pdfBtn.disabled = true; addSpinner(pdfBtn);
       pdfOut.textContent = 'Generating PDF…';
       try{
         const r = await fetch('/api/export_report.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `plan_id=${encodeURIComponent(planId)}` });
@@ -237,7 +241,7 @@ function showIssuesModal(planId) {
           else if(dbgJson && dbgJson.exports) pdfOut.textContent += ' — Debug: ' + JSON.stringify(dbgJson.exports.slice(0,5));
         }catch(_){ /* ignore */ }
       }
-      pdfBtn.disabled = false;
+      removeSpinner(pdfBtn); pdfBtn.disabled = false;
     };
   }
 
@@ -317,7 +321,7 @@ function showIssuesModal(planId) {
               setTimeout(()=>{ if(window.showIssueModal) window.showIssueModal(issue); }, 600);
             }); } }catch(e){ console.error(e); } };
         const exportBtn = document.createElement('button'); exportBtn.className='btn'; exportBtn.textContent='Export PDF'; exportBtn.onclick = async ()=>{
-          exportBtn.disabled = true;
+          exportBtn.disabled = true; addSpinner(exportBtn);
           // hide/disable global download while generating
           if (downloadBtn) { downloadBtn.style.display = 'none'; downloadBtn.disabled = true; downloadBtn.onclick = null; }
           try{
@@ -349,7 +353,7 @@ function showIssuesModal(planId) {
               else if(dbgJson && dbgJson.exports) pdfOut.textContent += ' — Debug: ' + JSON.stringify(dbgJson.exports.slice(0,5));
             }catch(_){ /* ignore */ }
           }
-          exportBtn.disabled = false;
+          removeSpinner(exportBtn); exportBtn.disabled = false;
         };
         const saveBtn = document.createElement('button'); saveBtn.className='btnPrimary'; saveBtn.textContent='Save'; saveBtn.onclick = async ()=>{ saveBtn.disabled = true; try{ const payload = { id: issue.id, plan_id: planId, title: issue.title, notes: issue.notes, page: issue.page, x_norm: issue.x_norm, y_norm: issue.y_norm, status: statusSelect.value, priority: prioSelect.value }; const r = await fetch('/api/save_issue.php',{method:'POST',headers:{'Content-Type':'application/json'},body: JSON.stringify(payload), credentials:'same-origin'}); const txt = await r.text(); let resp; try{ resp = JSON.parse(txt); }catch{ resp = null; } if(!r.ok || !resp || !resp.ok) throw new Error((resp && resp.error) ? resp.error : 'Save failed'); showToast('Saved'); issue.status = statusSelect.value; issue.priority = prioSelect.value; }catch(err){ showToast('Save error: ' + err.message); } saveBtn.disabled = false; };
         btnRow.appendChild(viewBtn); btnRow.appendChild(jumpBtn); btnRow.appendChild(exportBtn); btnRow.appendChild(saveBtn);
