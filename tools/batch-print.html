@@ -1,3 +1,16 @@
+	button, input, select {
+		min-height: 44px;
+		min-width: 44px;
+		font-size: 1.1em;
+		border-radius: 6px;
+	}
+	button:active, .btn:active, .btnPrimary:active {
+		filter: brightness(0.85);
+		box-shadow: 0 0 0 2px #0ff inset;
+	}
+	.cropOverlay, .annotateOverlay, .splitOverlay, .mergeOverlay, .printOverlay {
+		touch-action: none;
+	}
 <!-- Milestone 6: Batch Print tool stub -->
 <!DOCTYPE html>
 <html><body><h1>Batch Print PDF Tool</h1></body></html>
