@@ -172,7 +172,7 @@
   </main>
 
 <script src="/vendor/pdfjs/pdf.min.js"></script>
-<script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+<script src="/vendor/pdfjs/pdf-lib.min.js"></script>
 <script>
   // ensure pdfjsLib is available (some builds attach to window)
   if (typeof pdfjsLib === 'undefined' && window && window.pdfjsLib) {
@@ -321,8 +321,8 @@ fileUploader.onchange = (e)=>{ const f=e.target.files&&e.target.files[0]; if(!f)
       canvas.style.height = canvas.height+'px';
       aCanvas.width = canvas.width;
       aCanvas.height = canvas.height;
-      aCanvas.style.left = canvas.offsetLeft+'px';
-      aCanvas.style.top = canvas.offsetTop+'px';
+      aCanvas.style.left = '0px';
+      aCanvas.style.top = '0px';
       // match displayed CSS size so annotation overlay lines up when canvas is scaled
       aCanvas.style.width = canvas.style.width;
       aCanvas.style.height = canvas.style.height;
@@ -349,10 +349,10 @@ fileUploader.onchange = (e)=>{ const f=e.target.files&&e.target.files[0]; if(!f)
   document.getElementById('colorPicker').addEventListener('input', (e)=>{ color=e.target.value; });
   document.getElementById('strokeWidth').addEventListener('change',(e)=>{ stroke=parseInt(e.target.value||3,10); });
 
-  aCanvas.addEventListener('pointerdown',(e)=>{ const r=aCanvas.getBoundingClientRect(); const x=e.clientX-r.left; const y=e.clientY-r.top; if(tool==='text'){ const txt = prompt('Text to add'); if(txt){ shapes.push({type:'text', x,y, text:txt, color, size:16}); redrawAnnotations(); } return; } current={tool, color, stroke, startX:x, startY:y, points: [{x,y}]}; // ensure pointer capture for drawing tools so pointermove/up fire reliably on touch
+  aCanvas.addEventListener('pointerdown',(e)=>{ const r=aCanvas.getBoundingClientRect(); const scaleX = aCanvas.width / r.width; const scaleY = aCanvas.height / r.height; const x=(e.clientX-r.left) * scaleX; const y=(e.clientY-r.top) * scaleY; if(tool==='text'){ const txt = prompt('Text to add'); if(txt){ shapes.push({type:'text', x,y, text:txt, color, size:16}); redrawAnnotations(); } return; } current={tool, color, stroke, startX:x, startY:y, points: [{x,y}]}; // ensure pointer capture for drawing tools so pointermove/up fire reliably on touch
     try{ if(typeof e.pointerId !== 'undefined') aCanvas.setPointerCapture(e.pointerId); }catch(ignore){}
   });
-  aCanvas.addEventListener('pointermove',(e)=>{ if(!current) return; const r=aCanvas.getBoundingClientRect(); const x=e.clientX-r.left; const y=e.clientY-r.top; if(current.tool==='free'){ current.points.push({x,y}); drawTemp(); } else { current.endX=x; current.endY=y; drawTemp(); } });
+  aCanvas.addEventListener('pointermove',(e)=>{ if(!current) return; const r=aCanvas.getBoundingClientRect(); const scaleX = aCanvas.width / r.width; const scaleY = aCanvas.height / r.height; const x=(e.clientX-r.left) * scaleX; const y=(e.clientY-r.top) * scaleY; if(current.tool==='free'){ current.points.push({x,y}); drawTemp(); } else { current.endX=x; current.endY=y; drawTemp(); } });
   aCanvas.addEventListener('pointerup',(e)=>{
     if(!current) return;
     if(current.tool==='icon'){
