@@ -197,7 +197,7 @@ async function showIssueModal(pin){
   if(!modal){
     modal = document.createElement('div');
     modal.id='issueModal';
-    modal.style.position='fixed'; modal.style.left='50%'; modal.style.top='50%'; modal.style.transform='translate(-50%,-50%)'; modal.style.background='#222'; modal.style.color='#fff'; modal.style.zIndex=100000; modal.style.padding='20px'; modal.style.borderRadius='12px'; modal.style.boxShadow='0 0 24px #0ff8'; modal.style.maxWidth='90vw'; modal.style.width='420px'; modal.style.fontSize='16px';
+    modal.style.position='fixed'; modal.style.left='50%'; modal.style.top='50%'; modal.style.transform='translate(-50%,-50%)'; modal.style.background='#222'; modal.style.color='#fff'; modal.style.zIndex=100000; modal.style.padding='20px'; modal.style.borderRadius='12px'; modal.style.boxShadow='0 0 24px #0ff8'; modal.style.maxWidth='96vw'; modal.style.width='680px'; modal.style.fontSize='16px';
     modal.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px;">
         <div style="flex:1;">
@@ -225,7 +225,7 @@ async function showIssueModal(pin){
             <input id="issueAssignee" type="text" style="width:100%;font-size:14px;" value="${pin.assignee||''}" />
           </label>
         </div>
-        <div style="width:220px;border-left:1px solid rgba(255,255,255,.04);padding-left:12px;font-size:13px;">
+        <div style="width:320px;border-left:1px solid rgba(255,255,255,.04);padding-left:12px;font-size:13px;">
           <div><strong>ID:</strong> <span id="issueId">${pin.id||''}</span></div>
           <div><strong>Page:</strong> <span id="issuePage">${pin.page||''}</span></div>
 
@@ -243,7 +243,7 @@ async function showIssueModal(pin){
         <label style="flex:1">Select Photo:<br>
           <input id="issuePhotoInput" type="file" accept="image/*" style="width:100%;" />
         </label>
-        <button id="issueTakePhotoBtn" class="btn" style="flex:0 0 auto;min-width:120px;">Take Photo</button>
+        <button id="issueTakePhotoBtn" class="btn" style="flex:0 0 auto;min-width:140px;padding:10px 16px;">Take Photo</button>
       </div>
       <div id="photoPreview" style="display:none;margin-bottom:12px;align-items:center;gap:8px;">
         <img id="photoPreviewImg" style="max-width:160px;max-height:160px;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.6);" />
@@ -256,8 +256,8 @@ async function showIssueModal(pin){
         </div>
       </div>
       <div style="text-align:right;">
-        <button id="issueSaveBtn" style="background:#0ff;color:#222;font-weight:bold;padding:8px 16px;border-radius:6px;">Save</button>
-        <button id="issueCancelBtn" style="background:#444;color:#fff;padding:8px 16px;border-radius:6px;">Cancel</button>
+        <button id="issueSaveBtn" class="btnPrimary" style="min-width:120px;padding:10px 18px;">Save</button>
+        <button id="issueCancelBtn" class="btn" style="min-width:110px;padding:10px 14px;">Cancel</button>
       </div>
     `;
     document.body.appendChild(modal);
