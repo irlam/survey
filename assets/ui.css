@@ -114,7 +114,7 @@ select:focus{ outline:none; box-shadow: 0 0 0 4px rgba(0,255,231,.12); transform
 
 /* Ensure modal selects inherit neon button appearance */
 .modal .customSelect .selectButton, .modal select{ background: linear-gradient(90deg, var(--neon), var(--neon2)); color:#041013; border:none; box-shadow: 0 8px 28px rgba(0,255,231,.12); }
-.modal .customSelect .selectedLabel, .modal select{ color:#041013; font-weight:800; }
+.modal .customSelect .selectedLabel, .modal select{ color:#000000; font-weight:800; }
 
 /* Ensure neon-styled selects have strong readable text */
 .neonSelect{ color:#041013 !important; font-weight:900; padding:10px 14px; min-height:44px; line-height:1.2; text-align:center; text-shadow: 0 0 6px rgba(0,0,0,0.35); }
@@ -138,7 +138,7 @@ select:focus{ outline:none; box-shadow: 0 0 0 4px rgba(0,255,231,.12); transform
 
 /* Dropdown menu content (site-wide) */
 .dropdownMenu{ position:absolute; min-width:160px; background: linear-gradient(180deg,#021017,#011014); border-radius:10px; border:1px solid rgba(0,255,231,0.12); box-shadow: 0 18px 40px rgba(0,0,0,0.6); padding:6px; z-index:9999; }
-.dropdownMenu li, .selectList li{ list-style:none; padding:10px 12px; border-radius:8px; color:#041013; cursor:pointer; }
+.dropdownMenu li, .selectList li{ list-style:none; padding:10px 12px; border-radius:8px; color:#FFFFFF; cursor:pointer; }
 .dropdownMenu li:hover, .selectList li:hover{ background: rgba(0,255,231,0.04); color:var(--neon); }
 .dropdownMenu li[aria-selected='true'], .selectList li[aria-selected='true']{ background: rgba(0,255,231,0.08); color:var(--neon); font-weight:800; }
 
@@ -147,7 +147,7 @@ select:focus{ outline:none; box-shadow: 0 0 0 4px rgba(0,255,231,.12); transform
 .selectList.open{ max-height:360px; opacity:1; transform:translateY(0); }
 
 /* make selected label inside custom selects legible (dark for neon buttons) */
-.customSelect .selectButton .selectedLabel, .selectedLabel{ color: #041013; font-weight:800; }
+.customSelect .selectButton .selectedLabel, .selectedLabel{ color: #000000; font-weight:800; }
 
 /* small helper so select-like buttons don't overflow */
 .selectLike{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -160,27 +160,27 @@ select:focus{ outline:none; box-shadow: 0 0 0 4px rgba(0,255,231,.12); transform
 /* Keep the neon accent but make custom selects compact and darker */
 .customSelect { display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:12px; background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.04)); border:1px solid rgba(0,255,231,0.08); min-height:40px; box-shadow: none; }
 .customSelect.small{ padding:6px 8px; min-width:80px; }
-.customSelect .selectButton, .selectButton{ display:flex; align-items:center; justify-content:center; width:100%; min-height:44px; background: linear-gradient(90deg, var(--neon), var(--neon2)); border:none; padding:10px 14px; color:#041013; font-weight:900; cursor:pointer; border-radius:12px; box-shadow: 0 9px 34px rgba(0,255,231,.16); transition: transform .08s ease, box-shadow .12s ease; }
+.customSelect .selectButton, .selectButton{ display:flex; align-items:center; justify-content:center; width:100%; min-height:44px; background: linear-gradient(90deg, var(--neon), var(--neon2)); border:none; padding:10px 14px; color:#000000; font-weight:900; cursor:pointer; border-radius:12px; box-shadow: 0 9px 34px rgba(0,255,231,.16); transition: transform .08s ease, box-shadow .12s ease; }
 .customSelect .selectButton:focus, .selectButton:focus{ outline:none; box-shadow: 0 0 0 4px rgba(0,255,231,.14); transform: translateY(-1px); }
 .customSelect.small .selectButton{ padding:8px 10px; border-radius:10px; min-width:56px; font-size:0.95em; min-height:44px; }
-.customSelect .selectedLabel{ color:#041013; font-weight:900; font-size:1rem; line-height:1; display:block; width:100%; text-align:center; text-shadow: 0 1px 0 rgba(255,255,255,0.12); }
+.customSelect .selectedLabel{ color:#000000; font-weight:900; font-size:1rem; line-height:1; display:block; width:100%; text-align:center; text-shadow: 0 1px 0 rgba(255,255,255,0.12); }
 
 /* Ensure issue modal selects are explicit and match neon theme */
-#issueStatusSelect .selectButton, #issuePrioritySelect .selectButton, .modal .customSelect .selectButton{ background: linear-gradient(90deg, var(--neon), var(--neon2)); border:none; color:#041013; box-shadow: 0 9px 34px rgba(0,255,231,.16); min-width:84px; padding:12px 18px; }
-#issueStatusSelect .selectedLabel, #issuePrioritySelect .selectedLabel, .modal .customSelect .selectedLabel{ color:#041013 !important; font-weight:900; font-size:1rem; line-height:1; display:block; text-align:center; }
-#issuesModal .customSelect .selectButton .selectedLabel{ color:#041013 !important; font-weight:900; font-size:1rem; line-height:1; text-shadow: 0 1px 0 rgba(255,255,255,0.12); }
+#issueStatusSelect .selectButton, #issuePrioritySelect .selectButton, .modal .customSelect .selectButton{ background: linear-gradient(90deg, var(--neon), var(--neon2)); border:none; color:#000000; box-shadow: 0 9px 34px rgba(0,255,231,.16); min-width:84px; padding:12px 18px; }
+#issueStatusSelect .selectedLabel, #issuePrioritySelect .selectedLabel, .modal .customSelect .selectedLabel{ color:#000000 !important; font-weight:900; font-size:1rem; line-height:1; display:block; text-align:center; }
+#issuesModal .customSelect .selectButton .selectedLabel{ color:#000000 !important; font-weight:900; font-size:1rem; line-height:1; text-shadow: 0 1px 0 rgba(255,255,255,0.12); }
 
 /* Ensure selects inside issue list cards show visible labels */
 .card .customSelect .selectButton{ min-height:44px; padding:10px 12px; display:flex; align-items:center; justify-content:center; }
-.card .customSelect .selectedLabel{ color:#041013; font-weight:800; }
+.card .customSelect .selectedLabel{ color:#000000; font-weight:800; }
 /* Modal/list specific: make dropdown controls and list items readable in the Issues modal/list */
 #issuesModal .customSelect, .card .customSelect{ min-width:120px; }
 #issuesModal .customSelect.small, .card .customSelect.small{ min-width:100px; }
-#issuesModal .customSelect .selectButton, .card .customSelect .selectButton{ padding:12px 18px; min-height:44px; color:#041013 !important; }
-#issuesModal .customSelect .selectedLabel, .card .customSelect .selectedLabel{ color:#041013 !important; font-weight:900; font-size:1rem; line-height:1; display:block; text-align:center; text-shadow: 0 1px 0 rgba(255,255,255,0.12); }
-#issuesModal .customSelect .selectList, .card .customSelect .selectList{ background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border-radius:12px; padding:10px; border:1px solid rgba(0,255,231,0.08); box-shadow: 0 12px 30px rgba(0,0,0,0.5); }
-#issuesModal .customSelect .selectList li, .card .customSelect .selectList li{ color: #041013 !important; font-weight:700; background: transparent; padding:12px 14px; border-radius:8px; }
-#issuesModal .customSelect .selectList li:hover, .card .customSelect .selectList li:hover{ background: linear-gradient(90deg, rgba(0,255,231,0.06), rgba(57,255,20,0.04)); color:#041013; }
+#issuesModal .customSelect .selectButton, .card .customSelect .selectButton{ padding:12px 18px; min-height:44px; color:#000000 !important; }
+#issuesModal .customSelect .selectedLabel, .card .customSelect .selectedLabel{ color:#000000 !important; font-weight:900; font-size:1rem; line-height:1; display:block; text-align:center; text-shadow: 0 1px 0 rgba(255,255,255,0.12); }
+#issuesModal .customSelect .selectList, .card .customSelect .selectList{ background: linear-gradient(180deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05)); border-radius:12px; padding:10px; border:1px solid rgba(0,255,231,0.08); box-shadow: 0 12px 30px rgba(0,0,0,0.5); }
+#issuesModal .customSelect .selectList li, .card .customSelect .selectList li{ color: #FFFFFF !important; font-weight:700; background: transparent; padding:12px 14px; border-radius:8px; }
+#issuesModal .customSelect .selectList li:hover, .card .customSelect .selectList li:hover{ background: linear-gradient(90deg, rgba(0,255,231,0.06), rgba(57,255,20,0.04)); color:#FFFFFF; }
 
 
 /* Fallback: make any unstyled buttons match secondary neon style */
@@ -194,10 +194,10 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
 .customSelect.neonSelect .selectButton{ width:100%; display:block; padding:12px 16px; border-radius:12px; }
 
 /* Subtle chevron on custom select button */
-.customSelect .selectButton::after{ content:''; display:inline-block; width:14px; height:14px; margin-left:8px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24'%3E%3Cpath fill='%23041013' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:center; }
+.customSelect .selectButton::after{ content:''; display:inline-block; width:14px; height:14px; margin-left:8px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24'%3E%3Cpath fill='%23000000' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:center; }
 
 /* Fallback: ensure any .selectButton (even outside .customSelect) uses neon appearance */
-.selectButton{ background: linear-gradient(90deg, var(--neon), var(--neon2)); color:#041013; border:none; padding:8px 12px; border-radius:12px; box-shadow: 0 8px 28px rgba(0,255,231,.12); font-weight:800; }
+.selectButton{ background: linear-gradient(90deg, var(--neon), var(--neon2)); color:#000000; border:none; padding:8px 12px; border-radius:12px; box-shadow: 0 8px 28px rgba(0,255,231,.12); font-weight:800; }
 
 /* Spinner (used on export buttons) */
 .spinner{ display:inline-block; width:14px; height:14px; border-radius:50%; border:2px solid rgba(255,255,255,0.15); border-top-color: var(--neon); animation: spin .9s linear infinite; margin-left:8px; vertical-align:middle; }
@@ -208,10 +208,10 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
 
 
 /* Custom select dropdown list items (used in multiple pages) */
-.customSelect .selectList{ background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border:1px solid rgba(0,255,231,0.08); box-shadow: 0 12px 30px rgba(0,0,0,0.5); border-radius:12px; z-index:9999; padding:8px; list-style:none; margin:0; min-width:160px; }
-.customSelect .selectList li{ padding:12px 14px; border-radius:8px; color:#041013 !important; cursor:pointer; font-weight:700; text-shadow:none; transition: background .12s ease, color .08s ease, transform .06s ease; }
-.customSelect .selectList li:hover{ background: linear-gradient(90deg, rgba(0,255,231,0.06), rgba(57,255,20,0.04)); color:#041013; font-weight:800; transform: translateY(-1px); box-shadow: inset 0 6px 12px rgba(0,255,231,0.02); }
-.customSelect .selectList li[aria-selected='true']{ background: linear-gradient(90deg, var(--neon), var(--neon2)); color:#041013; font-weight:900; box-shadow: 0 10px 30px rgba(0,255,231,0.12); }
+.customSelect .selectList{ background: linear-gradient(180deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05)); border:1px solid rgba(0,255,231,0.08); box-shadow: 0 12px 30px rgba(0,0,0,0.5); border-radius:12px; z-index:9999; padding:8px; list-style:none; margin:0; min-width:160px; }
+.customSelect .selectList li{ padding:12px 14px; border-radius:8px; color:#FFFFFF !important; cursor:pointer; font-weight:700; text-shadow:none; transition: background .12s ease, color .08s ease, transform .06s ease; }
+.customSelect .selectList li:hover{ background: linear-gradient(90deg, rgba(0,255,231,0.06), rgba(57,255,20,0.04)); color:#FFFFFF; font-weight:800; transform: translateY(-1px); box-shadow: inset 0 6px 12px rgba(0,255,231,0.02); }
+.customSelect .selectList li[aria-selected='true']{ background: linear-gradient(90deg, var(--neon), var(--neon2)); color:#000000; font-weight:900; box-shadow: 0 10px 30px rgba(0,255,231,0.12); }
 
 /* Secondary buttons (dark) - use subtle neon border/text */
 .btn{
@@ -234,7 +234,7 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
   min-height:44px;
   border-radius:12px;
   border:none;
-  color:#041013;
+  color:#000000;
   background: linear-gradient(90deg, var(--neon), var(--neon2));
   font-weight:800;
   cursor:pointer;
