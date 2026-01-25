@@ -257,6 +257,22 @@
         }
       });
     </script>
-
+    <script>
+      window.addEventListener('message', async (event) => {
+        if (event.origin !== window.location.origin) return;
+        if (event.data.type === 'loadFile') {
+          const { file, filename } = event.data;
+          // Wait for viewer to load
+          const checkViewer = () => {
+            if (window.AcApDocManager && window.AcApDocManager.instance) {
+              window.AcApDocManager.instance.openDocument(filename, file, { minimumChunkSize: 1000, readOnly: true });
+            } else {
+              setTimeout(checkViewer, 100);
+            }
+          };
+          checkViewer();
+        }
+      });
+    </script>
   </body>
 </html>

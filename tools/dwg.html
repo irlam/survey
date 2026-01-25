@@ -52,7 +52,22 @@
           try{
             const r = await fetch('/api/convert_dwg.php', { method: 'POST', body: fd });
             const txt = await r.text(); let data; try{ data = JSON.parse(txt); }catch{ data = null; }
-            if(!r.ok || !data || !data.ok) { out.textContent = 'Conversion failed: ' + (data && data.error ? data.error : txt); return; }
+            if(!r.ok || !data || !data.ok) { 
+              const errorMsg = data && data.error ? data.error : txt;
+              out.innerHTML = `<div>Conversion failed: ${errorMsg}</div><button class="btn" id="fallbackBtn">Open in DWG Viewer</button>`;
+              document.getElementById('fallbackBtn').onclick = () => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                  const arrayBuffer = reader.result;
+                  const win = window.open('/tools/dwgviewer/', '_blank');
+                  setTimeout(() => {
+                    win.postMessage({ type: 'loadFile', file: arrayBuffer, filename: f.name }, window.location.origin);
+                  }, 2000);
+                };
+                reader.readAsArrayBuffer(f);
+              };
+              return; 
+            }
             const a = document.createElement('a'); a.href = '/storage/exports/' + encodeURIComponent(data.filename); a.target='_blank'; a.textContent = 'Download: ' + data.filename; a.style.display='block'; out.innerHTML = ''; out.appendChild(a);
             // Open in DWG Viewer (same-origin)
             const openBtn = document.createElement('button'); openBtn.className='btn'; openBtn.textContent='Open in Viewer'; openBtn.style.marginLeft='8px'; openBtn.onclick = ()=>{
