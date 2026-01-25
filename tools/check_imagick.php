@@ -56,7 +56,10 @@ if ($show_image_param) {
 
 if (isset($_GET['test_render'])) {
     // Attempt to render a page from the specified plan or the most recent plan
+    // Load config helper and DB helper (db() depends on load_config())
+    require_once __DIR__ . '/../api/config-util.php';
     require_once __DIR__ . '/../api/db.php';
+
 
     $plan_id = !empty($_GET['plan_id']) ? intval($_GET['plan_id']) : null;
     $pdo = db();
