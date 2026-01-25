@@ -301,7 +301,6 @@ async function showIssueModal(pin){
     // helper used by both file inputs -- will resize/compress client-side then upload
     async function uploadProcessedFile(blobOrFile){
       const planId = getPlanIdFromUrl(); const issueId = pin.id;
-      if(!planId || !issueId){ localShowToast('Save the issue first before uploading photos.'); return; }
       const fd = new FormData(); fd.append('file', blobOrFile, (blobOrFile.name||'photo.jpg'));
       fd.append('plan_id', planId); fd.append('issue_id', issueId);
       try{
@@ -318,10 +317,29 @@ async function showIssueModal(pin){
     // show preview and wire confirm/cancel
     function handleSelectedFile(file){ if(!file) return; const previewWrap = modal.querySelector('#photoPreview'); const imgEl = modal.querySelector('#photoPreviewImg'); const infoEl = modal.querySelector('#photoPreviewInfo'); previewWrap.style.display='flex'; const url = URL.createObjectURL(file); imgEl.src = url; infoEl.textContent = `${Math.round(file.size/1024)} KB — ${file.type}`;
       // set confirm handler to resize then upload
-      const confirmBtn = modal.querySelector('#issueUploadConfirmBtn'); const cancelBtn = modal.querySelector('#issueUploadCancelBtn'); confirmBtn.disabled = false; confirmBtn.onclick = async ()=>{ confirmBtn.disabled = true; try{ const blob = await resizeImageFile(file); // convert to blob
-            // try to preserve a filename
-            const out = new File([blob], (file.name||'photo.jpg'), {type: blob.type}); await uploadProcessedFile(out); previewWrap.style.display='none'; URL.revokeObjectURL(url);
-          }catch(err){ alert('Image processing failed: '+err.message); confirmBtn.disabled=false; } };
+      const confirmBtn = modal.querySelector('#issueUploadConfirmBtn'); const cancelBtn = modal.querySelector('#issueUploadCancelBtn'); confirmBtn.disabled = false; confirmBtn.onclick = async ()=>{ confirmBtn.disabled = true; try{ 
+        if(!pin.id){
+          const title = modal.querySelector('#issueTitle').value.trim();
+          const notes = modal.querySelector('#issueNotes').value.trim();
+          const status = modal.querySelector('#issueStatusSelect').value;
+          const priority = modal.querySelector('#issuePrioritySelect').value;
+          const assignee = modal.querySelector('#issueAssignee').value.trim();
+          if(!title){ localShowToast('Title is required to upload photos.'); confirmBtn.disabled=false; return; }
+          const issue = { plan_id: planId, page: pin.page, x_norm: pin.x_norm, y_norm: pin.y_norm, title, notes, status, priority, assignee };
+          try{
+            const saved = await apiSaveIssue(issue);
+            pin.id = saved.id;
+            await reloadDbPins();
+            await renderPage(currentPage);
+          }catch(e){
+            localShowToast('Error saving issue: '+e.message);
+            confirmBtn.disabled=false;
+            return;
+          }
+        }
+        const blob = await resizeImageFile(file);
+        const out = new File([blob], (file.name||'photo.jpg'), {type: blob.type}); await uploadProcessedFile(out); previewWrap.style.display='none'; URL.revokeObjectURL(url);
+      }catch(err){ localShowToast('Image processing failed: '+err.message); confirmBtn.disabled=false; } };
       cancelBtn.onclick = ()=>{ previewWrap.style.display='none'; imgEl.src=''; infoEl.textContent=''; URL.revokeObjectURL(url); };
     }
 
