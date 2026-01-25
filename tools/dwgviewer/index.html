@@ -245,40 +245,40 @@
     <script>
       // Add pan and zoom functionality after viewer loads
       const addPanZoom = () => {
-        const canvas = document.querySelector('#cad-container canvas');
-        if (!canvas) {
+        const element = document.getElementById('cad-container');
+        if (!element) {
           setTimeout(addPanZoom, 500);
           return;
         }
         let isPanning = false;
         let startX, startY;
         // Mouse pan
-        canvas.addEventListener('mousedown', (e) => {
+        element.addEventListener('mousedown', (e) => {
           isPanning = true;
           startX = e.clientX;
           startY = e.clientY;
-          canvas.style.cursor = 'grabbing';
+          element.style.cursor = 'grabbing';
         });
-        canvas.addEventListener('mousemove', (e) => {
+        element.addEventListener('mousemove', (e) => {
           if (isPanning && window.AcApDocManager?.instance?.curView) {
             const dx = e.clientX - startX;
             const dy = e.clientY - startY;
-            window.AcApDocManager.instance.curView.pan(dx, dy);
+            window.AcApDocManager.instance.curView.pan(dx, -dy); // Note: y inverted for CAD coordinates
             startX = e.clientX;
             startY = e.clientY;
           }
         });
-        canvas.addEventListener('mouseup', () => {
+        element.addEventListener('mouseup', () => {
           isPanning = false;
-          canvas.style.cursor = 'grab';
+          element.style.cursor = 'grab';
         });
-        canvas.addEventListener('mouseleave', () => {
+        element.addEventListener('mouseleave', () => {
           isPanning = false;
-          canvas.style.cursor = 'grab';
+          element.style.cursor = 'grab';
         });
-        canvas.style.cursor = 'grab';
+        element.style.cursor = 'grab';
         // Mouse wheel zoom
-        canvas.addEventListener('wheel', (e) => {
+        element.addEventListener('wheel', (e) => {
           e.preventDefault();
           if (window.AcApDocManager?.instance?.curView) {
             const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
@@ -289,7 +289,7 @@
         let touchStartX, touchStartY;
         let initialDist = 0;
         let prevDist = 0;
-        canvas.addEventListener('touchstart', (e) => {
+        element.addEventListener('touchstart', (e) => {
           if (e.touches.length === 1) {
             isPanning = true;
             touchStartX = e.touches[0].clientX;
@@ -302,11 +302,11 @@
             prevDist = initialDist;
           }
         });
-        canvas.addEventListener('touchmove', (e) => {
+        element.addEventListener('touchmove', (e) => {
           if (e.touches.length === 1 && isPanning && window.AcApDocManager?.instance?.curView) {
             const dx = e.touches[0].clientX - touchStartX;
             const dy = e.touches[0].clientY - touchStartY;
-            window.AcApDocManager.instance.curView.pan(dx, dy);
+            window.AcApDocManager.instance.curView.pan(dx, -dy); // Note: y inverted for CAD coordinates
             touchStartX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
           } else if (e.touches.length === 2 && window.AcApDocManager?.instance?.curView) {
@@ -320,7 +320,7 @@
             prevDist = newDist;
           }
         });
-        canvas.addEventListener('touchend', (e) => {
+        element.addEventListener('touchend', (e) => {
           if (e.touches.length === 0) {
             isPanning = false;
             initialDist = 0;
