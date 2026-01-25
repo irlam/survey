@@ -207,14 +207,33 @@
             const label = findLabel();
             const prevLabel = label && label.textContent;
             loadSampleBtn.disabled = true;
-            if(label) label.textContent = 'Waiting...';
+            if(label) label.textContent = 'Loading...';
             try{
-              const ready = await ensureViewerReady();
-              if(!ready){
-                alert('Viewer not ready yet. Please wait a moment and try again.');
+              const ready = await ensureViewerReady(10000, 300);
+              if(ready && window.dwgViewer && typeof window.dwgViewer.openSrc === 'function'){
+                console.log('dwgviewer: using dwgViewer.openSrc');
+                await window.dwgViewer.openSrc('/tools/dwgviewer/arc_2000.dwg');
                 return;
               }
-              await window.dwgViewer.openSrc('/tools/dwgviewer/arc_2000.dwg');
+
+              // If module didn't expose helper, try to instantiate viewer directly
+              if(typeof bv === 'function' && !window.__dwgViewerInstance){
+                console.log('dwgviewer: creating direct bv instance');
+                try{
+                  window.__dwgViewerInstance = new bv();
+                }catch(err){ console.warn('Failed to create bv directly', err); }
+              }
+
+              if(window.__dwgViewerInstance && typeof window.__dwgViewerInstance.loadArrayBuffer === 'function'){
+                console.log('dwgviewer: fetching file and using loadArrayBuffer');
+                const res = await fetch('/tools/dwgviewer/arc_2000.dwg');
+                if(!res.ok) throw new Error('Fetch failed: HTTP ' + res.status);
+                const ab = await res.arrayBuffer();
+                await window.__dwgViewerInstance.loadArrayBuffer('arc_2000.dwg', ab);
+                return;
+              }
+
+              alert('Viewer not ready yet. Please wait a moment and try again. Check console for details.');
             }catch(err){
               console.error('Sample load failed', err);
               alert('Sample load failed: ' + (err && err.message ? err.message : err));
