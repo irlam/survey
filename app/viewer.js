@@ -190,7 +190,7 @@ async function showIssueModal(pin){
             <div style="flex:1;">
               <label style="display:block;margin-bottom:4px;">Status:</label>
               <div id="issueStatusSelect" class="customSelect selectLike" role="combobox" aria-haspopup="listbox" aria-expanded="false" tabindex="0">
-                <button class="selectButton" aria-label="Status"><span class="selectedLabel">Open</span></button>
+                <button class="selectButton" aria-label="Status"><span class="selectedLabel">${pin.status === 'in_progress' ? 'In Progress' : pin.status ? pin.status.charAt(0).toUpperCase() + pin.status.slice(1) : 'Open'}</span></button>
                 <ul class="selectList" role="listbox" tabindex="-1">
                   <li role="option" data-value="open">Open</li>
                   <li role="option" data-value="in_progress">In Progress</li>
@@ -202,7 +202,7 @@ async function showIssueModal(pin){
             <div style="width:140px;">
               <label style="display:block;margin-bottom:4px;">Priority:</label>
               <div id="issuePrioritySelect" class="customSelect selectLike" role="combobox" aria-haspopup="listbox" aria-expanded="false" tabindex="0">
-                <button class="selectButton" aria-label="Priority"><span class="selectedLabel">Medium</span></button>
+                <button class="selectButton" aria-label="Priority"><span class="selectedLabel">${pin.priority ? pin.priority.charAt(0).toUpperCase() + pin.priority.slice(1) : 'Medium'}</span></button>
                 <ul class="selectList" role="listbox" tabindex="-1">
                   <li role="option" data-value="low">Low</li>
                   <li role="option" data-value="medium">Medium</li>
