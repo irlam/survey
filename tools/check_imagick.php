@@ -75,9 +75,39 @@ if (isset($_GET['test_render'])) {
         $test_result = ['ok'=>false, 'error'=>'No plan found to test render'];
     } else {
         $fileRel = $plan['file_path'] ?? null;
-        $planFile = $fileRel ? realpath(__DIR__ . '/../' . ltrim($fileRel, '/')) : null;
+        // try several candidate locations so we can handle different storage layouts
+        $tried = [];
+        $planFile = null;
+        if ($fileRel) {
+            // 1) try as given (absolute/relative)
+            $cand = realpath($fileRel);
+            $tried[] = [$fileRel, $cand ?: null];
+            if ($cand && is_file($cand)) $planFile = $cand;
+
+            // 2) project-relative (httpdocs + fileRel)
+            if (!$planFile) {
+                $cand2 = realpath(__DIR__ . '/../' . ltrim($fileRel, '/'));
+                $tried[] = [__DIR__ . '/../' . ltrim($fileRel, '/'), $cand2 ?: null];
+                if ($cand2 && is_file($cand2)) $planFile = $cand2;
+            }
+
+            // 3) storage_dir(fileRel)
+            if (!$planFile) {
+                $cand3 = storage_dir($fileRel);
+                $tried[] = [$cand3, is_file($cand3) ? realpath($cand3) : null];
+                if (is_file($cand3)) $planFile = $cand3;
+            }
+
+            // 4) storage_dir('plans/' . basename(fileRel))
+            if (!$planFile) {
+                $cand4 = storage_dir('plans/' . basename($fileRel));
+                $tried[] = [$cand4, is_file($cand4) ? realpath($cand4) : null];
+                if (is_file($cand4)) $planFile = $cand4;
+            }
+        }
+
         if (!$planFile || !is_file($planFile)) {
-            $test_result = ['ok'=>false, 'error'=>'Plan file not found or unreadable: ' . ($fileRel??'(none)')];
+            $test_result = ['ok'=>false, 'error'=>'Plan file not found or unreadable: ' . ($fileRel??'(none)'), 'tried'=>$tried];
         } else {
             // try Imagick
             $tmp = null; $method = null; $err = null;
