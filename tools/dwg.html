@@ -54,6 +54,12 @@
             const txt = await r.text(); let data; try{ data = JSON.parse(txt); }catch{ data = null; }
             if(!r.ok || !data || !data.ok) { out.textContent = 'Conversion failed: ' + (data && data.error ? data.error : txt); return; }
             const a = document.createElement('a'); a.href = '/storage/exports/' + encodeURIComponent(data.filename); a.target='_blank'; a.textContent = 'Download: ' + data.filename; a.style.display='block'; out.innerHTML = ''; out.appendChild(a);
+            // Open in DWG Viewer (same-origin)
+            const openBtn = document.createElement('button'); openBtn.className='btn'; openBtn.textContent='Open in Viewer'; openBtn.style.marginLeft='8px'; openBtn.onclick = ()=>{
+              const viewerUrl = '/tools/dwgviewer/?src=' + encodeURIComponent('/storage/exports/' + data.filename);
+              window.open(viewerUrl, '_blank');
+            };
+            out.appendChild(openBtn);
             // Add Save as Plan and Crop buttons
             const saveBtn = document.createElement('button'); saveBtn.className='btn'; saveBtn.textContent='Save as Plan'; saveBtn.onclick = async ()=>{
               saveBtn.disabled = true; try{
