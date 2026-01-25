@@ -284,12 +284,8 @@ foreach ($issue_list as $issue) {
                 $includedPhotos[] = ['issue_id'=>$issue['id']??null,'file'=>$file,'size'=>is_file($file)?filesize($file):null];
             }
             $pdf->Image($file, $x, null, $maxImgW, 0);
-            // caption beneath image (filename or note)
-            $pdf->Ln(2);
-            $pdf->SetFont('Arial','',9);
-            $caption = $ph['caption'] ?? ($ph['filename'] ?? basename($file));
-            $pdf->MultiCell(0,5, $caption);
-            $pdf->Ln(4);
+            // caption removed for PDF exports — add spacing instead
+            $pdf->Ln(6);
         }
     }
     if ($debug && !empty($skippedPhotos)) {
