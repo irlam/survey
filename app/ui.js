@@ -50,6 +50,7 @@ function planRow(plan) {
   const btn = document.createElement('button');
   btn.className = 'btn';
   btn.textContent = 'Open';
+  btn.type = 'button';
   btn.onclick = async () => {
     if (window.openPlanInApp) {
       await window.openPlanInApp(plan.id);
@@ -61,6 +62,7 @@ function planRow(plan) {
   const del = document.createElement('button');
   del.className = 'btn';
   del.textContent = 'Delete';
+  del.type = 'button';
   del.style.borderColor = 'rgba(255,80,80,.28)';
   del.style.color = '#ff7b7b';
   del.onclick = async () => {
@@ -134,19 +136,23 @@ async function wireUpload() {
 
 function showPlansList() {
   const form = $('#uploadForm');
+  const fields = $('#uploadFields');
   const list = $('#plansList');
   const btn = $('#btnPlans');
-  if (form) form.style.display = 'none';
+  if (form) form.style.display = 'block';
+  if (fields) fields.style.display = 'none';
   if (list) list.style.display = 'block';
   if (btn) btn.textContent = 'Upload Plan';
 }
 
 function showUploadForm() {
   const form = $('#uploadForm');
+  const fields = $('#uploadFields');
   const list = $('#plansList');
   const btn = $('#btnPlans');
   if (form) form.style.display = 'block';
-  if (list) list.style.display = 'none';
+  if (fields) fields.style.display = 'block';
+  if (list) list.style.display = 'block';
   if (btn) btn.textContent = 'Back to Plans';
 }
 
@@ -167,8 +173,8 @@ async function renderPlansScreen() {
   const plansBtn = document.getElementById('btnPlans');
   if (plansBtn) {
     plansBtn.onclick = () => {
-      const form = $('#uploadForm');
-      if (form && form.style.display === 'none') {
+      const fields = $('#uploadFields');
+      if (fields && fields.style.display === 'none') {
         showUploadForm();
       } else {
         showPlansList();

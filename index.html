@@ -27,23 +27,24 @@
       </div>
 
       <form id="uploadForm" class="card" style="display:none;">
-        <div class="field">
-          <label>PDF</label>
-          <input name="file" type="file" accept="application/pdf" required>
+        <div id="uploadFields">
+          <div class="field">
+            <label>PDF</label>
+            <input name="file" type="file" accept="application/pdf" required>
+          </div>
+          <div class="field">
+            <label>Name (optional)</label>
+            <input name="name" type="text" placeholder="e.g. L00 West Main Concourse">
+          </div>
+          <div class="field">
+            <label>Revision (optional)</label>
+            <input name="revision" type="text" placeholder="e.g. P03">
+          </div>
+          <button class="btnPrimary" type="submit">Upload</button>
+          <div id="uploadOut" class="muted" style="margin-top:8px"></div>
         </div>
-        <div class="field">
-          <label>Name (optional)</label>
-          <input name="name" type="text" placeholder="e.g. L00 West Main Concourse">
-        </div>
-        <div class="field">
-          <label>Revision (optional)</label>
-          <input name="revision" type="text" placeholder="e.g. P03">
-        </div>
-        <button class="btnPrimary" type="submit">Upload</button>
-        <div id="uploadOut" class="muted" style="margin-top:8px"></div>
+        <div id="plansList" class="list"></div>
       </form>
-
-      <div id="plansList" class="list"></div>
     </aside>
 
     <main class="main">
