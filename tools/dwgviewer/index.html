@@ -186,18 +186,42 @@
         // Sample loader button (convenience for debugging / testing)
         const loadSampleBtn = document.getElementById('loadSampleBtn');
         if(loadSampleBtn){
+          const findLabel = ()=>{
+            // label sits adjacent to the button in markup
+            const parent = loadSampleBtn.parentElement;
+            if(!parent) return null;
+            return parent.querySelector('.file-fab-label');
+          };
+
+          const ensureViewerReady = async (timeout = 7000, interval = 250) => {
+            const start = Date.now();
+            while(Date.now() - start < timeout){
+              if(window.dwgViewer && typeof window.dwgViewer.openSrc === 'function') return true;
+              if(window.__dwgViewerInstance && window.__dwgViewerInstance.isInitialized) return true;
+              await new Promise(r => setTimeout(r, interval));
+            }
+            return false;
+          };
+
           loadSampleBtn.addEventListener('click', async (e)=>{
+            const label = findLabel();
+            const prevLabel = label && label.textContent;
+            loadSampleBtn.disabled = true;
+            if(label) label.textContent = 'Waiting...';
             try{
-              if(!window.dwgViewer || !window.dwgViewer.openSrc) {
+              const ready = await ensureViewerReady();
+              if(!ready){
                 alert('Viewer not ready yet. Please wait a moment and try again.');
                 return;
               }
-              loadSampleBtn.disabled = true;
               await window.dwgViewer.openSrc('/tools/dwgviewer/arc_2000.dwg');
             }catch(err){
               console.error('Sample load failed', err);
               alert('Sample load failed: ' + (err && err.message ? err.message : err));
-            }finally{ loadSampleBtn.disabled = false; }
+            }finally{
+              loadSampleBtn.disabled = false;
+              if(label) label.textContent = prevLabel || 'Sample';
+            }
           });
         }
       });
