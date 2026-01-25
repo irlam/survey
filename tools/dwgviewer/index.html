@@ -138,48 +138,14 @@
     </style>
     <script>
       // Dynamic module loader: try a fixed local copy first, then fallback to the original bundle.
+      // Import a dedicated loader module which handles robust import/repair
       (async function(){
-        const candidates = ['./assets/main-fixed-CM0e8yK0.js','./assets/main-CM0e8yK0.js'];
-        for(const url of candidates){
-          try{
-            console.log('Attempting to import DWG module:', url);
-            await import(url + '?t=' + Date.now());
-            console.log('DWG viewer module loaded from', url);
-            return;
-          }catch(err){
-            console.warn('Import failed for', url, err && err.message ? err.message : err);
-            // continue to next candidate
-          }
-        }
-
-        // If we reach here, both imports failed — fetch for diagnostics and try a repaired blob import
         try{
-          const res = await fetch(candidates[1] + '?t=' + Date.now(), {cache:'no-store'});
-          const txt = await res.text();
-          console.error('Module fetch response length:', txt.length);
-
-          // Heuristic: if file looks truncated (missing an export or trailing closure), attempt to append a safe export and import from a blob URL.
-          const hasExport = /export\s+default\s+uB\s*\(/.test(txt) || /export\s+default\s+uB\s*\(/.test(txt);
-          if(!hasExport){
-            console.warn('Module appears to be missing an export; attempting to repair by appending export default uB(); and importing via blob.');
-            const repaired = txt + '\n\n// Appended by loader to repair truncated bundle\nexport default uB();\n';
-            try{
-              const blob = new Blob([repaired], {type: 'application/javascript'});
-              const blobUrl = URL.createObjectURL(blob);
-              await import(blobUrl + '?t=' + Date.now());
-              console.log('Imported repaired bundle via blob URL');
-              return;
-            }catch(blobErr){
-              console.error('Import of repaired blob failed', blobErr);
-            }
-          }
-
-          alert('DWG viewer failed to load (see console). Try reloading the page.');
-          console.log('Module start:\n', txt.slice(0,500));
-          console.log('Module end:\n', txt.slice(-500));
-        }catch(fetchErr){
-          console.error('Failed to fetch module for diagnostics and repair:', fetchErr);
-          alert('DWG viewer failed to load and could not be diagnosed (see console).');
+          await import('./dwgviewer-loader.js?t=' + Date.now());
+          console.log('dwgviewer-loader imported successfully');
+        }catch(err){
+          console.error('Failed to import dwgviewer-loader.js', err);
+          alert('DWG viewer failed to initialize (see console).');
         }
       })();
     </script>
