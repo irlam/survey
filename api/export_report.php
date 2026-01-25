@@ -78,7 +78,7 @@ $pdf->SetFont('Arial','',12);
 
 if ($format === 'csv') {
     // Generate CSV report for issues (no coords) — format dates to UK style
-    $filename = $safe_plan_name . $plan_revision_tag . '_plan_' . $plan_id . '_' . ($issue_id ? 'issue_' . $issue_id . '_' : '') . date('d-m-Y_Hi') . '.csv';
+    $filename = $safe_plan_name . $plan_revision_tag . '_plan_' . ($issue_id ? 'issue_' . $issue_id . '_' : '') . date('d-m-Y_Hi') . '.csv';
     $path = storage_dir('exports/' . $filename);
     $fh = fopen($path, 'w');
     if (!$fh) error_response('Failed to create CSV file', 500);
@@ -298,7 +298,7 @@ foreach ($issue_list as $issue) {
     $pdf->Ln(8);
 }
 
-$filename = $safe_plan_name . $plan_revision_tag . '_plan_' . $plan_id . '_' . ($issue_id ? 'issue_' . $issue_id . '_' : '') . date('d-m-Y_Hi') . '.pdf';
+$filename = $safe_plan_name . $plan_revision_tag . '_plan_' . ($issue_id ? 'issue_' . $issue_id . '_' : '') . date('d-m-Y_Hi') . '.pdf';
 $path = storage_dir('exports/' . $filename);
 $pdf->Output('F', $path);
 // ensure file was written
