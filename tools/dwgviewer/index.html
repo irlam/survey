@@ -201,47 +201,36 @@
             return parent.querySelector('.file-fab-label');
           };
 
-          const ensureViewerReady = async (timeout = 7000, interval = 250) => {
-            const start = Date.now();
-            while(Date.now() - start < timeout){
-              if(window.dwgViewer && typeof window.dwgViewer.openSrc === 'function') return true;
-              if(window.__dwgViewerInstance && window.__dwgViewerInstance.isInitialized) return true;
-              await new Promise(r => setTimeout(r, interval));
-            }
-            return false;
-          };
-
           loadSampleBtn.addEventListener('click', async (e)=>{
             const label = findLabel();
             const prevLabel = label && label.textContent;
             loadSampleBtn.disabled = true;
             if(label) label.textContent = 'Loading...';
             try{
-              const ready = await ensureViewerReady(10000, 300);
-              if(ready && window.dwgViewer && typeof window.dwgViewer.openSrc === 'function'){
-                console.log('dwgviewer: using dwgViewer.openSrc');
-                await window.dwgViewer.openSrc('/tools/dwgviewer/arc_2000.dwg');
-                return;
+              // Load sample DWG from CDN
+              const response = await fetch('https://cdn.jsdelivr.net/gh/mlightcad/cad-data@main/samples/arc_2000.dwg');
+              if (!response.ok) throw new Error('Failed to fetch sample');
+              const arrayBuffer = await response.arrayBuffer();
+              // Use AcApDocManager like in loadFile
+              if (window.AcApDocManager && window.AcApDocManager.instance) {
+                await window.AcApDocManager.instance.openDocument('arc_2000.dwg', arrayBuffer, { minimumChunkSize: 1000, readOnly: true });
+              } else {
+                throw new Error('Viewer not initialized');
               }
-
-              // If module didn't expose helper, try to instantiate viewer directly
-              if(typeof bv === 'function' && !window.__dwgViewerInstance){
-                console.log('dwgviewer: creating direct bv instance');
-                try{
-                  window.__dwgViewerInstance = new bv();
-                }catch(err){ console.warn('Failed to create bv directly', err); }
+              // Hide UI after successful load
+              const fileInputContainer = document.getElementById('fileInputContainer');
+              if (fileInputContainer) {
+                fileInputContainer.classList.add('loaded');
               }
-
-              if(window.__dwgViewerInstance && typeof window.__dwgViewerInstance.loadArrayBuffer === 'function'){
-                console.log('dwgviewer: fetching file and using loadArrayBuffer');
-                const res = await fetch('/tools/dwgviewer/arc_2000.dwg');
-                if(!res.ok) throw new Error('Fetch failed: HTTP ' + res.status);
-                const ab = await res.arrayBuffer();
-                await window.__dwgViewerInstance.loadArrayBuffer('arc_2000.dwg', ab);
-                return;
+              // Hide new drawing button
+              const newDrawingButton = document.getElementById('newDrawingButton');
+              if (newDrawingButton) {
+                newDrawingButton.style.display = 'none';
               }
-
-              alert('Viewer not ready yet. Please wait a moment and try again. Check console for details.');
+              const newButtonLabel = newDrawingButton?.parentElement?.querySelector('.file-fab-label');
+              if (newButtonLabel) {
+                (newButtonLabel as HTMLElement).style.display = 'none';
+              }
             }catch(err){
               console.error('Sample load failed', err);
               alert('Sample load failed: ' + (err && err.message ? err.message : err));
