@@ -290,8 +290,10 @@
         console.log('window.curDocument:', window.curDocument);
         console.log('window.viewer:', window.viewer);
         console.log('window keys with view/doc/cad/three:', Object.keys(window).filter(k => /view|doc|cad|three/i.test(k)));
-        let isPanning = false;
-        let startX, startY;
+        console.log('element.__renderer:', element.__renderer);
+        console.log('element.__scene:', element.__scene);
+        console.log('element.__camera:', element.__camera);
+        console.log('window.__THREE__:', window.__THREE__);
         // Mouse pan
         element.addEventListener('mousedown', (e) => {
           e.preventDefault();
