@@ -32,6 +32,7 @@ $issue_id = safe_int($_POST['issue_id'] ?? null);
 $debug = !empty($_POST['debug']) || !empty($_GET['debug']);
 
 $format = strtolower($_POST['format'] ?? 'pdf');
+$include_pin = !empty($_POST['include_pin']) || !empty($_GET['include_pin']);
 
 function get_exports_listing($limit = 20) {
     $dir = storage_dir('exports');
@@ -48,6 +49,49 @@ function get_exports_listing($limit = 20) {
 }
 
 
+
+// Render a small thumbnail of the plan page with a pin composited at normalized coordinates.
+// Returns path to a temporary PNG file, or null on failure. Requires Imagick; falls back silently.
+function render_pin_thumbnail($planFile, $page, $x_norm, $y_norm, $thumbWidthPx = 400) {
+    if (!class_exists('Imagick')) return null;
+    try {
+        $im = new Imagick();
+        // Improve rendered PDF quality
+        $im->setResolution(150,150);
+        $pageIndex = max(0, (int)$page - 1);
+        $im->readImage($planFile . '[' . $pageIndex . ']');
+        $im->setImageFormat('png');
+        // scale to width in px
+        $im->thumbnailImage($thumbWidthPx, 0);
+        $w = $im->getImageWidth();
+        $h = $im->getImageHeight();
+
+        $pinPath = __DIR__ . '/../assets/pin.png';
+        if (!is_file($pinPath)) return null;
+        $pin = new Imagick($pinPath);
+        $pin->setImageFormat('png');
+        // scale pin relative to thumbnail height
+        $pinHeight = max(24, intval($h * 0.12));
+        $pin->thumbnailImage(0, $pinHeight);
+        $pw = $pin->getImageWidth();
+        $ph = $pin->getImageHeight();
+
+        // compute placement: center pin horizontally, align tip to coordinate
+        $x = intval($x_norm * $w) - intval($pw / 2);
+        $y = intval($y_norm * $h) - $ph;
+        $x = max(0, min($x, $w - $pw));
+        $y = max(0, min($y, $h - $ph));
+
+        $im->compositeImage($pin, Imagick::COMPOSITE_OVER, $x, $y);
+        $tmp = tempnam(sys_get_temp_dir(), 'pinimg_') . '.png';
+        $im->setImageFormat('png');
+        $im->writeImage($tmp);
+        $im->clear(); $pin->clear();
+        return $tmp;
+    } catch (Exception $e) {
+        return null;
+    }
+}
 
 // Default: PDF (if requested)
 if ($format !== 'pdf') {
@@ -141,6 +185,7 @@ $allSkippedPhotos = [];
 $tempFiles = [];
 $fetchedPhotos = [];
 $includedPhotos = [];
+$includedPins = []; 
 foreach ($issue_list as $issue) {
     $skippedPhotos = []; // per-issue debug info about skipped photos
     // issue header with subtle background for a more modern look
@@ -180,6 +225,20 @@ foreach ($issue_list as $issue) {
         $pdf->Ln(3);
         $pdf->SetFont('Arial','B',12);
         $pdf->Cell(0,6,'Photos:',0,1);
+        // optionally include a pin thumbnail showing the issue location on the plan
+        if (!empty($include_pin) && !empty($plan['file_path'])) {
+            $planFile = realpath(__DIR__ . '/../' . ltrim($plan['file_path'], '/'));
+            if ($planFile && is_file($planFile)) {
+                $pinImg = render_pin_thumbnail($planFile, $issue['page'] ?? 1, $issue['x_norm'] ?? 0.5, $issue['y_norm'] ?? 0.5);
+                if ($pinImg) {
+                    $tempFiles[] = $pinImg; // ensure cleanup
+                    $x2 = $pdf->GetX();
+                    $pdf->Image($pinImg, $x2, null, 60, 0);
+                    $pdf->Ln(4);
+                    if ($debug) $includedPins[] = ['issue_id'=>$issue['id']??null,'img'=>$pinImg];
+                }
+            }
+        }
         foreach ($ips as $ph) {
             $fileRel = $ph['file_path'] ?? ($ph['filename'] ?? null);
             if (!$fileRel) continue;
@@ -318,6 +377,9 @@ if ($debug && isset($fetchedPhotos) && count($fetchedPhotos)) {
 }
 if ($debug && isset($includedPhotos) && count($includedPhotos)) {
     $extra['included_photos'] = $includedPhotos;
+}
+if ($debug && isset($includedPins) && count($includedPins)) {
+    $extra['included_pins'] = $includedPins;
 }
 
 // cleanup any temporary files we created when fetching remote images
