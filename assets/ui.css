@@ -168,19 +168,19 @@ select:focus{ outline:none; box-shadow: 0 0 0 4px rgba(0,255,231,.12); transform
 /* Ensure issue modal selects are explicit and match neon theme */
 #issueStatusSelect .selectButton, #issuePrioritySelect .selectButton, .modal .customSelect .selectButton{ background: linear-gradient(90deg, var(--neon), var(--neon2)); border:none; color:#000000; box-shadow: 0 9px 34px rgba(0,255,231,.16); min-width:84px; padding:12px 18px; }
 #issueStatusSelect .selectedLabel, #issuePrioritySelect .selectedLabel, .modal .customSelect .selectedLabel{ color:#000000 !important; font-weight:900; font-size:1rem; line-height:1; display:block; text-align:center; }
-#issuesModal .customSelect .selectButton .selectedLabel{ color:#000000 !important; font-weight:900; font-size:1rem; line-height:1; text-shadow: 0 1px 0 rgba(255,255,255,0.12); }
+#issuesModal .customSelect .selectButton .selectedLabel, #issueModal .customSelect .selectButton .selectedLabel{ color:#000000 !important; font-weight:900; font-size:1rem; line-height:1; text-shadow: 0 1px 0 rgba(255,255,255,0.12); }
 
 /* Ensure selects inside issue list cards show visible labels */
 .card .customSelect .selectButton{ min-height:44px; padding:10px 12px; display:flex; align-items:center; justify-content:center; }
 .card .customSelect .selectedLabel{ color:#000000; font-weight:800; }
 /* Modal/list specific: make dropdown controls and list items readable in the Issues modal/list */
-#issuesModal .customSelect, .card .customSelect{ min-width:120px; }
-#issuesModal .customSelect.small, .card .customSelect.small{ min-width:100px; }
-#issuesModal .customSelect .selectButton, .card .customSelect .selectButton{ padding:12px 18px; min-height:44px; color:#000000 !important; }
-#issuesModal .customSelect .selectedLabel, .card .customSelect .selectedLabel{ color:#FFFFFF !important; font-weight:900; font-size:1rem; line-height:1; display:block; text-align:center; text-shadow: 0 1px 0 rgba(0,0,0,0.5); }
-#issuesModal .customSelect .selectList, .card .customSelect .selectList{ background: linear-gradient(180deg, rgba(255,255,255,0.15), rgba(255,255,255,0.08)); border-radius:12px; padding:10px; border:1px solid rgba(0,255,231,0.08); box-shadow: 0 12px 30px rgba(0,0,0,0.5); }
-#issuesModal .customSelect .selectList li, .card .customSelect .selectList li{ color: #041013 !important; font-weight:700; background: transparent; padding:12px 14px; border-radius:8px; }
-#issuesModal .customSelect .selectList li:hover, .card .customSelect .selectList li:hover{ background: linear-gradient(90deg, rgba(0,255,231,0.06), rgba(57,255,20,0.04)); color:#041013; }
+#issuesModal .customSelect, #issueModal .customSelect, .card .customSelect{ min-width:120px; }
+#issuesModal .customSelect.small, #issueModal .customSelect.small, .card .customSelect.small{ min-width:100px; }
+#issuesModal .customSelect .selectButton, #issueModal .customSelect .selectButton, .card .customSelect .selectButton{ padding:12px 18px; min-height:44px; color:#000000 !important; }
+#issuesModal .customSelect .selectedLabel, #issueModal .customSelect .selectedLabel, .card .customSelect .selectedLabel{ color:#FFFFFF !important; font-weight:900; font-size:1rem; line-height:1; display:block; text-align:center; text-shadow: 0 1px 0 rgba(0,0,0,0.5); }
+#issuesModal .customSelect .selectList, #issueModal .customSelect .selectList, .card .customSelect .selectList{ background: linear-gradient(180deg, rgba(255,255,255,0.15), rgba(255,255,255,0.08)); border-radius:12px; padding:10px; border:1px solid rgba(0,255,231,0.08); box-shadow: 0 12px 30px rgba(0,0,0,0.5); }
+#issuesModal .customSelect .selectList li, #issueModal .customSelect .selectList li, .card .customSelect .selectList li{ color: #041013 !important; font-weight:700; background: transparent; padding:12px 14px; border-radius:8px; }
+#issuesModal .customSelect .selectList li:hover, #issueModal .customSelect .selectList li:hover, .card .customSelect .selectList li:hover{ background: linear-gradient(90deg, rgba(0,255,231,0.06), rgba(57,255,20,0.04)); color:#041013; }
 
 
 /* Fallback: make any unstyled buttons match secondary neon style */
