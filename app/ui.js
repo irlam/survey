@@ -263,7 +263,9 @@ function showIssuesModal(planId) {
       pdfBtn.disabled = true; addSpinner(pdfBtn);
       pdfOut.textContent = 'Generating PDF…';
       try{
-        const r = await fetch('/api/export_report.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `plan_id=${encodeURIComponent(planId)}` });
+        const chk = document.getElementById('chkIncludePin');
+      const includePinParam = (chk && chk.checked) ? '&include_pin=1' : '&include_pin=0';
+      const r = await fetch('/api/export_report.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `plan_id=${encodeURIComponent(planId)}${includePinParam}` });
         let data = null;
         try{ data = await r.json(); }catch(parseErr){ const txt = await r.text().catch(()=>null); console.error('export parse error, response text:', txt, parseErr); throw new Error(txt || 'Export failed (invalid JSON)'); }
         if (!r.ok || !data || !data.ok) { console.error('Export error response', r.status, data); throw new Error((data && data.error) ? data.error : (`Export failed (HTTP ${r.status})`)); }
@@ -373,7 +375,9 @@ function showIssuesModal(planId) {
           if (downloadBtn) { downloadBtn.style.display = 'none'; downloadBtn.disabled = true; downloadBtn.onclick = null; }
           try{
             pdfOut.textContent = 'Generating PDF…';
-            const r = await fetch('/api/export_report.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `plan_id=${encodeURIComponent(planId)}&issue_id=${encodeURIComponent(issue.id)}` });
+            const chk2 = document.getElementById('chkIncludePin');
+            const includePinParam2 = (chk2 && chk2.checked) ? '&include_pin=1' : '&include_pin=0';
+            const r = await fetch('/api/export_report.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `plan_id=${encodeURIComponent(planId)}&issue_id=${encodeURIComponent(issue.id)}${includePinParam2}` });
             let data = null;
             try{ data = await r.json(); }catch(parseErr){ const txt = await r.text().catch(()=>null); console.error('export parse error, response text:', txt, parseErr); throw new Error(txt || 'Export failed (invalid JSON)'); }
             if (!r.ok || !data || !data.ok) {
@@ -394,7 +398,9 @@ function showIssuesModal(planId) {
             console.error('Export failed', e); pdfOut.textContent = e.message || 'Export failed';
             // try debug retry
             try{
-              const dbg = await fetch('/api/export_report.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `plan_id=${encodeURIComponent(planId)}&issue_id=${encodeURIComponent(issue.id)}&debug=1` });
+              const chk3 = document.getElementById('chkIncludePin');
+              const includePinParam3 = (chk3 && chk3.checked) ? '&include_pin=1' : '&include_pin=0';
+              const dbg = await fetch('/api/export_report.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `plan_id=${encodeURIComponent(planId)}&issue_id=${encodeURIComponent(issue.id)}&debug=1${includePinParam3}` });
               const dbgJson = await dbg.json().catch(()=>null);
               if(dbgJson && dbgJson.error) pdfOut.textContent += ' — Debug: ' + dbgJson.error;
               else if(dbgJson && dbgJson.exports) pdfOut.textContent += ' — Debug: ' + JSON.stringify(dbgJson.exports.slice(0,5));
