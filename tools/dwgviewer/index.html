@@ -160,6 +160,15 @@
             </button>
             <div class="file-fab-label">New</div>
           </div>
+
+          <div class="button-container">
+            <button class="file-fab" id="loadSampleBtn" title="Load sample DWG">
+              <svg width="40" height="40" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="file-icon">
+                <path d="M4 7h12M4 11h8M4 15h8" />
+              </svg>
+            </button>
+            <div class="file-fab-label">Sample</div>
+          </div>
         </div>
       </div>
       <div id="cad-container"></div>
@@ -172,6 +181,24 @@
         const fileInput = document.getElementById('fileInputElement');
         if(fileFab && fileInput){
           fileFab.addEventListener('click', (e)=>{ try{ fileInput.click(); }catch(err){ console.warn('file input click failed', err); } });
+        }
+
+        // Sample loader button (convenience for debugging / testing)
+        const loadSampleBtn = document.getElementById('loadSampleBtn');
+        if(loadSampleBtn){
+          loadSampleBtn.addEventListener('click', async (e)=>{
+            try{
+              if(!window.dwgViewer || !window.dwgViewer.openSrc) {
+                alert('Viewer not ready yet. Please wait a moment and try again.');
+                return;
+              }
+              loadSampleBtn.disabled = true;
+              await window.dwgViewer.openSrc('/tools/dwgviewer/arc_2000.dwg');
+            }catch(err){
+              console.error('Sample load failed', err);
+              alert('Sample load failed: ' + (err && err.message ? err.message : err));
+            }finally{ loadSampleBtn.disabled = false; }
+          });
         }
       });
     </script>
