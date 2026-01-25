@@ -32,7 +32,15 @@ $issue_id = safe_int($_POST['issue_id'] ?? null);
 $debug = !empty($_POST['debug']) || !empty($_GET['debug']);
 
 $format = strtolower($_POST['format'] ?? 'pdf');
-$include_pin = !empty($_POST['include_pin']) || !empty($_GET['include_pin']);
+// include pin thumbnails by default; explicitly set include_pin=0 or include_pin=false to disable
+$include_pin = true;
+if (isset($_POST['include_pin'])) {
+    $val = strtolower(trim((string)($_POST['include_pin'] ?? '')));
+    $include_pin = !in_array($val, ['0','false','']);
+} elseif (isset($_GET['include_pin'])) {
+    $val = strtolower(trim((string)($_GET['include_pin'] ?? '')));
+    $include_pin = !in_array($val, ['0','false','']);
+}
 
 function get_exports_listing($limit = 20) {
     $dir = storage_dir('exports');
