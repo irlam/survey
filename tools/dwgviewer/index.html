@@ -136,7 +136,36 @@
         display: block;
       }
     </style>
-    <script type="module" crossorigin src="./assets/main-CM0e8yK0.js"></script>
+    <script>
+      // Dynamic module loader: use dynamic import to ensure module parsing
+      // and provide clearer diagnostics if the module fetch/parse fails.
+      (async function(){
+        const moduleUrl = './assets/main-CM0e8yK0.js';
+        let triedFetchText = false;
+        try{
+          // Try dynamic import (module parsing)
+          await import(moduleUrl);
+          console.log('DWG viewer module loaded');
+        }catch(err){
+          console.error('DWG viewer module failed to load via import():', err);
+          // Attempt to fetch text for diagnostics (don't retry by default)
+          try{
+            triedFetchText = true;
+            const res = await fetch(moduleUrl, {cache:'no-store'});
+            const txt = await res.text();
+            console.error('Module fetch response length:', txt.length);
+            // show minimal UI message
+            alert('DWG viewer failed to load (see console). Try reloading the page.');
+            // Optionally print a snippet to console for debugging (first/last 500 chars)
+            console.log('Module start:\n', txt.slice(0,500));
+            console.log('Module end:\n', txt.slice(-500));
+          }catch(fetchErr){
+            console.error('Failed to fetch module for diagnostics:', fetchErr);
+            alert('DWG viewer failed to load and could not be diagnosed (see console).');
+          }
+        }
+      })();
+    </script>
   </head>
   <body>
     <div class="viewer-container">
