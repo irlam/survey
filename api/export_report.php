@@ -293,8 +293,10 @@ $tempFiles = [];
 $fetchedPhotos = [];
 $includedPhotos = [];
 $includedPins = []; 
+$allSkippedPins = [];
 foreach ($issue_list as $issue) {
     $skippedPhotos = []; // per-issue debug info about skipped photos
+    $skippedPins = []; // per-issue debug info about skipped pin thumbnails
     // issue header with subtle background for a more modern look
     $pdf->SetFont('Arial','B',13);
     $title = $issue['title'] ?: ('Issue #' . ($issue['id'] ?? ''));
@@ -343,11 +345,21 @@ foreach ($issue_list as $issue) {
                     if (is_array($pinImg)) { $pinPathReal = $pinImg['tmp'] ?? null; $pinMethod = $pinImg['method'] ?? null; }
                     else { $pinPathReal = $pinImg; }
                     if ($pinPathReal) {
-                        $tempFiles[] = $pinPathReal; // ensure cleanup
-                        $x2 = $pdf->GetX();
-                        $pdf->Image($pinPathReal, $x2, null, 60, 0);
-                        $pdf->Ln(4);
-                        if ($debug) $includedPins[] = ['issue_id'=>$issue['id']??null,'img'=>$pinPathReal,'method'=>$pinMethod];
+                        // validate file existence and image validity before embedding
+                        if (!is_file($pinPathReal) || filesize($pinPathReal) <= 0) {
+                            if ($debug) $skippedPins[] = ['issue_id'=>$issue['id']??null,'img'=>$pinPathReal,'reason'=>'file_missing_or_empty','filesize'=>is_file($pinPathReal)?filesize($pinPathReal):null];
+                        } else {
+                            $imgInfo = @getimagesize($pinPathReal);
+                            if (!$imgInfo) {
+                                if ($debug) $skippedPins[] = ['issue_id'=>$issue['id']??null,'img'=>$pinPathReal,'reason'=>'invalid_image'];
+                            } else {
+                                $tempFiles[] = $pinPathReal; // ensure cleanup
+                                $x2 = $pdf->GetX();
+                                $pdf->Image($pinPathReal, $x2, null, 60, 0);
+                                $pdf->Ln(4);
+                                if ($debug) $includedPins[] = ['issue_id'=>$issue['id']??null,'img'=>$pinPathReal,'method'=>$pinMethod];
+                            }
+                        }
                     }
                 }
             }
@@ -463,6 +475,9 @@ foreach ($issue_list as $issue) {
     if ($debug && !empty($skippedPhotos)) {
         $allSkippedPhotos = array_merge($allSkippedPhotos, $skippedPhotos);
     }
+    if ($debug && !empty($skippedPins)) {
+        $allSkippedPins = array_merge($allSkippedPins, $skippedPins);
+    }
     $pdf->Ln(8);
 }
 
@@ -495,6 +510,9 @@ if ($debug && isset($includedPhotos) && count($includedPhotos)) {
 }
 if ($debug && isset($includedPins) && count($includedPins)) {
     $extra['included_pins'] = $includedPins;
+}
+if ($debug && isset($allSkippedPins) && count($allSkippedPins)) {
+    $extra['skipped_pins'] = $allSkippedPins;
 }
 
 // cleanup any temporary files we created when fetching remote images
