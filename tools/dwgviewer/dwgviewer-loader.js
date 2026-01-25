@@ -27,12 +27,16 @@ export async function loadDWGBundle(){
     throw new Error('Bundle fetch returned HTML or non-js response');
   }
 
-  // If it already contains an export default uB we can try importing via blob as-is
-  const hasExport = /export\s+default\s+uB\s*\(/.test(txt) || /export\s+default\s+uB\s*;/.test(txt) || /export\s+default\s+uB\s*\(/.test(txt);
+  // If it already contains an export default uB, try transforming it to a window assignment
   let repaired = txt;
-  if(!hasExport){
-    console.warn('Bundle appears to be missing export default uB() - appending for repair.');
-    repaired = txt + '\n\n// Appended by dwgviewer-loader.js to repair potentially truncated bundle\nexport default uB();\n';
+  if(/export\s+default\s+uB/.test(txt)){
+    console.log('Transforming export default uB() into window.__dwg_bundle assignment');
+    repaired = txt.replace(/export\s+default\s+uB\s*\(\s*\)\s*;?/, '\n// Replaced export with window assignment (repaired)\nwindow.__dwg_bundle = uB();');
+    // Also handle any stray occurrences
+    repaired = repaired.replace(/export\s+default\s+uB/g, 'window.__dwg_bundle = uB');
+  } else {
+    console.warn('Bundle does not contain export default uB; appending safe assignment');
+    repaired = txt + '\n\n// Appended by dwgviewer-loader.js to repair potentially truncated bundle\nwindow.__dwg_bundle = uB();\n';
   }
 
   try{
