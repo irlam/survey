@@ -180,8 +180,6 @@
           }
         }
       });
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   </head>
   <body>
     <div style="position: absolute; top: 10px; left: 10px; z-index: 1000;">
@@ -300,6 +298,26 @@
             }
             exportPdfBtn.disabled = true;
             try {
+              // Load html2canvas if not loaded
+              if (!window.html2canvas) {
+                await new Promise((resolve, reject) => {
+                  const script = document.createElement('script');
+                  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+                  script.onload = resolve;
+                  script.onerror = reject;
+                  document.head.appendChild(script);
+                });
+              }
+              // Load jsPDF if not loaded
+              if (!window.jspdf) {
+                await new Promise((resolve, reject) => {
+                  const script = document.createElement('script');
+                  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+                  script.onload = resolve;
+                  script.onerror = reject;
+                  document.head.appendChild(script);
+                });
+              }
               const canvasImage = await html2canvas(canvas, { useCORS: true, allowTaint: false });
               const imgData = canvasImage.toDataURL('image/png');
               const { jsPDF } = window.jspdf;
