@@ -47,7 +47,7 @@ export async function loadDWGBundle(){
     repaired = txt + '\n\n// Appended by dwgviewer-loader.js to repair potentially truncated bundle\nwindow.__dwg_bundle = uB();\n';
   }
   // Remove any remaining export statements to avoid syntax errors when executed as script
-  repaired = repaired.replace(/export\s+[^;]+;/g, '');
+  repaired = repaired.replace(/export.*;/g, '');
 
   try{
     const blob = new Blob([repaired], { type: 'application/javascript' });
