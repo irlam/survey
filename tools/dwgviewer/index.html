@@ -245,7 +245,7 @@
     <script>
       // Add pan and zoom functionality after viewer loads
       const addPanZoom = () => {
-        const element = document.getElementById('cad-container');
+        const element = document.querySelector('#cad-container canvas');
         if (!element) {
           setTimeout(addPanZoom, 500);
           return;
@@ -286,7 +286,7 @@
             const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
             window.AcApDocManager.instance.curEditor.view.zoom(zoomFactor);
           }
-        });
+        }, { passive: false });
         // Touch pan and pinch zoom
         let touchStartX, touchStartY;
         let initialDist = 0;
@@ -303,25 +303,25 @@
             initialDist = Math.hypot(touch1.clientX - touch2.clientX, touch1.clientY - touch2.clientY);
             prevDist = initialDist;
           }
-        });
+        }, { passive: false });
         element.addEventListener('touchmove', (e) => {
-          if (e.touches.length === 1 && isPanning && window.AcApDocManager && window.AcApDocManager.instance && window.AcApDocManager.instance.curView) {
+          if (e.touches.length === 1 && isPanning && window.AcApDocManager && window.AcApDocManager.instance && window.AcApDocManager.instance.curEditor && window.AcApDocManager.instance.curEditor.view) {
             const dx = e.touches[0].clientX - touchStartX;
             const dy = e.touches[0].clientY - touchStartY;
-            window.AcApDocManager.instance.curView.pan(dx, -dy); // Note: y inverted for CAD coordinates
+            window.AcApDocManager.instance.curEditor.view.pan(dx, -dy); // Note: y inverted for CAD coordinates
             touchStartX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
-          } else if (e.touches.length === 2 && window.AcApDocManager && window.AcApDocManager.instance && window.AcApDocManager.instance.curView) {
+          } else if (e.touches.length === 2 && window.AcApDocManager && window.AcApDocManager.instance && window.AcApDocManager.instance.curEditor && window.AcApDocManager.instance.curEditor.view) {
             const touch1 = e.touches[0];
             const touch2 = e.touches[1];
             const newDist = Math.hypot(touch1.clientX - touch2.clientX, touch1.clientY - touch2.clientY);
             if (prevDist > 0) {
               const zoomFactor = newDist / prevDist;
-              window.AcApDocManager.instance.curView.zoom(zoomFactor);
+              window.AcApDocManager.instance.curEditor.view.zoom(zoomFactor);
+              prevDist = newDist;
             }
-            prevDist = newDist;
           }
-        });
+        }, { passive: false });
         element.addEventListener('touchend', (e) => {
           if (e.touches.length === 0) {
             isPanning = false;
