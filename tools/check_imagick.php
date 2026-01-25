@@ -214,7 +214,13 @@ if (isset($_GET['test_render'])) {
         <h3>Render Test Result</h3>
         <?php if ($test_result['ok']): ?>
           <div style="color:green">Success — method: <?php echo htmlspecialchars($test_result['method']); ?>. Temporary PNG: <?php echo htmlspecialchars($test_result['tmp']); ?></div>
-          <div style="margin-top:8px;"><img src="check_imagick.php?show_tmp=<?php echo urlencode($test_result['tmp']); ?>" style="max-width:100%;height:auto;border:1px solid #ccc;border-radius:6px" alt="render test"></div>
+          <div style="margin-top:8px;">
+            <img src="check_imagick.php?show_tmp=<?php echo urlencode($test_result['tmp']); ?>" style="max-width:100%;height:auto;border:1px solid #ccc;border-radius:6px" alt="render test">
+          </div>
+          <div style="margin-top:8px;">
+            <a href="check_imagick.php?show_tmp=<?php echo urlencode($test_result['tmp']); ?>" target="_blank" rel="noopener noreferrer" class="btn">Open PNG in new tab</a>
+            <div class="muted" style="margin-top:6px;">Temp file (server): <?php echo htmlspecialchars(sys_get_temp_dir() . DIRECTORY_SEPARATOR . $test_result['tmp']); ?></div>
+          </div>
         <?php else: ?>
           <div class="error">Failed: <?php echo htmlspecialchars($test_result['error'] ?? 'Unknown'); ?></div>
         <?php endif; ?>
