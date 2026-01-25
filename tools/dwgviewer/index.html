@@ -284,6 +284,8 @@
           return;
         }
         console.log('Canvas found:', element);
+        console.log('AcApDocManager at setup:', window.AcApDocManager);
+        console.log('instance at setup:', window.AcApDocManager?.instance);
         let isPanning = false;
         let startX, startY;
         // Mouse pan
@@ -298,6 +300,7 @@
         document.addEventListener('mousemove', (e) => {
           console.log('mousemove', e.clientX, e.clientY);
           console.log('isPanning:', isPanning);
+          console.log('AcApDocManager.instance:', window.AcApDocManager?.instance);
           if (isPanning && window.AcApDocManager && window.AcApDocManager.instance && window.AcApDocManager.instance.curView) {
             console.log('view exists');
             const dx = e.clientX - startX;
@@ -317,6 +320,7 @@
         // Mouse wheel zoom
         element.addEventListener('wheel', (e) => {
           e.preventDefault();
+          console.log('wheel event, AcApDocManager.instance:', window.AcApDocManager?.instance);
           if (window.AcApDocManager && window.AcApDocManager.instance && window.AcApDocManager.instance.curView) {
             const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
             window.AcApDocManager.instance.curView.zoom(zoomFactor);
