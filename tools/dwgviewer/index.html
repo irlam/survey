@@ -141,15 +141,82 @@
     <script>
       // Dynamic module loader: try a fixed local copy first, then fallback to the original bundle.
       // Import a dedicated loader module which handles robust import/repair
-      (async function(){
+      document.addEventListener('DOMContentLoaded', async () => {
         try{
           await import('./dwgviewer-loader.js?t=' + Date.now());
           console.log('dwgviewer-loader imported successfully');
+
+          // Auto-init helper: poll for viewer readiness and try safe initialization heuristics
+          (function autoInitViewer(){
+            console.log('Auto-init: starting poll for AcApDocManager.instance');
+            let attempts = 0;
+            const maxAttempts = 60; // ~30s at 500ms interval
+            const intervalMs = 500;
+            const timer = setInterval(() => {
+              attempts++;
+              try {
+                if (window.AcApDocManager && window.AcApDocManager.instance) {
+                  console.log('Auto-init: AcApDocManager.instance is ready (after', attempts, 'attempts)');
+                  clearInterval(timer);
+                  return;
+                }
+
+                // 1) If the repaired bundle exposes a createInstance helper on __dwg_bundle, try that first
+                try {
+                  const b = window.__dwg_bundle;
+                  if (b && typeof b.createInstance === 'function') {
+                    console.log('Auto-init: calling __dwg_bundle.createInstance()');
+                    try {
+                      b.createInstance({ container: document.getElementById('cad-container'), autoResize: true, baseUrl: b.baseUrl || undefined });
+                    } catch (e) {
+                      console.warn('Auto-init: __dwg_bundle.createInstance threw', e);
+                    }
+                  }
+                } catch (e) { /* ignore */ }
+
+                // 2) Heuristic: look for global constructors whose source contains viewer initialization clues and try to instantiate them
+                try {
+                  const candidates = [];
+                  for (const k of Object.getOwnPropertyNames(window)) {
+                    try {
+                      const v = window[k];
+                      if (typeof v === 'function') {
+                        const s = v.toString();
+                        if (s && (s.includes('this.container=document.getElementById("cad-container")') || s.includes('initialize(){if(!this.isInitialized)') || s.includes('Failed to initialize CAD viewer'))) {
+                          candidates.push(k);
+                        }
+                      }
+                    } catch (e) {}
+                  }
+                  if (candidates.length) console.log('Auto-init: constructor candidates', candidates.slice(0,10));
+                  for (const name of candidates) {
+                    try {
+                      const C = window[name];
+                      const inst = new C();
+                      console.log('Auto-init: new ' + name + '() succeeded, instance:', inst);
+                      clearInterval(timer);
+                      return;
+                    } catch (e) {
+                      console.warn('Auto-init: new failed for', name, e);
+                    }
+                  }
+                } catch (e) { /* ignore */ }
+
+                if (attempts >= maxAttempts) {
+                  console.log('Auto-init: giving up after', attempts, 'attempts');
+                  clearInterval(timer);
+                }
+              } catch (e) {
+                console.warn('Auto-init: poll error', e);
+              }
+            }, intervalMs);
+          })();
+
         }catch(err){
           console.error('Failed to import dwgviewer-loader.js', err);
           alert('DWG viewer failed to initialize (see console).');
         }
-      })();
+      });
 
       // Message listener for loading files from other windows
       window.addEventListener('message', async (event) => {
@@ -220,6 +287,15 @@
           </div>
 
           <div class="button-container">
+            <button class="file-fab" id="initViewerBtn" title="Init viewer (debug)">
+              <svg width="40" height="40" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="file-icon">
+                <path d="M3 6h14M3 10h14M3 14h14" />
+              </svg>
+            </button>
+            <div class="file-fab-label">Init</div>
+          </div>
+
+          <div class="button-container">
             <button class="file-fab" id="exportPdfBtn" title="Export to PDF">
               <svg width="40" height="40" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="file-icon">
                 <path d="M12 10v6m0 0l-3-3m3 3l3-3" />
@@ -286,7 +362,47 @@
             }
           });
         }
+
+        // Manual Init button (debug): try to find and instantiate a viewer constructor
+        const initViewerBtn = document.getElementById('initViewerBtn');
+        if (initViewerBtn) {
+          initViewerBtn.addEventListener('click', () => {
+            try {
+              const tryInit = () => {
+                const snaps = [];
+                for (const k of Object.getOwnPropertyNames(window)) {
+                  try {
+                    const v = window[k];
+                    if (typeof v === 'function') {
+                      const s = v.toString();
+                      if (s.includes('Failed to initialize CAD viewer') || s.includes('this.container=document.getElementById("cad-container")') || s.includes('initialize(){if(!this.isInitialized)')) {
+                        snaps.push(k);
+                      }
+                    }
+                  } catch (e) { /* ignore */ }
+                }
+                console.log('Init candidates:', snaps);
+                for (const name of snaps) {
+                  try {
+                    const C = window[name];
+                    const inst = new C();
+                    console.log('Initialized viewer via', name, inst);
+                    return true;
+                  } catch (e) {
+                    console.warn('Init failed for', name, e);
+                  }
+                }
+                return false;
+              };
+              const ok = tryInit();
+              if (!ok) console.log('Init did not find a matching constructor.');
+            } catch (e) {
+              console.warn('Init click handler error', e);
+            }
+          });
+        }
       });
+    </script>
     <script>
       // PDF Export functionality
       document.addEventListener('DOMContentLoaded', () => {
@@ -369,6 +485,12 @@
 
               if (!imgData) throw new Error('Unable to capture drawing image. The viewer may be using cross-origin textures or non-readable WebGL state.');
 
+              // Diagnostic: ensure imgData looks like an image data URL and not HTML
+              if (typeof imgData === 'string' && imgData.trim().startsWith('<')) {
+                console.error('PDF export: captured data appears to be HTML (likely an error page). First 300 chars:', imgData.slice(0,300));
+                throw new Error('Captured image data is HTML, not an image. See console for details.');
+              }
+
               // Generate PDF using jsPDF
               const { jsPDF } = window.jspdf;
               const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
@@ -376,18 +498,21 @@
               img.src = imgData;
               await new Promise((resolve) => { img.onload = resolve; });
 
+              console.log('PDF export: capture method succeeded, image size px', img.width, img.height);
+
               // Fit image to A4 while maintaining aspect ratio
               const pageWidth = 210; // mm
               const pageHeight = 297; // mm
-              const pxPerMm = img.width / (img.width / (img.width / (img.height / (img.width / img.width))));
-              // Compute scale in mm using image pixel dimensions and a sensible DPI assumption (we'll map pixels to mm by width proportion)
               const imgAspect = img.width / img.height;
+              // Start by fitting to page width, then scale down if height exceeds page
               let drawWidth = pageWidth;
               let drawHeight = drawWidth / imgAspect;
               if (drawHeight > pageHeight) {
                 drawHeight = pageHeight;
                 drawWidth = drawHeight * imgAspect;
               }
+
+              console.log('PDF export: image px', img.width, img.height, 'draw mm', drawWidth, drawHeight);
 
               pdf.addImage(imgData, 'PNG', (pageWidth - drawWidth) / 2, (pageHeight - drawHeight) / 2, drawWidth, drawHeight);
               pdf.save('drawing.pdf');
@@ -443,6 +568,7 @@
           startX = e.clientX;
           startY = e.clientY;
           element.style.cursor = 'grabbing';
+        });
         document.addEventListener('mousemove', (e) => {
           console.log('mousemove', e.clientX, e.clientY);
           console.log('isPanning:', isPanning);
