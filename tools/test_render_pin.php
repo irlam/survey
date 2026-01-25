@@ -1,13 +1,26 @@
 <?php
 require_once __DIR__ . '/../api/export_report.php';
 
-// Create a simple PNG to act as a plan file (write from embedded base64 to avoid GD dependency)
+// Create a simple PNG to act as a plan file. Prefer GD generation when available for a valid image.
 $tempPng = sys_get_temp_dir() . '/test_plan_' . bin2hex(random_bytes(6)) . '.png';
-$pngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAACXBIWXMAAAsSAAALEgHS3X78AAAA
+if (function_exists('imagecreatetruecolor')) {
+    $w = 1200; $h = 1600;
+    $im = imagecreatetruecolor($w, $h);
+    $bg = imagecolorallocate($im, 240, 240, 240);
+    imagefilledrectangle($im, 0, 0, $w, $h, $bg);
+    $black = imagecolorallocate($im, 0, 0, 0);
+    imagestring($im, 5, 20, 20, 'Test plan', $black);
+    imagestring($im, 3, 20, 40, date('c'), $black);
+    imagepng($im, $tempPng);
+    imagedestroy($im);
+} else {
+    // fallback base64 (kept for environments without GD)
+    $pngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAACXBIWXMAAAsSAAALEgHS3X78AAAA
 B3RJTUUH5AQDCR8m4mB2kwAAAB1pVFh0Q29tbWVudAAAAAAAvK6ymQAAABl0RVh0U29mdHdhcmUA
 QWRvYmUgSW1hZ2VSZWFkeXHJZTwAAABFSURBVHja7cEBDQAAAMKg909tDjegAAAAAAAAAAAAAAAA
 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADwGQXAAAGV1OzJAAAAAElFTkSuQmCC';
-file_put_contents($tempPng, base64_decode($pngBase64));
+    file_put_contents($tempPng, base64_decode($pngBase64));
+}
 
 // Try multiple coordinates
 $tests = [
