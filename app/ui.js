@@ -128,7 +128,26 @@ async function wireUpload() {
     out.textContent = `Uploaded: ${data.plan?.name || 'OK'}`;
     form.reset();
     await refreshPlans();
+    showPlansList(); // reset to list view after upload
   });
+}
+
+function showPlansList() {
+  const form = $('#uploadForm');
+  const list = $('#plansList');
+  const btn = $('#btnPlans');
+  if (form) form.style.display = 'none';
+  if (list) list.style.display = 'block';
+  if (btn) btn.textContent = 'Upload Plan';
+}
+
+function showUploadForm() {
+  const form = $('#uploadForm');
+  const list = $('#plansList');
+  const btn = $('#btnPlans');
+  if (form) form.style.display = 'block';
+  if (list) list.style.display = 'none';
+  if (btn) btn.textContent = 'Back to Plans';
 }
 
 
@@ -144,7 +163,19 @@ async function renderPlansScreen() {
   // wire trash button
   const trashBtn = document.getElementById('btnTrash');
   if (trashBtn) trashBtn.onclick = async ()=>{ showTrashModal(); };
-
+  // wire plans button
+  const plansBtn = document.getElementById('btnPlans');
+  if (plansBtn) {
+    plansBtn.onclick = () => {
+      const form = $('#uploadForm');
+      if (form && form.style.display === 'none') {
+        showUploadForm();
+      } else {
+        showPlansList();
+      }
+    };
+  }
+  showPlansList(); // ensure initial state
 }
 window.renderPlansScreen = renderPlansScreen;
 

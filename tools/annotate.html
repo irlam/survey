@@ -130,7 +130,7 @@
           <button class="btn toolBtn" id="tool_text" data-tool="text">Text</button>
           <button class="btn toolBtn" id="tool_icon" data-tool="icon">Icon</button>
           <div id="iconSelect" class="neonSelect customSelect" role="combobox" aria-haspopup="listbox" aria-expanded="false" tabindex="0" style="width:120px">
-            <button class="selectButton" aria-label="Select icon"><span class="selectedLabel">Star</span></button>
+            <div class="selectButton" role="button" tabindex="0" aria-label="Select icon"><span class="selectedLabel">Star</span></div>
             <ul class="selectList" role="listbox" tabindex="-1">
               <li role="option" data-value="circle">Circle</li>
               <li role="option" data-value="square">Square</li>
@@ -240,7 +240,13 @@
     // initialize selected item if present
     const pre = list.querySelector('li[aria-selected="true"]') || list.querySelector('li[data-value]:not([data-value=""])') || list.querySelector('li');
     if(pre){ wrapper.querySelector('.selectedLabel').textContent = pre.textContent; wrapper.value = pre.dataset.value || ''; if(pre.dataset.file) wrapper.dataset.file = pre.dataset.file; }
-    btn.onclick = (e)=>{ const open = list.classList.toggle('open'); wrapper.setAttribute('aria-expanded', open ? 'true' : 'false'); if(open) list.focus(); };
+    btn.addEventListener('pointerdown', (e)=>{
+      e.preventDefault();
+      const open = list.classList.toggle('open');
+      wrapper.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if(open) list.focus();
+    });
+    btn.onclick = (e)=>{ /* fallback */ const open = list.classList.toggle('open'); wrapper.setAttribute('aria-expanded', open ? 'true' : 'false'); if(open) list.focus(); };
     wrapper.addEventListener('keydown', (e)=>{
       const items = Array.from(list.querySelectorAll('li'));
       const open = list.classList.contains('open');
@@ -252,10 +258,21 @@
     // make list items tabbable/clickable
     list.querySelectorAll('li').forEach(li=>{
       li.tabIndex = 0;
+      li.addEventListener('pointerdown', (e)=>{
+        e.preventDefault();
+        e.stopPropagation();
+        selectCustomOption(wrapper, li.dataset.value, li.textContent, li.dataset.file||'');
+      });
       li.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); selectCustomOption(wrapper, li.dataset.value, li.textContent, li.dataset.file||''); } });
     });
     // click outside to close
-    document.addEventListener('click', (ev)=>{ if(!wrapper.contains(ev.target)) { list.classList.remove('open'); wrapper.setAttribute('aria-expanded','false'); } });
+    document.addEventListener('pointerdown', (ev)=>{
+      if(!wrapper.contains(ev.target)) {
+        list.classList.remove('open');
+        wrapper.setAttribute('aria-expanded','false');
+      }
+    });
+    document.addEventListener('click', (ev)=>{ /* fallback */ if(!wrapper.contains(ev.target)) { list.classList.remove('open'); wrapper.setAttribute('aria-expanded','false'); } });
   }
   function showAnnotLoader(){ try{ document.getElementById('annotLoader').style.display = 'inline-block'; }catch(e){} }
   function hideAnnotLoader(){ try{ document.getElementById('annotLoader').style.display = 'none'; }catch(e){} }

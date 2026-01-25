@@ -20,7 +20,7 @@
     <aside class="sidebar">
       <div class="panelTitle">Plans</div>
 
-      <form id="uploadForm" class="card">
+      <form id="uploadForm" class="card" style="display:none;">
         <div class="field">
           <label>PDF</label>
           <input name="file" type="file" accept="application/pdf" required>
@@ -38,6 +38,7 @@
       </form>
 
       <div style="display:flex;gap:8px;margin:10px 0 6px;">
+        <button id="btnPlans" class="btn" title="Upload Plans">Plans</button>
         <a href="/tools/index.html" class="btn" title="Tools">Tools</a>
         <button id="btnTrash" class="btn" title="View Trash">Trash</button>
       </div>
