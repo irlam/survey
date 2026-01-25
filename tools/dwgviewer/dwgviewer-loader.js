@@ -51,13 +51,19 @@ export async function loadDWGBundle(){
     const blob = new Blob([repaired], { type: 'application/javascript' });
     const blobUrl = URL.createObjectURL(blob);
     try{
-      await import(blobUrl);
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = blobUrl;
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
       window.AcApDocManager = window.__dwg_bundle;
-      console.log('Imported repaired bundle via blob URL');
+      console.log('Loaded repaired bundle via script tag');
       URL.revokeObjectURL(blobUrl);
       return;
     }catch(blobErr){
-      console.error('Import of repaired blob failed', blobErr);
+      console.error('Loading repaired blob as script failed', blobErr);
       // Try trimming anything after the final occurrence of 'export default uB'
       const match = repaired.match(/export\s+default\s+uB[\s\S]*$/m);
       if(match){
