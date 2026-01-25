@@ -372,11 +372,20 @@ function showIssuesModal(planId) {
           (async ()=>{
             try{
               const u = '/api/render_pin.php?plan_id='+encodeURIComponent(planId)+'&issue_id='+encodeURIComponent(issue.id);
-              // set src directly so browser will GET the image
-              pinImg.src = u;
-              // show loader until loaded
-              pinImg.onload = ()=>{ pinImg.style.display = ''; };
-            }catch(e){ /* ignore */ }
+              // fetch image as blob to detect failures and avoid double requests
+              const res = await fetch(u, {cache: 'no-store', credentials: 'same-origin'});
+              if (res.ok && res.headers.get('Content-Type') && res.headers.get('Content-Type').includes('image')) {
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                pinImg.src = url;
+                pinImg.onload = ()=>{ pinImg.style.display = ''; URL.revokeObjectURL(url); };
+              } else {
+                // show small muted 'No preview' note
+                const note = document.createElement('div'); note.className = 'muted'; note.style.fontSize='12px'; note.style.marginLeft='6px'; note.textContent = 'No preview'; pinPreview.appendChild(note);
+              }
+            }catch(e){
+              const note = document.createElement('div'); note.className = 'muted'; note.style.fontSize='12px'; note.style.marginLeft='6px'; note.textContent = 'No preview'; pinPreview.appendChild(note);
+            }
           })();
 
           const countBadge = document.createElement('span'); countBadge.className='pill'; countBadge.textContent = String(phs.length) + ' photos'; countBadge.style.fontSize='12px'; countBadge.style.marginLeft='6px'; left.appendChild(thumbsWrap); left.appendChild(countBadge); }

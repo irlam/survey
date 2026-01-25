@@ -481,6 +481,8 @@ if (!is_file($path) || filesize($path) <= 0) {
 }
 error_log('export_report: wrote ' . $path . ' size:' . filesize($path) . ' plan:' . $plan_id . ' issue:' . ($issue_id ?: 'all'));
 $extra = $debug ? ['exports'=>get_exports_listing()] : [];
+// Always report how many pin thumbnails were included (0 if none)
+$extra['pins_included'] = isset($includedPins) ? count($includedPins) : 0;
 // attach any skipped photo info (if collected)
 if ($debug && isset($allSkippedPhotos) && count($allSkippedPhotos)) {
     $extra['skipped_photos'] = $allSkippedPhotos;
