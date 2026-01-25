@@ -229,7 +229,7 @@
               }
               const newButtonLabel = newDrawingButton?.parentElement?.querySelector('.file-fab-label');
               if (newButtonLabel) {
-                (newButtonLabel as HTMLElement).style.display = 'none';
+                newButtonLabel'none';
               }
             }catch(err){
               console.error('Sample load failed', err);
@@ -284,7 +284,7 @@
             const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
             window.AcApDocManager.instance.curView.zoom(zoomFactor);
           }
-        });
+        }, { passive: false });
         // Touch pan and pinch zoom
         let touchStartX, touchStartY;
         let initialDist = 0;
@@ -301,7 +301,7 @@
             initialDist = Math.hypot(touch1.clientX - touch2.clientX, touch1.clientY - touch2.clientY);
             prevDist = initialDist;
           }
-        });
+        }, { passive: false });
         element.addEventListener('touchmove', (e) => {
           if (e.touches.length === 1 && isPanning && window.AcApDocManager?.instance?.curView) {
             const dx = e.touches[0].clientX - touchStartX;
@@ -319,7 +319,7 @@
             }
             prevDist = newDist;
           }
-        });
+        }, { passive: false });
         element.addEventListener('touchend', (e) => {
           if (e.touches.length === 0) {
             isPanning = false;
