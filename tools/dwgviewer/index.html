@@ -294,26 +294,33 @@
         console.log('element.__scene:', element.__scene);
         console.log('element.__camera:', element.__camera);
         console.log('window.__THREE__:', window.__THREE__);
+        let renderer, scene, camera;
+        if (window.THREE && window.THREE.WebGLRenderer) {
+          const instances = window.THREE.WebGLRenderer.instances || [];
+          console.log('WebGLRenderer instances:', instances);
+          for (const r of instances) {
+            if (r.domElement === element) {
+              renderer = r;
+              scene = r.scene;
+              camera = r.camera;
+              break;
+            }
+          }
+        }
+        console.log('found renderer:', renderer, 'scene:', scene, 'camera:', camera);
+        let isPanning = false;
+        let startX, startY;
         // Mouse pan
         element.addEventListener('mousedown', (e) => {
-          e.preventDefault();
-          console.log('mousedown');
-          isPanning = true;
-          startX = e.clientX;
-          startY = e.clientY;
-          element.style.cursor = 'grabbing';
-        });
         document.addEventListener('mousemove', (e) => {
           console.log('mousemove', e.clientX, e.clientY);
           console.log('isPanning:', isPanning);
-          console.log('AcApDocManager.instance:', window.AcApDocManager?.instance);
-          if (isPanning && window.AcApDocManager && window.AcApDocManager.instance && window.AcApDocManager.instance.curView) {
-            console.log('view exists');
-            const dx = e.clientX - startX;
-            const dy = e.clientY - startY;
-            console.log('Panning by pixels', dx, dy);
-            window.AcApDocManager.instance.curView.pan(dx, -dy);
-            window.AcApDocManager.instance.curView.updateDisplay();
+          if (isPanning && camera) {
+            const dx = (e.clientX - startX) * 0.01;
+            const dy = (e.clientY - startY) * 0.01;
+            camera.position.x -= dx;
+            camera.position.y += dy;
+            if (renderer && scene) renderer.render(scene, camera);
             startX = e.clientX;
             startY = e.clientY;
           }
@@ -326,11 +333,11 @@
         // Mouse wheel zoom
         element.addEventListener('wheel', (e) => {
           e.preventDefault();
-          console.log('wheel event, AcApDocManager.instance:', window.AcApDocManager?.instance);
-          if (window.AcApDocManager && window.AcApDocManager.instance && window.AcApDocManager.instance.curView) {
+          if (camera) {
             const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-            window.AcApDocManager.instance.curView.zoom(zoomFactor);
-            window.AcApDocManager.instance.curView.updateDisplay();
+            camera.zoom *= zoomFactor;
+            camera.updateProjectionMatrix();
+            if (renderer && scene) renderer.render(scene, camera);
           }
         }, { passive: false });
         // Touch pan and pinch zoom
@@ -351,21 +358,23 @@
           }
         }, { passive: false });
         element.addEventListener('touchmove', (e) => {
-          if (e.touches.length === 1 && isPanning && window.AcApDocManager && window.AcApDocManager.instance && window.AcApDocManager.instance.curView) {
-            const dx = e.touches[0].clientX - touchStartX;
-            const dy = e.touches[0].clientY - touchStartY;
-            window.AcApDocManager.instance.curView.pan(dx, -dy); // Note: y inverted for CAD coordinates
-            window.AcApDocManager.instance.curView.updateDisplay();
+          if (e.touches.length === 1 && isPanning && camera) {
+            const dx = (e.touches[0].clientX - touchStartX) * 0.01;
+            const dy = (e.touches[0].clientY - touchStartY) * 0.01;
+            camera.position.x -= dx;
+            camera.position.y += dy;
+            if (renderer && scene) renderer.render(scene, camera);
             touchStartX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
-          } else if (e.touches.length === 2 && window.AcApDocManager && window.AcApDocManager.instance && window.AcApDocManager.instance.curView) {
+          } else if (e.touches.length === 2 && camera) {
             const touch1 = e.touches[0];
             const touch2 = e.touches[1];
             const newDist = Math.hypot(touch1.clientX - touch2.clientX, touch1.clientY - touch2.clientY);
             if (prevDist > 0) {
               const zoomFactor = newDist / prevDist;
-              window.AcApDocManager.instance.curView.zoom(zoomFactor);
-              window.AcApDocManager.instance.curView.updateDisplay();
+              camera.zoom *= zoomFactor;
+              camera.updateProjectionMatrix();
+              if (renderer && scene) renderer.render(scene, camera);
               prevDist = newDist;
             }
           }
