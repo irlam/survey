@@ -10,6 +10,20 @@ $stmtPlan = $pdo->prepare('SELECT * FROM plans WHERE id=?');
 $stmtPlan->execute([$plan_id]);
 $plan = $stmtPlan->fetch();
 $plan_name = $plan['name'] ?? ('Plan ' . $plan_id);
+// Helper to create safe filenames from plan / revision names
+function slugify_filename($s) {
+    $s = trim((string)$s);
+    // replace any sequence of non-letter/digit characters with underscore (supports unicode letters)
+    $s = preg_replace('/[^\p{L}\p{N}]+/u', '_', $s);
+    // collapse multiple underscores
+    $s = preg_replace('/_+/', '_', $s);
+    $s = trim($s, '_');
+    // limit length to avoid extremely long filenames
+    if (mb_strlen($s) > 60) $s = mb_substr($s, 0, 60);
+    return $s ?: 'plan';
+}
+$safe_plan_name = slugify_filename($plan_name);
+$plan_revision_tag = !empty($plan['revision']) ? ('_' . slugify_filename($plan['revision'])) : '';
 
 // Optional single-issue export
 $issue_id = safe_int($_POST['issue_id'] ?? null);
@@ -64,7 +78,7 @@ $pdf->SetFont('Arial','',12);
 
 if ($format === 'csv') {
     // Generate CSV report for issues (no coords) — format dates to UK style
-    $filename = 'report_' . $plan_id . '_' . ($issue_id ? 'issue_' . $issue_id . '_' : '') . time() . '.csv';
+    $filename = $safe_plan_name . $plan_revision_tag . '_plan_' . $plan_id . '_' . ($issue_id ? 'issue_' . $issue_id . '_' : '') . time() . '.csv';
     $path = storage_dir('exports/' . $filename);
     $fh = fopen($path, 'w');
     if (!$fh) error_response('Failed to create CSV file', 500);
@@ -284,7 +298,7 @@ foreach ($issue_list as $issue) {
     $pdf->Ln(8);
 }
 
-$filename = 'report_' . $plan_id . '_' . ($issue_id ? 'issue_' . $issue_id . '_' : '') . time() . '.pdf';
+$filename = $safe_plan_name . $plan_revision_tag . '_plan_' . $plan_id . '_' . ($issue_id ? 'issue_' . $issue_id . '_' : '') . time() . '.pdf';
 $path = storage_dir('exports/' . $filename);
 $pdf->Output('F', $path);
 // ensure file was written
