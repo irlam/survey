@@ -20,6 +20,12 @@
     <aside class="sidebar">
       <div class="panelTitle">Plans</div>
 
+      <div style="display:flex;gap:8px;margin:10px 0 6px;">
+        <button type="button" id="btnPlans" class="btn" title="Upload Plans">Plans</button>
+        <a href="/tools/index.html" class="btn" title="Tools">Tools</a>
+        <button type="button" id="btnTrash" class="btn" title="View Trash">Trash</button>
+      </div>
+
       <form id="uploadForm" class="card" style="display:none;">
         <div class="field">
           <label>PDF</label>
@@ -37,11 +43,6 @@
         <div id="uploadOut" class="muted" style="margin-top:8px"></div>
       </form>
 
-      <div style="display:flex;gap:8px;margin:10px 0 6px;">
-        <button id="btnPlans" class="btn" title="Upload Plans">Plans</button>
-        <a href="/tools/index.html" class="btn" title="Tools">Tools</a>
-        <button id="btnTrash" class="btn" title="View Trash">Trash</button>
-      </div>
       <div id="plansList" class="list"></div>
     </aside>
 
@@ -172,8 +173,8 @@
       tryLoad();
     })();
   </script>
-  <script src="/app/ui.js?v=20260121_1"></script>
-  <script src="/app/app.js?v=20260121_1"></script>
+  <script src="/app/ui.js?v=20260125_1"></script>
+  <script src="/app/app.js?v=20260125_1"></script>
 
 </body>
 </html>
