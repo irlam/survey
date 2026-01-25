@@ -300,47 +300,100 @@
             }
             exportPdfBtn.disabled = true;
             try {
-              // Load html2canvas if not loaded
-              if (!window.html2canvas) {
-                await new Promise((resolve, reject) => {
-                  const script = document.createElement('script');
-                  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-                  script.onload = resolve;
-                  script.onerror = reject;
-                  document.head.appendChild(script);
-                });
-              }
-              // Load jsPDF if not loaded
+              // Ensure jsPDF is available (we only need jsPDF for PDF generation)
               if (!window.jspdf) {
                 await new Promise((resolve, reject) => {
                   const script = document.createElement('script');
                   script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
                   script.onload = resolve;
-                  script.onerror = reject;
+                  script.onerror = () => reject(new Error('Failed to load jsPDF from CDN'));
                   document.head.appendChild(script);
                 });
               }
-              const canvasImage = await html2canvas(canvas, { useCORS: true, allowTaint: false });
-              const imgData = canvasImage.toDataURL('image/png');
-              const { jsPDF } = window.jspdf;
-              const pdf = new jsPDF();
-              const imgWidth = 210; // A4 width in mm
-              const pageHeight = 295; // A4 height in mm
-              const imgHeight = (canvasImage.height * imgWidth) / canvasImage.width;
-              let heightLeft = imgHeight;
-              let position = 0;
-              pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-              heightLeft -= pageHeight;
-              while (heightLeft >= 0) {
-                position = heightLeft - imgHeight;
-                pdf.addPage();
-                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-                heightLeft -= pageHeight;
+
+              // Try direct canvas export first (fastest and preserves fidelity if possible)
+              let imgData = null;
+              try {
+                imgData = canvas.toDataURL('image/png');
+                if (!imgData || !imgData.startsWith('data:image')) imgData = null;
+              } catch (e) {
+                console.warn('canvas.toDataURL failed:', e);
+                imgData = null;
               }
+
+              // If direct toDataURL failed or produced no data, attempt WebGL readPixels
+              if (!imgData) {
+                try {
+                  const gl = canvas.getContext('webgl2') || canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+                  if (gl) {
+                    const width = canvas.width;
+                    const height = canvas.height;
+                    const pixels = new Uint8Array(width * height * 4);
+                    // Read the current framebuffer
+                    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+                    // Flip Y and copy into ImageData
+                    const flipped = new Uint8ClampedArray(width * height * 4);
+                    for (let y = 0; y < height; y++) {
+                      const srcStart = (height - 1 - y) * width * 4;
+                      const dstStart = y * width * 4;
+                      flipped.set(pixels.subarray(srcStart, srcStart + width * 4), dstStart);
+                    }
+                    const tmp = document.createElement('canvas');
+                    tmp.width = width;
+                    tmp.height = height;
+                    const ctx = tmp.getContext('2d');
+                    const imageData = new ImageData(flipped, width, height);
+                    ctx.putImageData(imageData, 0, 0);
+                    imgData = tmp.toDataURL('image/png');
+                  }
+                } catch (e) {
+                  console.warn('WebGL readPixels export failed:', e);
+                }
+              }
+
+              // If still no image data, try html2canvas as a last resort
+              if (!imgData) {
+                // Load html2canvas on demand
+                if (!window.html2canvas) {
+                  await new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+                    script.onload = resolve;
+                    script.onerror = () => reject(new Error('Failed to load html2canvas from CDN'));
+                    document.head.appendChild(script);
+                  });
+                }
+                const canvasImage = await html2canvas(canvas, { useCORS: true, allowTaint: false });
+                imgData = canvasImage.toDataURL('image/png');
+              }
+
+              if (!imgData) throw new Error('Unable to capture drawing image. The viewer may be using cross-origin textures or non-readable WebGL state.');
+
+              // Generate PDF using jsPDF
+              const { jsPDF } = window.jspdf;
+              const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
+              const img = new Image();
+              img.src = imgData;
+              await new Promise((resolve) => { img.onload = resolve; });
+
+              // Fit image to A4 while maintaining aspect ratio
+              const pageWidth = 210; // mm
+              const pageHeight = 297; // mm
+              const pxPerMm = img.width / (img.width / (img.width / (img.height / (img.width / img.width))));
+              // Compute scale in mm using image pixel dimensions and a sensible DPI assumption (we'll map pixels to mm by width proportion)
+              const imgAspect = img.width / img.height;
+              let drawWidth = pageWidth;
+              let drawHeight = drawWidth / imgAspect;
+              if (drawHeight > pageHeight) {
+                drawHeight = pageHeight;
+                drawWidth = drawHeight * imgAspect;
+              }
+
+              pdf.addImage(imgData, 'PNG', (pageWidth - drawWidth) / 2, (pageHeight - drawHeight) / 2, drawWidth, drawHeight);
               pdf.save('drawing.pdf');
             } catch (error) {
               console.error('PDF export failed', error);
-              alert('PDF export failed: ' + error.message);
+              alert('PDF export failed: ' + (error && error.message ? error.message : error));
             } finally {
               exportPdfBtn.disabled = false;
             }
