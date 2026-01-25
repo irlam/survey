@@ -1,0 +1,12 @@
+{
+  "name": "survey",
+  "version": "1.0.0",
+  "description": "Survey app with DWG viewer",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0"
+  }
+}
