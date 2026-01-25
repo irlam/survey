@@ -404,6 +404,13 @@ async function showIssueModal(pin){
 
   // Cancel handler and close modal
   const cancelBtn = modal.querySelector('#issueCancelBtn'); if(cancelBtn) cancelBtn.onclick = ()=>{ modal.style.display='none'; };
+
+  // Refresh viewer when an issue is deleted elsewhere
+  const issueDeletedHandler = (ev)=>{ try{ reloadDbPins(); renderPage(currentPage); }catch(e){} };
+  document.addEventListener('issueDeleted', issueDeletedHandler);
+  // remove listener when modal removed
+  const oldRemove = modal.remove || (()=>{});
+  modal.remove = function(){ document.removeEventListener('issueDeleted', issueDeletedHandler); oldRemove.call(this); };
 }
 
 async function reloadDbPins() {

@@ -366,7 +366,8 @@ function showIssuesModal(planId) {
         const jumpBtn = document.createElement('button'); jumpBtn.className='btn'; jumpBtn.textContent='Jump to page'; jumpBtn.onclick = ()=>{ try{ const u = new URL(window.location.href); u.searchParams.set('plan_id', String(planId)); history.pushState({},'',u.toString()); if(window.startViewer){ window.startViewer().then(()=>{ if(window.viewerGoToPage) window.viewerGoToPage(Number(issue.page||1)); // open modal after short delay
               setTimeout(()=>{ if(window.showIssueModal) window.showIssueModal(issue); }, 600);
             }); } }catch(e){ console.error(e); } };
-        const exportBtn = document.createElement('button'); exportBtn.className='btn'; exportBtn.textContent='Export PDF'; exportBtn.onclick = async ()=>{
+        const exportBtn = document.createElement('button'); exportBtn.className='btn'; exportBtn.textContent='Export PDF';
+        exportBtn.onclick = async ()=>{
           exportBtn.disabled = true; addSpinner(exportBtn);
           // hide/disable global download while generating
           if (downloadBtn) { downloadBtn.style.display = 'none'; downloadBtn.disabled = true; downloadBtn.onclick = null; }
@@ -401,8 +402,23 @@ function showIssuesModal(planId) {
           }
           removeSpinner(exportBtn); exportBtn.disabled = false;
         };
+        // Delete button for issue
+        const delIssueBtn = document.createElement('button'); delIssueBtn.className='btn'; delIssueBtn.type='button'; delIssueBtn.textContent='Delete'; delIssueBtn.title = 'Delete this issue'; delIssueBtn.style.borderColor = 'rgba(255,80,80,.28)'; delIssueBtn.style.color = '#ff7b7b';
+        delIssueBtn.onclick = async ()=>{
+          if(!confirm(`Delete issue "${issue.title || ('#' + issue.id)}"? This will remove it and its photos.`)) return;
+          delIssueBtn.disabled = true;
+          try{
+            const res = await fetch('/api/delete_issue.php',{method:'POST',headers:{'Content-Type':'application/json'},body: JSON.stringify({ id: issue.id, plan_id: planId })});
+            const txt = await res.text(); let data; try{ data = JSON.parse(txt); }catch{ data = null; }
+            if(!res.ok || !data || !data.ok) throw new Error((data && data.error) ? data.error : ('Delete failed (HTTP ' + res.status + ')'));
+            showToast('Issue deleted');
+            await loadIssuesList();
+            try{ document.dispatchEvent(new CustomEvent('issueDeleted',{detail:{issueId: issue.id}})); }catch(e){}
+          }catch(err){ showToast('Delete error: ' + (err.message || err)); console.error('delete issue', err); }
+          delIssueBtn.disabled = false;
+        };
         const saveBtn = document.createElement('button'); saveBtn.className='btnPrimary'; saveBtn.textContent='Save'; saveBtn.onclick = async ()=>{ saveBtn.disabled = true; try{ const payload = { id: issue.id, plan_id: planId, title: issue.title, notes: issue.notes, page: issue.page, x_norm: issue.x_norm, y_norm: issue.y_norm, status: statusSelect.value, priority: prioSelect.value }; const r = await fetch('/api/save_issue.php',{method:'POST',headers:{'Content-Type':'application/json'},body: JSON.stringify(payload), credentials:'same-origin'}); const txt = await r.text(); let resp; try{ resp = JSON.parse(txt); }catch{ resp = null; } if(!r.ok || !resp || !resp.ok) throw new Error((resp && resp.error) ? resp.error : 'Save failed'); showToast('Saved'); issue.status = statusSelect.value; issue.priority = prioSelect.value; }catch(err){ showToast('Save error: ' + err.message); } saveBtn.disabled = false; };
-        btnRow.appendChild(viewBtn); btnRow.appendChild(jumpBtn); btnRow.appendChild(exportBtn); btnRow.appendChild(saveBtn);
+        btnRow.appendChild(viewBtn); btnRow.appendChild(jumpBtn); btnRow.appendChild(exportBtn); btnRow.appendChild(delIssueBtn); btnRow.appendChild(saveBtn);
         right.appendChild(metaRow); right.appendChild(assigneeSpan); right.appendChild(createdDiv); right.appendChild(btnRow);
         item.appendChild(left); item.appendChild(right); container.appendChild(item);
       }
