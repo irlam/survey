@@ -297,7 +297,9 @@
         });
         document.addEventListener('mousemove', (e) => {
           console.log('mousemove', e.clientX, e.clientY);
+          console.log('isPanning:', isPanning);
           if (isPanning && window.AcApDocManager && window.AcApDocManager.instance && window.AcApDocManager.instance.curEditor && window.AcApDocManager.instance.curEditor.view) {
+            console.log('view exists');
             const dx = e.clientX - startX;
             const dy = e.clientY - startY;
             console.log('Panning by pixels', dx, dy);
