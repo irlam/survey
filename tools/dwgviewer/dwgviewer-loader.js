@@ -1,7 +1,7 @@
 // dwgviewer-loader.js
 // Robust loader for the DWG viewer bundle. Tries direct import, then fetch+repair via blob.
 export async function loadDWGBundle(){
-  const asset = 'https://cdn.jsdelivr.net/gh/mlightcad/cad-data@main/main-CM0e8yK0.js';
+  const asset = './assets/main-CM0e8yK0.js';
   // Skip direct import, always use repaired
   // try{ 
   //   const module = await import(asset);
