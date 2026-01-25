@@ -245,11 +245,13 @@
     <script>
       // Add pan and zoom functionality after viewer loads
       const addPanZoom = () => {
+        console.log('addPanZoom called');
         const element = document.querySelector('#cad-container canvas');
         if (!element) {
           setTimeout(addPanZoom, 500);
           return;
         }
+        console.log('Canvas found:', element);
         let isPanning = false;
         let startX, startY;
         // Mouse pan
@@ -266,6 +268,7 @@
             const dy = e.clientY - startY;
             console.log('Panning by pixels', dx, dy);
             window.AcApDocManager.instance.curEditor.view.pan(dx, -dy);
+            window.AcApDocManager.instance.curEditor.updateDisplay();
             startX = e.clientX;
             startY = e.clientY;
           }
@@ -285,6 +288,7 @@
           if (window.AcApDocManager && window.AcApDocManager.instance && window.AcApDocManager.instance.curEditor && window.AcApDocManager.instance.curEditor.view) {
             const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
             window.AcApDocManager.instance.curEditor.view.zoom(zoomFactor);
+            window.AcApDocManager.instance.curEditor.updateDisplay();
           }
         }, { passive: false });
         // Touch pan and pinch zoom
@@ -309,6 +313,7 @@
             const dx = e.touches[0].clientX - touchStartX;
             const dy = e.touches[0].clientY - touchStartY;
             window.AcApDocManager.instance.curEditor.view.pan(dx, -dy); // Note: y inverted for CAD coordinates
+            window.AcApDocManager.instance.curEditor.updateDisplay();
             touchStartX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
           } else if (e.touches.length === 2 && window.AcApDocManager && window.AcApDocManager.instance && window.AcApDocManager.instance.curEditor && window.AcApDocManager.instance.curEditor.view) {
@@ -318,6 +323,7 @@
             if (prevDist > 0) {
               const zoomFactor = newDist / prevDist;
               window.AcApDocManager.instance.curEditor.view.zoom(zoomFactor);
+              window.AcApDocManager.instance.curEditor.updateDisplay();
               prevDist = newDist;
             }
           }
