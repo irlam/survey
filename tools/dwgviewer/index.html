@@ -259,13 +259,22 @@
     </script>
     <script>
       window.addEventListener('message', async (event) => {
+        console.log('DWG Viewer received message', event.data, 'from', event.origin);
         if (event.origin !== window.location.origin) return;
         if (event.data.type === 'loadFile') {
           const { file, filename } = event.data;
+          console.log('Loading file via message:', filename, file.byteLength);
           // Wait for viewer to load
           const checkViewer = () => {
+            console.log('Checking for AcApDocManager:', !!window.AcApDocManager, !!window.AcApDocManager?.instance);
             if (window.AcApDocManager && window.AcApDocManager.instance) {
-              window.AcApDocManager.instance.openDocument(filename, file, { minimumChunkSize: 1000, readOnly: true });
+              console.log('Opening document');
+              try {
+                window.AcApDocManager.instance.openDocument(filename, file, { minimumChunkSize: 1000, readOnly: true });
+                console.log('Document opened successfully');
+              } catch (err) {
+                console.error('Failed to open document:', err);
+              }
             } else {
               setTimeout(checkViewer, 100);
             }

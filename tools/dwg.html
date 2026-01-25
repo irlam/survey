@@ -59,6 +59,7 @@
                 const reader = new FileReader();
                 reader.onload = () => {
                   const arrayBuffer = reader.result;
+                  console.log('Sending file to viewer:', f.name, arrayBuffer.byteLength);
                   const win = window.open('/tools/dwgviewer/', '_blank');
                   setTimeout(() => {
                     win.postMessage({ type: 'loadFile', file: arrayBuffer, filename: f.name }, window.location.origin);
