@@ -312,6 +312,10 @@
         let startX, startY;
         // Mouse pan
         element.addEventListener('mousedown', (e) => {
+          isPanning = true;
+          startX = e.clientX;
+          startY = e.clientY;
+          element.style.cursor = 'grabbing';
         document.addEventListener('mousemove', (e) => {
           console.log('mousemove', e.clientX, e.clientY);
           console.log('isPanning:', isPanning);

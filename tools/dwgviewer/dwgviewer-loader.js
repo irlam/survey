@@ -2,14 +2,15 @@
 // Robust loader for the DWG viewer bundle. Tries direct import, then fetch+repair via blob.
 export async function loadDWGBundle(){
   const asset = './assets/main-CM0e8yK0.js';
-  try{ 
-    const module = await import(asset);
-    console.log('module from direct import', module);
-    window.AcApDocManager = module.default || module.AcApDocManager;
-    console.log('AcApDocManager set to', window.AcApDocManager);
-    console.log('Loaded DWG bundle via direct import'); 
-    return; 
-  }catch(err){ console.warn('Direct import failed', err); }
+  // Skip direct import, always use repaired
+  // try{ 
+  //   const module = await import(asset);
+  //   console.log('module from direct import', module);
+  //   window.AcApDocManager = module.default || module.AcApDocManager;
+  //   console.log('AcApDocManager set to', window.AcApDocManager);
+  //   console.log('Loaded DWG bundle via direct import'); 
+  //   return; 
+  // }catch(err){ console.warn('Direct import failed', err); }
 
   // fetch text for diagnostics and potential repair
   let txt = null;
