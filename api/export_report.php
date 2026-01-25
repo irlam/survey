@@ -61,44 +61,143 @@ function get_exports_listing($limit = 20) {
 // Render a small thumbnail of the plan page with a pin composited at normalized coordinates.
 // Returns path to a temporary PNG file, or null on failure. Requires Imagick; falls back silently.
 function render_pin_thumbnail($planFile, $page, $x_norm, $y_norm, $thumbWidthPx = 400) {
-    if (!class_exists('Imagick')) return null;
-    try {
-        $im = new Imagick();
-        // Improve rendered PDF quality
-        $im->setResolution(150,150);
-        $pageIndex = max(0, (int)$page - 1);
-        $im->readImage($planFile . '[' . $pageIndex . ']');
-        $im->setImageFormat('png');
-        // scale to width in px
-        $im->thumbnailImage($thumbWidthPx, 0);
-        $w = $im->getImageWidth();
-        $h = $im->getImageHeight();
+    // Try Imagick first (cleanest, server-side PDF rendering + composite)
+    if (class_exists('Imagick')) {
+        try {
+            $im = new Imagick();
+            $im->setResolution(150,150);
+            $pageIndex = max(0, (int)$page - 1);
+            $im->readImage($planFile . '[' . $pageIndex . ']');
+            $im->setImageFormat('png');
+            $im->thumbnailImage($thumbWidthPx, 0);
+            $w = $im->getImageWidth(); $h = $im->getImageHeight();
 
-        $pinPath = __DIR__ . '/../assets/pin.png';
-        if (!is_file($pinPath)) return null;
-        $pin = new Imagick($pinPath);
-        $pin->setImageFormat('png');
-        // scale pin relative to thumbnail height
-        $pinHeight = max(24, intval($h * 0.12));
-        $pin->thumbnailImage(0, $pinHeight);
-        $pw = $pin->getImageWidth();
-        $ph = $pin->getImageHeight();
+            $pinPath = __DIR__ . '/../assets/pin.png';
+            if (!is_file($pinPath)) return null;
+            $pin = new Imagick($pinPath);
+            $pin->setImageFormat('png');
+            $pinHeight = max(24, intval($h * 0.12));
+            $pin->thumbnailImage(0, $pinHeight);
+            $pw = $pin->getImageWidth(); $ph = $pin->getImageHeight();
 
-        // compute placement: center pin horizontally, align tip to coordinate
-        $x = intval($x_norm * $w) - intval($pw / 2);
-        $y = intval($y_norm * $h) - $ph;
-        $x = max(0, min($x, $w - $pw));
-        $y = max(0, min($y, $h - $ph));
+            $x = intval($x_norm * $w) - intval($pw / 2);
+            $y = intval($y_norm * $h) - $ph;
+            $x = max(0, min($x, $w - $pw));
+            $y = max(0, min($y, $h - $ph));
 
-        $im->compositeImage($pin, Imagick::COMPOSITE_OVER, $x, $y);
-        $tmp = tempnam(sys_get_temp_dir(), 'pinimg_') . '.png';
-        $im->setImageFormat('png');
-        $im->writeImage($tmp);
-        $im->clear(); $pin->clear();
-        return $tmp;
-    } catch (Exception $e) {
-        return null;
+            $im->compositeImage($pin, Imagick::COMPOSITE_OVER, $x, $y);
+            $tmp = tempnam(sys_get_temp_dir(), 'pinimg_') . '.png';
+            $im->setImageFormat('png');
+            $im->writeImage($tmp);
+            $im->clear(); $pin->clear();
+            return ['tmp'=>$tmp, 'method'=>'imagick'];
+        } catch (Exception $e) {
+            // fall through to other methods
+        }
     }
+
+    // Fallback: try external pdftoppm (Poppler) to render the page to PNG, then use GD to composite the pin
+    $pdftoppm = trim(shell_exec('command -v pdftoppm 2>/dev/null'));
+    if ($pdftoppm) {
+        $prefix = sys_get_temp_dir() . '/pinr_' . bin2hex(random_bytes(6));
+        $outPng = $prefix . '.png';
+        $cmd = escapeshellcmd($pdftoppm) . ' -png -f ' . (int)$page . ' -singlefile -r 150 ' . escapeshellarg($planFile) . ' ' . escapeshellarg($prefix) . ' 2>&1';
+        @exec($cmd, $out, $rc);
+        if ($rc === 0 && is_file($outPng)) {
+            // composite using GD
+            if (function_exists('imagecreatefrompng') && function_exists('imagecopyresampled')) {
+                $base = @imagecreatefrompng($outPng);
+                if ($base) {
+                    imagesavealpha($base, true);
+                    imagealphablending($base, true);
+                    $w = imagesx($base); $h = imagesy($base);
+                    $pinPath = __DIR__ . '/../assets/pin.png';
+                    if (is_file($pinPath)) {
+                        $pinSrc = @imagecreatefrompng($pinPath);
+                        if ($pinSrc) {
+                            $pinHeight = max(24, intval($h * 0.12));
+                            $pw = imagesx($pinSrc); $ph = imagesy($pinSrc);
+                            $pw2 = intval($pw * ($pinHeight / $ph));
+                            $ph2 = $pinHeight;
+                            $resPin = imagecreatetruecolor($pw2, $ph2);
+                            imagesavealpha($resPin, true);
+                            $trans_colour = imagecolorallocatealpha($resPin, 0, 0, 0, 127);
+                            imagefill($resPin, 0, 0, $trans_colour);
+                            imagecopyresampled($resPin, $pinSrc, 0, 0, 0, 0, $pw2, $ph2, $pw, $ph);
+
+                            $x = intval($x_norm * $w) - intval($pw2 / 2);
+                            $y = intval($y_norm * $h) - $ph2;
+                            $x = max(0, min($x, $w - $pw2));
+                            $y = max(0, min($y, $h - $ph2));
+
+                            imagecopy($base, $resPin, $x, $y, 0, 0, $pw2, $ph2);
+                            $tmp = tempnam(sys_get_temp_dir(), 'pinimg_') . '.png';
+                            imagepng($base, $tmp);
+                            imagedestroy($base); imagedestroy($pinSrc); imagedestroy($resPin);
+                            @unlink($outPng);
+                            return ['tmp'=>$tmp, 'method'=>'pdftoppm_gd'];
+                        }
+                    }
+                    imagedestroy($base);
+                    @unlink($outPng);
+                }
+            } else {
+                @unlink($outPng);
+            }
+        }
+    }
+
+    // Another fallback: try GhostScript (gs) to render a single page, then composite with GD like above
+    $gs = trim(shell_exec('command -v gs 2>/dev/null'));
+    if ($gs) {
+        $prefix = sys_get_temp_dir() . '/pinr_' . bin2hex(random_bytes(6));
+        $outPng = $prefix . '.png';
+        $cmd = escapeshellcmd($gs) . ' -dSAFER -dBATCH -dNOPAUSE -sDEVICE=pngalpha -r150 -dFirstPage=' . (int)$page . ' -dLastPage=' . (int)$page . ' -sOutputFile=' . escapeshellarg($outPng) . ' ' . escapeshellarg($planFile) . ' 2>&1';
+        @exec($cmd, $out, $rc);
+        if ($rc === 0 && is_file($outPng)) {
+            if (function_exists('imagecreatefrompng') && function_exists('imagecopyresampled')) {
+                $base = @imagecreatefrompng($outPng);
+                if ($base) {
+                    imagesavealpha($base, true);
+                    imagealphablending($base, true);
+                    $w = imagesx($base); $h = imagesy($base);
+                    $pinPath = __DIR__ . '/../assets/pin.png';
+                    if (is_file($pinPath)) {
+                        $pinSrc = @imagecreatefrompng($pinPath);
+                        if ($pinSrc) {
+                            $pinHeight = max(24, intval($h * 0.12));
+                            $pw = imagesx($pinSrc); $ph = imagesy($pinSrc);
+                            $pw2 = intval($pw * ($pinHeight / $ph));
+                            $ph2 = $pinHeight;
+                            $resPin = imagecreatetruecolor($pw2, $ph2);
+                            imagesavealpha($resPin, true);
+                            $trans_colour = imagecolorallocatealpha($resPin, 0, 0, 0, 127);
+                            imagefill($resPin, 0, 0, $trans_colour);
+                            imagecopyresampled($resPin, $pinSrc, 0, 0, 0, 0, $pw2, $ph2, $pw, $ph);
+
+                            $x = intval($x_norm * $w) - intval($pw2 / 2);
+                            $y = intval($y_norm * $h) - $ph2;
+                            $x = max(0, min($x, $w - $pw2));
+                            $y = max(0, min($y, $h - $ph2));
+
+                            imagecopy($base, $resPin, $x, $y, 0, 0, $pw2, $ph2);
+                            $tmp = tempnam(sys_get_temp_dir(), 'pinimg_') . '.png';
+                            imagepng($base, $tmp);
+                            imagedestroy($base); imagedestroy($pinSrc); imagedestroy($resPin);
+                            @unlink($outPng);
+                            return ['tmp'=>$tmp, 'method'=>'gs_gd'];
+                        }
+                    }
+                    imagedestroy($base);
+                    @unlink($outPng);
+                }
+            } else {
+                @unlink($outPng);
+            }
+        }
+    }
+
+    return null;
 }
 
 // Default: PDF (if requested)
@@ -239,11 +338,17 @@ foreach ($issue_list as $issue) {
             if ($planFile && is_file($planFile)) {
                 $pinImg = render_pin_thumbnail($planFile, $issue['page'] ?? 1, $issue['x_norm'] ?? 0.5, $issue['y_norm'] ?? 0.5);
                 if ($pinImg) {
-                    $tempFiles[] = $pinImg; // ensure cleanup
-                    $x2 = $pdf->GetX();
-                    $pdf->Image($pinImg, $x2, null, 60, 0);
-                    $pdf->Ln(4);
-                    if ($debug) $includedPins[] = ['issue_id'=>$issue['id']??null,'img'=>$pinImg];
+                    // support array return from helper (tmp + method) for debugging
+                    $pinPathReal = null; $pinMethod = null;
+                    if (is_array($pinImg)) { $pinPathReal = $pinImg['tmp'] ?? null; $pinMethod = $pinImg['method'] ?? null; }
+                    else { $pinPathReal = $pinImg; }
+                    if ($pinPathReal) {
+                        $tempFiles[] = $pinPathReal; // ensure cleanup
+                        $x2 = $pdf->GetX();
+                        $pdf->Image($pinPathReal, $x2, null, 60, 0);
+                        $pdf->Ln(4);
+                        if ($debug) $includedPins[] = ['issue_id'=>$issue['id']??null,'img'=>$pinPathReal,'method'=>$pinMethod];
+                    }
                 }
             }
         }
