@@ -148,6 +148,38 @@
           alert('DWG viewer failed to initialize (see console).');
         }
       })();
+
+      // Message listener for loading files from other windows
+      window.addEventListener('message', async (event) => {
+        if (event.origin !== window.location.origin) return; // Security check
+        if (event.data && event.data.type === 'loadFile') {
+          const { file, filename } = event.data;
+          try {
+            if (window.AcApDocManager && window.AcApDocManager.instance) {
+              await window.AcApDocManager.instance.openDocument(filename, file, { minimumChunkSize: 1000, readOnly: true, mouseControls: false });
+            } else {
+              throw new Error('Viewer not initialized');
+            }
+            // Hide UI after successful load
+            const fileInputContainer = document.getElementById('fileInputContainer');
+            if (fileInputContainer) {
+              fileInputContainer.classList.add('loaded');
+            }
+            // Hide new drawing button
+            const newDrawingButton = document.getElementById('newDrawingButton');
+            if (newDrawingButton) {
+              newDrawingButton.style.display = 'none';
+            }
+            const newButtonLabel = newDrawingButton?.parentElement?.querySelector('.file-fab-label');
+            if (newButtonLabel) {
+              newButtonLabel.style.display = 'none';
+            }
+          } catch (err) {
+            console.error('Load file failed', err);
+            alert('Load file failed: ' + (err && err.message ? err.message : err));
+          }
+        }
+      });
     </script>
   </head>
   <body>
@@ -213,7 +245,7 @@
               const arrayBuffer = await response.arrayBuffer();
               // Use AcApDocManager like in loadFile
               if (window.AcApDocManager && window.AcApDocManager.instance) {
-                await window.AcApDocManager.instance.openDocument('arc_2000.dwg', arrayBuffer, { minimumChunkSize: 1000, readOnly: true });
+                await window.AcApDocManager.instance.openDocument('arc_2000.dwg', arrayBuffer, { minimumChunkSize: 1000, readOnly: true, mouseControls: false });
               } else {
                 throw new Error('Viewer not initialized');
               }
