@@ -286,6 +286,10 @@
         console.log('Canvas found:', element);
         console.log('AcApDocManager at setup:', window.AcApDocManager);
         console.log('instance at setup:', window.AcApDocManager?.instance);
+        console.log('window.curView:', window.curView);
+        console.log('window.curDocument:', window.curDocument);
+        console.log('window.viewer:', window.viewer);
+        console.log('window keys with view/doc/cad/three:', Object.keys(window).filter(k => /view|doc|cad|three/i.test(k)));
         let isPanning = false;
         let startX, startY;
         // Mouse pan
