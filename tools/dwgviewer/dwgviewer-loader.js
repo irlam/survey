@@ -39,33 +39,25 @@ export async function loadDWGBundle(){
   let repaired = txt;
   if(/export\s+default\s+uB/.test(txt)){
     console.log('Transforming export default uB() into window.__dwg_bundle assignment');
-    repaired = txt.replace(/export\s+default\s+uB\s*\(\s*\)\s*;?/, '\n// Replaced export with window assignment (repaired)\nwindow.__dwg_bundle = uB();');
+    repaired = txt.replace(/export\s+default\s+uB(\s*\(\s*\)\s*)?;?/, 'window.__dwg_bundle = uB$1;');
     // Also handle any stray occurrences
     repaired = repaired.replace(/export\s+default\s+uB/g, 'window.__dwg_bundle = uB');
   } else {
     console.warn('Bundle does not contain export default uB; appending safe assignment');
     repaired = txt + '\n\n// Appended by dwgviewer-loader.js to repair potentially truncated bundle\nwindow.__dwg_bundle = uB();\n';
   }
-  // Remove any remaining export statements to avoid syntax errors when executed as script
-  repaired = repaired.replace(/export.*;/g, '');
 
   try{
     const blob = new Blob([repaired], { type: 'application/javascript' });
     const blobUrl = URL.createObjectURL(blob);
     try{
-      await new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = blobUrl;
-        script.onload = resolve;
-        script.onerror = reject;
-        document.head.appendChild(script);
-      });
+      await import(blobUrl);
       window.AcApDocManager = window.__dwg_bundle;
-      console.log('Loaded repaired bundle via script tag');
+      console.log('Imported repaired bundle via blob URL');
       URL.revokeObjectURL(blobUrl);
       return;
     }catch(blobErr){
-      console.error('Loading repaired blob as script failed', blobErr);
+      console.error('Import of repaired blob failed', blobErr);
       // Try trimming anything after the final occurrence of 'export default uB'
       const match = repaired.match(/export\s+default\s+uB[\s\S]*$/m);
       if(match){
