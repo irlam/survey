@@ -229,7 +229,7 @@
               }
               const newButtonLabel = newDrawingButton?.parentElement?.querySelector('.file-fab-label');
               if (newButtonLabel) {
-                newButtonLabel'none';
+                newButtonLabel.style.display = 'none';
               }
             }catch(err){
               console.error('Sample load failed', err);
