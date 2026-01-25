@@ -39,8 +39,9 @@ export async function loadDWGBundle(){
     const blob = new Blob([repaired], { type: 'application/javascript' });
     const blobUrl = URL.createObjectURL(blob);
     try{
-      await import(blobUrl + '?t=' + Date.now());
+      await import(blobUrl);
       console.log('Imported repaired bundle via blob URL');
+      URL.revokeObjectURL(blobUrl);
       return;
     }catch(blobErr){
       console.error('Import of repaired blob failed', blobErr);
@@ -53,14 +54,17 @@ export async function loadDWGBundle(){
         try{
           const blob2 = new Blob([trimmed], { type: 'application/javascript' });
           const blobUrl2 = URL.createObjectURL(blob2);
-          await import(blobUrl2 + '?t=' + Date.now());
+          await import(blobUrl2);
           console.log('Imported trimmed repaired bundle via blob URL');
+          URL.revokeObjectURL(blobUrl2);
           return;
         }catch(trimErr){
           console.error('Import of trimmed repaired blob also failed', trimErr);
+          try{ URL.revokeObjectURL(blobUrl2); }catch(e){}
           throw trimErr;
         }
       }
+      try{ URL.revokeObjectURL(blobUrl); }catch(e){}
       throw blobErr;
     }
   }catch(err){
