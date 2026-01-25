@@ -82,7 +82,8 @@ function planRow(plan) {
   rightWrap.style.display = 'flex';
   rightWrap.style.gap = '8px';
   rightWrap.appendChild(btn);
-  rightWrap.appendChild(del);
+  const showDelete = $('#plansList').dataset.showDelete === 'true';
+  if (showDelete) rightWrap.appendChild(del);
 
   li.appendChild(left);
   li.appendChild(rightWrap);
@@ -141,7 +142,10 @@ function showPlansList() {
   const btn = $('#btnPlans');
   if (form) form.style.display = 'block';
   if (fields) fields.style.display = 'none';
-  if (list) list.style.display = 'block';
+  if (list) {
+    list.style.display = 'block';
+    list.dataset.showDelete = 'false';
+  }
   if (btn) btn.textContent = 'Upload Plan';
 }
 
@@ -152,7 +156,10 @@ function showUploadForm() {
   const btn = $('#btnPlans');
   if (form) form.style.display = 'block';
   if (fields) fields.style.display = 'block';
-  if (list) list.style.display = 'block';
+  if (list) {
+    list.style.display = 'block';
+    list.dataset.showDelete = 'true';
+  }
   if (btn) btn.textContent = 'Back to Plans';
 }
 
