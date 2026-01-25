@@ -189,11 +189,7 @@
     <script>
       // Ensure the file fab forwards clicks to the hidden file input (defensive)
       document.addEventListener('DOMContentLoaded', ()=>{
-        const fileFab = document.getElementById('fileFab');
-        const fileInput = document.getElementById('fileInputElement');
-        if(fileFab && fileInput){
-          fileFab.addEventListener('click', (e)=>{ try{ fileInput.click(); }catch(err){ console.warn('file input click failed', err); } });
-        }
+        // Removed redundant click handler to prevent double file dialog
 
         // Sample loader button (convenience for debugging / testing)
         const loadSampleBtn = document.getElementById('loadSampleBtn');
