@@ -4552,5 +4552,4 @@ if(document.readyState==="loading"){
   });
 }else{ const inst=__initViewerInstance(); const qs=new URLSearchParams(window.location.search); const src=qs.get('src'); if(src){ try{ window.dwgViewer.openSrc(src);}catch(e){console.warn('failed auto-open src',e);} } }
 
-// Initialize bundle for non-module consumers (avoid using ES module `export` which can break when injected as classic script)
-try{ if(typeof uB === 'function') { uB(); } }catch(initErr){ console.error('Error initializing DWG bundle:', initErr); }
+export default uB();
