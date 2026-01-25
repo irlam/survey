@@ -179,12 +179,14 @@ async function renderPlansScreen() {
   // wire plans button
   const plansBtn = document.getElementById('btnPlans');
   if (plansBtn) {
-    plansBtn.onclick = () => {
+    plansBtn.onclick = async () => {
       const fields = $('#uploadFields');
       if (fields && fields.style.display === 'none') {
         showUploadForm();
+        await refreshPlans();
       } else {
         showPlansList();
+        await refreshPlans();
       }
     };
   }
