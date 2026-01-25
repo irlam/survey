@@ -187,7 +187,8 @@ async function showIssueModal(pin){
             <input id="issueTitle" type="text" style="width:100%;font-size:16px;" value="${pin.title||''}" maxlength="255" />
           </label>
           <div style="display:flex;gap:8px;margin-top:8px;">
-            <label style="flex:1">Status:<br>
+            <div style="flex:1;">
+              <label style="display:block;margin-bottom:4px;">Status:</label>
               <div id="issueStatusSelect" class="customSelect neonSelect selectLike" role="combobox" aria-haspopup="listbox" aria-expanded="false" tabindex="0">
                 <button class="selectButton" aria-label="Status"><span class="selectedLabel">Open</span></button>
                 <ul class="selectList" role="listbox" tabindex="-1">
@@ -197,9 +198,10 @@ async function showIssueModal(pin){
                   <li role="option" data-value="closed">Closed</li>
                 </ul>
               </div>
-            </label>
-            <label style="width:120px">Priority:<br>
-              <div id="issuePrioritySelect" class="customSelect neonSelect small selectLike" role="combobox" aria-haspopup="listbox" aria-expanded="false" tabindex="0">
+            </div>
+            <div style="width:140px;">
+              <label style="display:block;margin-bottom:4px;">Priority:</label>
+              <div id="issuePrioritySelect" class="customSelect neonSelect selectLike" role="combobox" aria-haspopup="listbox" aria-expanded="false" tabindex="0">
                 <button class="selectButton" aria-label="Priority"><span class="selectedLabel">Medium</span></button>
                 <ul class="selectList" role="listbox" tabindex="-1">
                   <li role="option" data-value="low">Low</li>
@@ -207,7 +209,7 @@ async function showIssueModal(pin){
                   <li role="option" data-value="high">High</li>
                 </ul>
               </div>
-            </label>
+            </div>
           </div>
           <label style="display:block;margin-top:8px;">Assignee:<br>
             <input id="issueAssignee" type="text" style="width:100%;font-size:14px;" value="${pin.assignee||''}" />
