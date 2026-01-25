@@ -189,7 +189,7 @@ async function showIssueModal(pin){
           <div style="display:flex;gap:8px;margin-top:8px;">
             <div style="flex:1;">
               <label style="display:block;margin-bottom:4px;">Status:</label>
-              <div id="issueStatusSelect" class="customSelect neonSelect selectLike" role="combobox" aria-haspopup="listbox" aria-expanded="false" tabindex="0">
+              <div id="issueStatusSelect" class="customSelect selectLike" role="combobox" aria-haspopup="listbox" aria-expanded="false" tabindex="0">
                 <button class="selectButton" aria-label="Status"><span class="selectedLabel">Open</span></button>
                 <ul class="selectList" role="listbox" tabindex="-1">
                   <li role="option" data-value="open">Open</li>
@@ -201,7 +201,7 @@ async function showIssueModal(pin){
             </div>
             <div style="width:140px;">
               <label style="display:block;margin-bottom:4px;">Priority:</label>
-              <div id="issuePrioritySelect" class="customSelect neonSelect selectLike" role="combobox" aria-haspopup="listbox" aria-expanded="false" tabindex="0">
+              <div id="issuePrioritySelect" class="customSelect selectLike" role="combobox" aria-haspopup="listbox" aria-expanded="false" tabindex="0">
                 <button class="selectButton" aria-label="Priority"><span class="selectedLabel">Medium</span></button>
                 <ul class="selectList" role="listbox" tabindex="-1">
                   <li role="option" data-value="low">Low</li>

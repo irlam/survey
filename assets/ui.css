@@ -180,7 +180,7 @@ select:focus{ outline:none; box-shadow: 0 0 0 4px rgba(0,255,231,.12); transform
 #issuesModal .customSelect .selectedLabel, #issueModal .customSelect .selectedLabel, .card .customSelect .selectedLabel{ color:#FFFFFF !important; font-weight:900; font-size:1rem; line-height:1; display:block; text-align:center; text-shadow: 0 1px 0 rgba(0,0,0,0.5); }
 #issuesModal .customSelect .selectList, #issueModal .customSelect .selectList, .card .customSelect .selectList{ background: linear-gradient(180deg, rgba(255,255,255,0.15), rgba(255,255,255,0.08)); border-radius:12px; padding:10px; border:1px solid rgba(0,255,231,0.08); box-shadow: 0 12px 30px rgba(0,0,0,0.5); }
 #issuesModal .customSelect .selectList li, #issueModal .customSelect .selectList li, .card .customSelect .selectList li{ color: #041013 !important; font-weight:700; background: transparent; padding:12px 14px; border-radius:8px; }
-#issuesModal .customSelect .selectList li:hover, #issueModal .customSelect .selectList li:hover, .card .customSelect .selectList li:hover{ background: linear-gradient(90deg, rgba(0,255,231,0.06), rgba(57,255,20,0.04)); color:#041013; }
+#issuesModal .customSelect .selectList li[aria-selected="true"], #issueModal .customSelect .selectList li[aria-selected="true"], .card .customSelect .selectList li[aria-selected="true"]{ color: #FFFFFF !important; background: rgba(0,255,231,0.2) !important; }
 
 
 /* Fallback: make any unstyled buttons match secondary neon style */
