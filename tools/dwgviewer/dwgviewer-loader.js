@@ -38,14 +38,34 @@ export async function loadDWGBundle(){
   try{
     const blob = new Blob([repaired], { type: 'application/javascript' });
     const blobUrl = URL.createObjectURL(blob);
-    await import(blobUrl + '?t=' + Date.now());
-    console.log('Imported repaired bundle via blob URL');
-    // revoke later
-    // URL.revokeObjectURL(blobUrl);
-    return;
-  }catch(blobErr){
-    console.error('Import of repaired blob failed', blobErr);
-    throw blobErr;
+    try{
+      await import(blobUrl + '?t=' + Date.now());
+      console.log('Imported repaired bundle via blob URL');
+      return;
+    }catch(blobErr){
+      console.error('Import of repaired blob failed', blobErr);
+      // Try trimming anything after the final occurrence of 'export default uB'
+      const match = repaired.match(/export\s+default\s+uB[\s\S]*$/m);
+      if(match){
+        const idx = repaired.lastIndexOf(match[0]);
+        const trimmed = repaired.slice(0, idx + match[0].length);
+        console.warn('Attempting import of trimmed repaired bundle (cut after export default uB)');
+        try{
+          const blob2 = new Blob([trimmed], { type: 'application/javascript' });
+          const blobUrl2 = URL.createObjectURL(blob2);
+          await import(blobUrl2 + '?t=' + Date.now());
+          console.log('Imported trimmed repaired bundle via blob URL');
+          return;
+        }catch(trimErr){
+          console.error('Import of trimmed repaired blob also failed', trimErr);
+          throw trimErr;
+        }
+      }
+      throw blobErr;
+    }
+  }catch(err){
+    console.error('Final repair/import attempt failed', err);
+    throw err;
   }
 }
 
