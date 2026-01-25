@@ -254,16 +254,18 @@
         let startX, startY;
         // Mouse pan
         element.addEventListener('mousedown', (e) => {
+          e.preventDefault();
           isPanning = true;
           startX = e.clientX;
           startY = e.clientY;
           element.style.cursor = 'grabbing';
         });
         element.addEventListener('mousemove', (e) => {
-          if (isPanning && window.AcApDocManager && window.AcApDocManager.instance && window.AcApDocManager.instance.curView) {
+          if (isPanning && window.AcApDocManager && window.AcApDocManager.instance && window.AcApDocManager.instance.curEditor && window.AcApDocManager.instance.curEditor.view) {
             const dx = e.clientX - startX;
             const dy = e.clientY - startY;
-            window.AcApDocManager.instance.curView.pan(dx, -dy); // Note: y inverted for CAD coordinates
+            console.log('Panning by pixels', dx, dy);
+            window.AcApDocManager.instance.curEditor.view.pan(dx, -dy);
             startX = e.clientX;
             startY = e.clientY;
           }
@@ -280,9 +282,9 @@
         // Mouse wheel zoom
         element.addEventListener('wheel', (e) => {
           e.preventDefault();
-          if (window.AcApDocManager && window.AcApDocManager.instance && window.AcApDocManager.instance.curView) {
+          if (window.AcApDocManager && window.AcApDocManager.instance && window.AcApDocManager.instance.curEditor && window.AcApDocManager.instance.curEditor.view) {
             const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-            window.AcApDocManager.instance.curView.zoom(zoomFactor);
+            window.AcApDocManager.instance.curEditor.view.zoom(zoomFactor);
           }
         });
         // Touch pan and pinch zoom
