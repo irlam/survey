@@ -66,7 +66,13 @@
         box-shadow: 0 4px 16px rgba(0,0,0,0.22);
       }
       .file-fab input[type="file"] {
-        display: none;
+        /* keep input accessible but visually hidden and covering the button so clicks open file picker reliably */
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
       }
       .file-fab-label {
         margin-top: 0.5rem;
@@ -157,6 +163,18 @@
         </div>
       </div>
       <div id="cad-container"></div>
-    </div>
+    </div>
+
+    <script>
+      // Ensure the file fab forwards clicks to the hidden file input (defensive)
+      document.addEventListener('DOMContentLoaded', ()=>{
+        const fileFab = document.getElementById('fileFab');
+        const fileInput = document.getElementById('fileInputElement');
+        if(fileFab && fileInput){
+          fileFab.addEventListener('click', (e)=>{ try{ fileInput.click(); }catch(err){ console.warn('file input click failed', err); } });
+        }
+      });
+    </script>
+
   </body>
 </html>
