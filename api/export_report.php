@@ -1,15 +1,22 @@
 <?php
 require_once __DIR__ . '/config-util.php';
 require_once __DIR__ . '/db.php';
-require_method('POST');
-$plan_id = safe_int($_POST['plan_id'] ?? null);
-if (!$plan_id) error_response('Missing plan_id', 400);
-$pdo = db();
-// Fetch plan data to include in reports
-$stmtPlan = $pdo->prepare('SELECT * FROM plans WHERE id=?');
-$stmtPlan->execute([$plan_id]);
-$plan = $stmtPlan->fetch();
-$plan_name = $plan['name'] ?? ('Plan ' . $plan_id);
+if (php_sapi_name() !== 'cli') {
+    require_method('POST');
+    $plan_id = safe_int($_POST['plan_id'] ?? null);
+    if (!$plan_id) error_response('Missing plan_id', 400);
+    $pdo = db();
+    // Fetch plan data to include in reports
+    $stmtPlan = $pdo->prepare('SELECT * FROM plans WHERE id=?');
+    $stmtPlan->execute([$plan_id]);
+    $plan = $stmtPlan->fetch();
+    $plan_name = $plan['name'] ?? ('Plan ' . $plan_id);
+} else {
+    // Included from CLI for testing: provide safe defaults so functions can be exercised
+    $plan_id = null;
+    $plan = null;
+    $plan_name = 'plan';
+}
 // Helper to create safe filenames from plan / revision names
 function slugify_filename($s) {
     $s = trim((string)$s);
@@ -93,6 +100,51 @@ function render_pin_thumbnail($planFile, $page, $x_norm, $y_norm, $thumbWidthPx 
             return ['tmp'=>$tmp, 'method'=>'imagick'];
         } catch (Exception $e) {
             // fall through to other methods
+        }
+    }
+
+    // If the plan file itself is an image (png/jpg/gif) and GD is available, composite directly
+    $imgExt = strtolower(pathinfo($planFile, PATHINFO_EXTENSION));
+    if (in_array($imgExt, ['png','jpg','jpeg','gif'])) {
+        if (function_exists('imagecreatefrompng') && function_exists('imagecopyresampled')) {
+            $base = null;
+            switch ($imgExt) {
+                case 'png': $base = @imagecreatefrompng($planFile); break;
+                case 'jpg': case 'jpeg': $base = @imagecreatefromjpeg($planFile); break;
+                case 'gif': $base = @imagecreatefromgif($planFile); break;
+            }
+            if ($base) {
+                imagesavealpha($base, true);
+                imagealphablending($base, true);
+                $w = imagesx($base); $h = imagesy($base);
+                $pinPath = __DIR__ . '/../assets/pin.png';
+                if (is_file($pinPath)) {
+                    $pinSrc = @imagecreatefrompng($pinPath);
+                    if ($pinSrc) {
+                        $pinHeight = max(24, intval($h * 0.12));
+                        $pw = imagesx($pinSrc); $ph = imagesy($pinSrc);
+                        $pw2 = intval($pw * ($pinHeight / $ph));
+                        $ph2 = $pinHeight;
+                        $resPin = imagecreatetruecolor($pw2, $ph2);
+                        imagesavealpha($resPin, true);
+                        $trans_colour = imagecolorallocatealpha($resPin, 0, 0, 0, 127);
+                        imagefill($resPin, 0, 0, $trans_colour);
+                        imagecopyresampled($resPin, $pinSrc, 0, 0, 0, 0, $pw2, $ph2, $pw, $ph);
+
+                        $x = intval($x_norm * $w) - intval($pw2 / 2);
+                        $y = intval($y_norm * $h) - $ph2;
+                        $x = max(0, min($x, $w - $pw2));
+                        $y = max(0, min($y, $h - $ph2));
+
+                        imagecopy($base, $resPin, $x, $y, 0, 0, $pw2, $ph2);
+                        $tmp = tempnam(sys_get_temp_dir(), 'pinimg_') . '.png';
+                        imagepng($base, $tmp);
+                        imagedestroy($base); imagedestroy($pinSrc); imagedestroy($resPin);
+                        return ['tmp'=>$tmp, 'method'=>'gd_image'];
+                    }
+                }
+                imagedestroy($base);
+            }
         }
     }
 
@@ -200,6 +252,9 @@ function render_pin_thumbnail($planFile, $page, $x_norm, $y_norm, $thumbWidthPx 
     return null;
 }
 
+// When included from CLI, don't run the endpoint code so tests can include this file
+if (php_sapi_name() === 'cli') return;
+
 // Default: PDF (if requested)
 if ($format !== 'pdf') {
     error_response('Unsupported format', 400);
@@ -294,9 +349,12 @@ $fetchedPhotos = [];
 $includedPhotos = [];
 $includedPins = []; 
 $allSkippedPins = [];
+$render_debug = [];
+$pins_included_count = 0;
 foreach ($issue_list as $issue) {
     $skippedPhotos = []; // per-issue debug info about skipped photos
     $skippedPins = []; // per-issue debug info about skipped pin thumbnails
+    $render_debug[$issue['id'] ?? ''] = ['plan_file_used'=>null,'http_fetch_ok'=>false,'render_method'=>null,'pin_tmp'=>null,'embedded'=>false,'skip_reason'=>null];
     // issue header with subtle background for a more modern look
     $pdf->SetFont('Arial','B',13);
     $title = $issue['title'] ?: ('Issue #' . ($issue['id'] ?? ''));
@@ -325,6 +383,40 @@ foreach ($issue_list as $issue) {
     $notes = $issue['notes'] ?? '';
     $pdf->MultiCell(0,6, $notes ?: '(No description)');
 
+    // pin thumbnail preview (inserted before photos)
+    if (!empty($include_pin) && !empty($plan['file_path'])) {
+        $planFile = null; $fileRel = $plan['file_path'] ?? null;
+        if ($fileRel) {
+            $cand1 = realpath(__DIR__ . '/../' . ltrim($fileRel, '/'));
+            if ($cand1 && is_file($cand1)) $planFile = $cand1;
+            if (!$planFile) { $cand2 = storage_dir($fileRel); if (is_file($cand2)) $planFile = $cand2; }
+            if (!$planFile) { $cand3 = storage_dir('plans/' . basename($fileRel)); if (is_file($cand3)) $planFile = $cand3; }
+        }
+        if ($planFile && is_file($planFile)) {
+            // try HTTP-rendered thumb first
+            $pinImg = null;
+            $renderUrl = base_url() . '/api/render_pin.php?plan_id=' . urlencode($plan_id) . '&issue_id=' . urlencode($issue['id'] ?? '');
+            $imgData = @file_get_contents($renderUrl);
+            if ($imgData !== false && strlen($imgData) > 200) {
+                $tmpf = tempnam(sys_get_temp_dir(), 'srp') . '.png';
+                file_put_contents($tmpf, $imgData);
+                if (is_file($tmpf) && filesize($tmpf) > 0) $pinImg = ['tmp'=>$tmpf,'method'=>'http_render'];
+            }
+            if (!$pinImg) $pinImg = render_pin_thumbnail($planFile, $issue['page'] ?? 1, $issue['x_norm'] ?? 0.5, $issue['y_norm'] ?? 0.5);
+            if ($debug) { error_log('export_report: render_pin attempt for issue=' . ($issue['id'] ?? '') . ' plan=' . $planFile . ' result=' . var_export($pinImg, true)); $includedPins[] = ['issue_id'=>$issue['id']??null,'plan_file_used'=>$planFile]; }
+            if (!$pinImg && $debug) { $skippedPins[] = ['issue_id'=>$issue['id']??null,'reason'=>'render_failed','plan_file'=>$planFile,'render_result'=> (is_array($pinImg) ? $pinImg : ['value' => $pinImg])]; }
+            if ($pinImg) {
+                $pinPathReal = is_array($pinImg) ? ($pinImg['tmp'] ?? null) : $pinImg;
+                $pinMethod = is_array($pinImg) ? ($pinImg['method'] ?? null) : null;
+                if ($pinPathReal && is_file($pinPathReal) && filesize($pinPathReal)>0 && @getimagesize($pinPathReal)) {
+                    $tempFiles[] = $pinPathReal;
+                    $x2 = $pdf->GetX(); $pdf->Image($pinPathReal, $x2, null, 60, 0); $pdf->Ln(4);
+                    if ($debug) $includedPins[] = ['issue_id'=>$issue['id']??null,'img'=>$pinPathReal,'method'=>$pinMethod];
+                } else { if ($debug) $skippedPins[] = ['issue_id'=>$issue['id']??null,'img'=>$pinPathReal,'reason'=>'invalid_or_missing']; }
+            }
+        }
+    }
+
     // include photos for this issue right after description
     $stmtp = $pdo->prepare('SELECT * FROM photos WHERE plan_id=? AND issue_id=?');
     $stmtp->execute([$plan_id, $issue['id']]);
@@ -336,33 +428,146 @@ foreach ($issue_list as $issue) {
         $pdf->Cell(0,6,'Photos:',0,1);
         // optionally include a pin thumbnail showing the issue location on the plan
         if (!empty($include_pin) && !empty($plan['file_path'])) {
-            $planFile = realpath(__DIR__ . '/../' . ltrim($plan['file_path'], '/'));
+            // Resolve possible plan file locations (project-relative, storage, storage/plans)
+            $planFile = null;
+            $fileRel = $plan['file_path'] ?? null;
+            if ($fileRel) {
+                $cand1 = realpath(__DIR__ . '/../' . ltrim($fileRel, '/'));
+                if ($cand1 && is_file($cand1)) $planFile = $cand1;
+                if (!$planFile) {
+                    $cand2 = storage_dir($fileRel);
+                    if (is_file($cand2)) $planFile = $cand2;
+                }
+                if (!$planFile) {
+                    $cand3 = storage_dir('plans/' . basename($fileRel));
+                    if (is_file($cand3)) $planFile = $cand3;
+                }
+            }
             if ($planFile && is_file($planFile)) {
-                $pinImg = render_pin_thumbnail($planFile, $issue['page'] ?? 1, $issue['x_norm'] ?? 0.5, $issue['y_norm'] ?? 0.5);
-                if ($pinImg) {
+                    // try an HTTP-rendered thumbnail from our own API first (works around local rendering oddities)
+                    $pinImg = null;
+                    $renderUrl = base_url() . '/api/render_pin.php?plan_id=' . urlencode($plan_id) . '&issue_id=' . urlencode($issue['id'] ?? '');
+                    $imgData = @file_get_contents($renderUrl);
+                    if ($imgData !== false && strlen($imgData) > 200) {
+                        $tmpf = tempnam(sys_get_temp_dir(), 'srp') . '.png';
+                        file_put_contents($tmpf, $imgData);
+                        if (is_file($tmpf) && filesize($tmpf) > 0) {
+                            $pinImg = ['tmp'=>$tmpf,'method'=>'http_render'];
+                            $render_debug[$issue['id'] ?? '']['http_fetch_ok'] = true;
+                        }
+                    }
+                    // fallback to internal renderer if HTTP fetch failed
+                    if (!$pinImg) {
+                        $pinImg = render_pin_thumbnail($planFile, $issue['page'] ?? 1, $issue['x_norm'] ?? 0.5, $issue['y_norm'] ?? 0.5);
+                    }
+                    // diagnostic logging: record render attempt and quick trace in error log
+                    if ($debug) {
+                        error_log('export_report: render_pin attempt for issue=' . ($issue['id'] ?? '') . ' plan=' . $planFile . ' result=' . var_export($pinImg, true));
+                        $includedPins[] = ['issue_id'=>$issue['id']??null,'plan_file_used'=>$planFile];
+                    }
+                    if (!$pinImg && $debug) {
+                        $skippedPins[] = ['issue_id'=>$issue['id']??null,'reason'=>'render_failed','plan_file'=>$planFile,'render_result'=> (is_array($pinImg) ? $pinImg : ['value' => $pinImg])];
+                        $render_debug[$issue['id'] ?? '']['render_method'] = null;
+                    }
+                    if ($pinImg && is_array($pinImg) && !empty($pinImg['method'])) {
+                        $render_debug[$issue['id'] ?? '']['render_method'] = $pinImg['method'];
+                        $render_debug[$issue['id'] ?? '']['pin_tmp'] = $pinImg['tmp'] ?? null;
+                    }
+                    if ($pinImg) {
                     // support array return from helper (tmp + method) for debugging
                     $pinPathReal = null; $pinMethod = null;
-                    if (is_array($pinImg)) { $pinPathReal = $pinImg['tmp'] ?? null; $pinMethod = $pinImg['method'] ?? null; }
-                    else { $pinPathReal = $pinImg; }
+                    if (is_array($pinImg)) { $src = $pinImg['tmp'] ?? null; $pinMethod = $pinImg['method'] ?? null; }
+                    else { $src = $pinImg; }
+                    // copy into storage/tmp with a guaranteed readable path so FPDF can embed it reliably
+                    if ($src && is_file($src)) {
+                        $dst = storage_dir('tmp/pin_' . ($plan_id ?? 'p') . '_' . ($issue['id'] ?? 'i') . '_' . bin2hex(random_bytes(4)) . '.png');
+                        if (@copy($src, $dst)) {
+                            @chmod($dst, 0644);
+                            $pinPathReal = $dst;
+                            $tempFiles[] = $dst; // mark for cleanup
+                        } else {
+                            // fallback to original source (may still work)
+                            $pinPathReal = $src;
+                            $tempFiles[] = $src;
+                        }
+                    } else {
+                        $pinPathReal = null;
+                    }
                     if ($pinPathReal) {
                         // validate file existence and image validity before embedding
                         if (!is_file($pinPathReal) || filesize($pinPathReal) <= 0) {
+                            $render_debug[$issue['id'] ?? '']['skip_reason'] = 'file_missing_or_empty';
                             if ($debug) $skippedPins[] = ['issue_id'=>$issue['id']??null,'img'=>$pinPathReal,'reason'=>'file_missing_or_empty','filesize'=>is_file($pinPathReal)?filesize($pinPathReal):null];
                         } else {
                             $imgInfo = @getimagesize($pinPathReal);
                             if (!$imgInfo) {
+                                $render_debug[$issue['id'] ?? '']['skip_reason'] = 'invalid_image';
                                 if ($debug) $skippedPins[] = ['issue_id'=>$issue['id']??null,'img'=>$pinPathReal,'reason'=>'invalid_image'];
                             } else {
-                                $tempFiles[] = $pinPathReal; // ensure cleanup
-                                $x2 = $pdf->GetX();
-                                $pdf->Image($pinPathReal, $x2, null, 60, 0);
-                                $pdf->Ln(4);
-                                if ($debug) $includedPins[] = ['issue_id'=>$issue['id']??null,'img'=>$pinPathReal,'method'=>$pinMethod];
+                                // convert PNG (which may have alpha) to a JPG for reliable embedding in FPDF
+                                $jpgTmp = tempnam(sys_get_temp_dir(), 'srp') . '.jpg';
+                                $pngImg = @imagecreatefrompng($pinPathReal);
+                                if ($pngImg) {
+                                    // white background to flatten alpha
+                                    $w = imagesx($pngImg); $h = imagesy($pngImg);
+                                    $bg = imagecreatetruecolor($w, $h);
+                                    $white = imagecolorallocate($bg, 255,255,255);
+                                    imagefill($bg, 0,0, $white);
+                                    imagecopy($bg, $pngImg, 0,0,0,0, $w, $h);
+                                    imagejpeg($bg, $jpgTmp, 85);
+                                    imagedestroy($bg);
+                                    imagedestroy($pngImg);
+                                } else {
+                                    $jpgTmp = null; // conversion failed
+                                }
+
+                                $embedPath = $jpgTmp && is_file($jpgTmp) ? $jpgTmp : $pinPathReal;
+                                $tempFiles[] = $embedPath;
+                                // For diagnostics: when debug enabled, write a small PDF with just the pin image
+                                if ($debug && is_file($embedPath) && class_exists('\setasign\Fpdf\Fpdf')) {
+                                    try {
+                                        $testPdf = storage_dir('exports/pin_test_issue_' . ($issue['id'] ?? 'x') . '_' . time() . '.pdf');
+                                        $pdfTest = new \setasign\Fpdf\Fpdf();
+                                        $pdfTest->AddPage();
+                                        $pdfTest->Image($embedPath, 10, 20, 100, 0);
+                                        $pdfTest->Output('F', $testPdf);
+                                        $render_debug[$issue['id'] ?? '']['test_pdf'] = $testPdf;
+                                    } catch (Exception $e) {
+                                        $render_debug[$issue['id'] ?? '']['test_pdf_error'] = $e->getMessage();
+                                    }
+                                }
+                                // Copy the embed image into storage/tmp so it will be picked up by the photos loop (avoid direct embedding to keep a single code path)
+                                $bn2 = 'pin_export_' . ($plan_id ?? 'p') . '_' . ($issue['id'] ?? 'i') . '_' . bin2hex(random_bytes(4)) . '.png';
+                                $dst2 = storage_dir('tmp/' . $bn2);
+                                if (@copy($embedPath, $dst2)) {
+                                    @chmod($dst2, 0644);
+                                    $render_debug[$issue['id'] ?? '']['pin_tmp'] = $dst2;
+                                    $pinPhotoRel = 'tmp/' . $bn2;
+                                    // ensure the generated pin is included in the photos list for this issue
+                                    if (isset($ips) && is_array($ips)) {
+                                        array_unshift($ips, ['file_path' => $pinPhotoRel]);
+                                    }
+                                    // count it as included so debug reflects it
+                                    $pins_included_count++;
+                                    if ($debug) $includedPins[] = ['issue_id'=>$issue['id']??null,'img'=>$dst2,'method'=>$pinMethod ?: 'copied_to_storage'];
+                                } else {
+                                    // fallback: embed directly if copy fails
+                                    $x2 = $pdf->GetX();
+                                    $pdf->Image($embedPath, $x2, null, 60, 0);
+                                    $pdf->Ln(4);
+                                    $render_debug[$issue['id'] ?? '']['embedded'] = true;
+                                    $pins_included_count++;
+                                    if ($debug) $includedPins[] = ['issue_id'=>$issue['id']??null,'img'=>$embedPath,'method'=>$pinMethod ?: 'converted_or_original_embedded'];
+                                }
+                                // note: using storage copy ensures the photos loop picks it up consistently across environments
                             }
                         }
                     }
                 }
             }
+        }
+        if (!empty($pinWebPreviewPath)) {
+            array_unshift($ips, ['file_path' => $pinWebPreviewPath]);
         }
         foreach ($ips as $ph) {
             $fileRel = $ph['file_path'] ?? ($ph['filename'] ?? null);
@@ -370,7 +575,8 @@ foreach ($issue_list as $issue) {
             // Resolve file path: prefer explicit paths, otherwise assume photos/<filename>
             if (preg_match('#^https?://#i', $fileRel)) {
                 // remote URL (http/https)
-                if (!empty($_POST['fetch_remote']) || !empty($_GET['fetch_remote'])) {
+                $sameOrigin = (stripos($fileRel, base_url()) === 0);
+                if ($sameOrigin || !empty($_POST['fetch_remote']) || !empty($_GET['fetch_remote'])) {
                     // attempt to fetch remote image with safeguards
                     $maxBytes = 5 * 1024 * 1024; // 5MB
                     $tmp = tempnam(sys_get_temp_dir(), 'srp');
@@ -497,7 +703,7 @@ if (!is_file($path) || filesize($path) <= 0) {
 error_log('export_report: wrote ' . $path . ' size:' . filesize($path) . ' plan:' . $plan_id . ' issue:' . ($issue_id ?: 'all'));
 $extra = $debug ? ['exports'=>get_exports_listing()] : [];
 // Always report how many pin thumbnails were included (0 if none)
-$extra['pins_included'] = isset($includedPins) ? count($includedPins) : 0;
+$extra['pins_included'] = $pins_included_count;
 // attach any skipped photo info (if collected)
 if ($debug && isset($allSkippedPhotos) && count($allSkippedPhotos)) {
     $extra['skipped_photos'] = $allSkippedPhotos;
@@ -513,6 +719,18 @@ if ($debug && isset($includedPins) && count($includedPins)) {
 }
 if ($debug && isset($allSkippedPins) && count($allSkippedPins)) {
     $extra['skipped_pins'] = $allSkippedPins;
+}
+// include render debug for diagnostics (always present for now)
+$extra['render_debug'] = $render_debug;
+
+// persist server-side render debug to a file (always write for inspection)
+try {
+    $dbgF = storage_dir('exports/render_debug_' . time() . '_' . bin2hex(random_bytes(4)) . '.json');
+    @file_put_contents($dbgF, json_encode($render_debug, JSON_PRETTY_PRINT));
+    $extra['render_debug_file'] = basename($dbgF);
+    $extra['render_debug_path'] = $dbgF;
+} catch (Exception $e) {
+    // ignore file write errors
 }
 
 // cleanup any temporary files we created when fetching remote images
