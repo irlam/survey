@@ -393,16 +393,18 @@ foreach ($issue_list as $issue) {
             if (!$planFile) { $cand3 = storage_dir('plans/' . basename($fileRel)); if (is_file($cand3)) $planFile = $cand3; }
         }
         if ($planFile && is_file($planFile)) {
-            // try HTTP-rendered thumb first
-            $pinImg = null;
-            $renderUrl = base_url() . '/api/render_pin.php?plan_id=' . urlencode($plan_id) . '&issue_id=' . urlencode($issue['id'] ?? '');
-            $imgData = @file_get_contents($renderUrl);
-            if ($imgData !== false && strlen($imgData) > 200) {
-                $tmpf = tempnam(sys_get_temp_dir(), 'srp') . '.png';
-                file_put_contents($tmpf, $imgData);
-                if (is_file($tmpf) && filesize($tmpf) > 0) $pinImg = ['tmp'=>$tmpf,'method'=>'http_render'];
+            // Prefer server-side internal renderer first (works when HTTP to localhost is blocked);
+            // fall back to HTTP-rendered thumbnail if internal render fails.
+            $pinImg = render_pin_thumbnail($planFile, $issue['page'] ?? 1, $issue['x_norm'] ?? 0.5, $issue['y_norm'] ?? 0.5);
+            if (!$pinImg) {
+                $renderUrl = base_url() . '/api/render_pin.php?plan_id=' . urlencode($plan_id) . '&issue_id=' . urlencode($issue['id'] ?? '');
+                $imgData = @file_get_contents($renderUrl);
+                if ($imgData !== false && strlen($imgData) > 200) {
+                    $tmpf = tempnam(sys_get_temp_dir(), 'srp') . '.png';
+                    file_put_contents($tmpf, $imgData);
+                    if (is_file($tmpf) && filesize($tmpf) > 0) $pinImg = ['tmp'=>$tmpf,'method'=>'http_render'];
+                }
             }
-            if (!$pinImg) $pinImg = render_pin_thumbnail($planFile, $issue['page'] ?? 1, $issue['x_norm'] ?? 0.5, $issue['y_norm'] ?? 0.5);
             if ($debug) { error_log('export_report: render_pin attempt for issue=' . ($issue['id'] ?? '') . ' plan=' . $planFile . ' result=' . var_export($pinImg, true)); $includedPins[] = ['issue_id'=>$issue['id']??null,'plan_file_used'=>$planFile]; }
             if (!$pinImg && $debug) { $skippedPins[] = ['issue_id'=>$issue['id']??null,'reason'=>'render_failed','plan_file'=>$planFile,'render_result'=> (is_array($pinImg) ? $pinImg : ['value' => $pinImg])]; }
             if ($pinImg) {
@@ -444,21 +446,19 @@ foreach ($issue_list as $issue) {
                 }
             }
             if ($planFile && is_file($planFile)) {
-                    // try an HTTP-rendered thumbnail from our own API first (works around local rendering oddities)
-                    $pinImg = null;
-                    $renderUrl = base_url() . '/api/render_pin.php?plan_id=' . urlencode($plan_id) . '&issue_id=' . urlencode($issue['id'] ?? '');
-                    $imgData = @file_get_contents($renderUrl);
-                    if ($imgData !== false && strlen($imgData) > 200) {
-                        $tmpf = tempnam(sys_get_temp_dir(), 'srp') . '.png';
-                        file_put_contents($tmpf, $imgData);
-                        if (is_file($tmpf) && filesize($tmpf) > 0) {
-                            $pinImg = ['tmp'=>$tmpf,'method'=>'http_render'];
-                            $render_debug[$issue['id'] ?? '']['http_fetch_ok'] = true;
-                        }
-                    }
-                    // fallback to internal renderer if HTTP fetch failed
+                    // Prefer internal renderer first; fall back to HTTP-rendered thumbnail if needed.
+                    $pinImg = render_pin_thumbnail($planFile, $issue['page'] ?? 1, $issue['x_norm'] ?? 0.5, $issue['y_norm'] ?? 0.5);
                     if (!$pinImg) {
-                        $pinImg = render_pin_thumbnail($planFile, $issue['page'] ?? 1, $issue['x_norm'] ?? 0.5, $issue['y_norm'] ?? 0.5);
+                        $renderUrl = base_url() . '/api/render_pin.php?plan_id=' . urlencode($plan_id) . '&issue_id=' . urlencode($issue['id'] ?? '');
+                        $imgData = @file_get_contents($renderUrl);
+                        if ($imgData !== false && strlen($imgData) > 200) {
+                            $tmpf = tempnam(sys_get_temp_dir(), 'srp') . '.png';
+                            file_put_contents($tmpf, $imgData);
+                            if (is_file($tmpf) && filesize($tmpf) > 0) {
+                                $pinImg = ['tmp'=>$tmpf,'method'=>'http_render'];
+                                $render_debug[$issue['id'] ?? '']['http_fetch_ok'] = true;
+                            }
+                        }
                     }
                     // diagnostic logging: record render attempt and quick trace in error log
                     if ($debug) {
