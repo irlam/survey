@@ -6,6 +6,12 @@ function load_config() {
   return require __DIR__ . '/config.sample.php';
 }
 
+// Ensure PHP warnings/errors are not sent as HTML in API responses.
+// Log errors instead; prevent display of HTML-formatted errors which break JSON APIs.
+@ini_set('display_errors', '0');
+@ini_set('display_startup_errors', '0');
+@error_reporting(E_ALL);
+
 function base_url() {
   $cfg = load_config();
   if (!empty($cfg['base_url'])) return rtrim($cfg['base_url'], '/');
