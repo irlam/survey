@@ -91,23 +91,44 @@ function get_exports_listing($limit = 20) {
 
 // Render a small thumbnail of the plan page with a pin composited at normalized coordinates.
 // Returns path to a temporary PNG file, or null on failure. Requires Imagick; falls back silently.
-function render_pin_thumbnail($planFile, $page, $x_norm, $y_norm, $thumbWidthPx = 400) {
+function render_pin_thumbnail($planFile, $page, $x_norm, $y_norm, $thumbWidthPx = 800, $label = null) {
     // Try Imagick first (cleanest, server-side PDF rendering + composite)
     if (class_exists('Imagick')) {
         try {
             $im = new Imagick();
-            $im->setResolution(150,150);
+            // Render at higher resolution for better quality
+            $im->setResolution(300,300);
             $pageIndex = max(0, (int)$page - 1);
             $im->readImage($planFile . '[' . $pageIndex . ']');
             $im->setImageFormat('png');
             $im->thumbnailImage($thumbWidthPx, 0);
             $w = $im->getImageWidth(); $h = $im->getImageHeight();
-
-            $pinPath = __DIR__ . '/../assets/pin.png';
-            if (!is_file($pinPath)) return null;
-            $pin = new Imagick($pinPath);
-            $pin->setImageFormat('png');
-            $pinHeight = max(24, intval($h * 0.12));
+            // Prefer styled SVG pin if available (neon green with number).
+            $pinSvgPath = __DIR__ . '/../assets/pin.svg';
+            $pin = null;
+            if (is_file($pinSvgPath)) {
+                $svg = @file_get_contents($pinSvgPath);
+                if ($svg !== false) {
+                    // Inject label into SVG .pin-number element if provided
+                    if ($label !== null) {
+                        $safeLabel = htmlspecialchars((string)$label, ENT_QUOTES | ENT_XML1, 'UTF-8');
+                        // replace inner text of <text class="pin-number">..</text>
+                        $svg = preg_replace('/(<text[^>]*class="pin-number"[^>]*>)(.*?)(<\/text>)/is', '$1' . $safeLabel . '$3', $svg);
+                    }
+                    $pin = new Imagick();
+                    // Read SVG from blob; let Imagick rasterize it
+                    $pin->readImageBlob($svg);
+                    $pin->setImageFormat('png');
+                }
+            }
+            // Fallback to raster pin PNG if SVG not available or failed
+            if (!$pin) {
+                $pinPath = __DIR__ . '/../assets/pin.png';
+                if (!is_file($pinPath)) return null;
+                $pin = new Imagick($pinPath);
+                $pin->setImageFormat('png');
+            }
+            $pinHeight = max(40, intval($h * 0.12));
             $pin->thumbnailImage(0, $pinHeight);
             $pw = $pin->getImageWidth(); $ph = $pin->getImageHeight();
 
@@ -432,7 +453,7 @@ foreach ($issue_list as $issue) {
         if ($planFile && is_file($planFile)) {
             // Prefer server-side internal renderer first (works when HTTP to localhost is blocked);
             // fall back to HTTP-rendered thumbnail if internal render fails.
-            $pinImg = render_pin_thumbnail($planFile, $issue['page'] ?? 1, $issue['x_norm'] ?? 0.5, $issue['y_norm'] ?? 0.5);
+            $pinImg = render_pin_thumbnail($planFile, $issue['page'] ?? 1, $issue['x_norm'] ?? 0.5, $issue['y_norm'] ?? 0.5, 800, ($issue['id'] ?? null));
             if (!$pinImg) {
                 $renderUrl = base_url() . '/api/render_pin.php?plan_id=' . urlencode($plan_id) . '&issue_id=' . urlencode($issue['id'] ?? '');
                 $imgData = @file_get_contents($renderUrl);
@@ -484,7 +505,7 @@ foreach ($issue_list as $issue) {
             }
             if ($planFile && is_file($planFile)) {
                     // Prefer internal renderer first; fall back to HTTP-rendered thumbnail if needed.
-                    $pinImg = render_pin_thumbnail($planFile, $issue['page'] ?? 1, $issue['x_norm'] ?? 0.5, $issue['y_norm'] ?? 0.5);
+                    $pinImg = render_pin_thumbnail($planFile, $issue['page'] ?? 1, $issue['x_norm'] ?? 0.5, $issue['y_norm'] ?? 0.5, 800, ($issue['id'] ?? null));
                     if (!$pinImg) {
                         $renderUrl = base_url() . '/api/render_pin.php?plan_id=' . urlencode($plan_id) . '&issue_id=' . urlencode($issue['id'] ?? '');
                         $imgData = @file_get_contents($renderUrl);

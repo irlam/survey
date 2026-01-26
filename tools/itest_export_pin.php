@@ -25,7 +25,7 @@ $issue = ['id' => 999, 'title' => 'Simulated issue', 'page' => 1, 'x_norm' => 0.
 
 // Attempt to render a pin thumbnail and follow export_report embedding steps
 $planFile = $testStoragePlan;
-$pinImg = render_pin_thumbnail($planFile, $issue['page'] ?? 1, $issue['x_norm'] ?? 0.5, $issue['y_norm'] ?? 0.5);
+$pinImg = render_pin_thumbnail($planFile, $issue['page'] ?? 1, $issue['x_norm'] ?? 0.5, $issue['y_norm'] ?? 0.5, 800, ($issue['id'] ?? null));
 $out = ['render_result' => $pinImg];
 
 if (!$pinImg) {
