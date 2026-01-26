@@ -99,7 +99,7 @@ if (class_exists('Imagick')) {
 }
 
 // fallback to pdftoppm or gs + GD
-$pdftoppm = trim(shell_exec('command -v pdftoppm 2>/dev/null'));
+$pdftoppm = trim((string)shell_exec('command -v pdftoppm 2>/dev/null'));
 if ($pdftoppm) {
     $prefix = sys_get_temp_dir() . '/pinr_' . bin2hex(random_bytes(6));
     $outPng = $prefix . '.png';
@@ -139,7 +139,7 @@ if ($pdftoppm) {
     }
 }
 
-$gs = trim(shell_exec('command -v gs 2>/dev/null'));
+$gs = trim((string)shell_exec('command -v gs 2>/dev/null'));
 if ($gs) {
     $prefix = sys_get_temp_dir() . '/pinr_' . bin2hex(random_bytes(6));
     $outPng = $prefix . '.png';
