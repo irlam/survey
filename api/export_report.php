@@ -573,8 +573,10 @@ foreach ($issue_list as $issue) {
                                         $render_debug[$issue['id'] ?? '']['test_pdf_error'] = $e->getMessage();
                                     }
                                 }
-                                // Copy the embed image into storage/tmp so it will be picked up by the photos loop (avoid direct embedding to keep a single code path)
-                                $bn2 = 'pin_export_' . ($plan_id ?? 'p') . '_' . ($issue['id'] ?? 'i') . '_' . bin2hex(random_bytes(4)) . '.png';
+                                // Copy the embed image into storage/tmp so it will be picked up by the photos loop
+                                // Preserve the embed file's extension so FPDF sees the correct format.
+                                $ext = strtolower(pathinfo($embedPath, PATHINFO_EXTENSION)) ?: 'png';
+                                $bn2 = 'pin_export_' . ($plan_id ?? 'p') . '_' . ($issue['id'] ?? 'i') . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
                                 $dst2 = storage_dir('tmp/' . $bn2);
                                 if (@copy($embedPath, $dst2)) {
                                     @chmod($dst2, 0644);
