@@ -355,6 +355,19 @@ foreach ($issue_list as $issue) {
     $skippedPhotos = []; // per-issue debug info about skipped photos
     $skippedPins = []; // per-issue debug info about skipped pin thumbnails
     $render_debug[$issue['id'] ?? ''] = ['plan_file_used'=>null,'http_fetch_ok'=>false,'render_method'=>null,'pin_tmp'=>null,'embedded'=>false,'skip_reason'=>null];
+    // Ensure pin coordinates exist for this issue. If missing, generate sensible defaults
+    // and persist them so subsequent rendering endpoints (eg. render_pin.php) have values.
+    if (!isset($issue['x_norm']) || $issue['x_norm'] === null || $issue['x_norm'] === '') {
+        $x_def = 0.5; $y_def = 0.5;
+        try {
+            $stmtUpd = $pdo->prepare('UPDATE issues SET x_norm=?, y_norm=? WHERE id=? AND plan_id=?');
+            $stmtUpd->execute([$x_def, $y_def, $issue['id'] ?? null, $plan_id]);
+            $issue['x_norm'] = $x_def; $issue['y_norm'] = $y_def;
+            if ($debug) error_log('export_report: generated default coords for issue=' . ($issue['id'] ?? '') . ' => x_norm=' . $x_def . ' y_norm=' . $y_def);
+        } catch (Exception $e) {
+            if ($debug) error_log('export_report: failed to persist default coords for issue=' . ($issue['id'] ?? '') . ' error=' . $e->getMessage());
+        }
+    }
     // issue header with subtle background for a more modern look
     $pdf->SetFont('Arial','B',13);
     $title = $issue['title'] ?: ('Issue #' . ($issue['id'] ?? ''));
