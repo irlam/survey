@@ -146,7 +146,6 @@ SVG;
                     try { $pin = new Imagick($pinPath); $pin->setImageFormat('png'); } catch (Exception $_) { $pin = null; }
                 }
             }
-            if (!$pin) return null;
             $pinHeight = max(40, intval($h * 0.12));
             $pin->thumbnailImage(0, $pinHeight);
             $pw = $pin->getImageWidth(); $ph = $pin->getImageHeight();
@@ -313,57 +312,6 @@ SVG;
         }
     }
 
-    return null;
-}
-
-// Render a single page of the plan to PNG (no pin overlay). Returns ['tmp'=>path,'method'=>...] or null
-function render_plan_thumbnail($planFile, $page, $thumbWidthPx = 800) {
-    // Prefer external renderers first (pdftoppm or gs) which are often more reliable for PDFs on servers
-    $pdftoppm = trim((string)shell_exec('command -v pdftoppm 2>/dev/null'));
-    if ($pdftoppm) {
-        $prefix = sys_get_temp_dir() . '/planr_' . bin2hex(random_bytes(6));
-        $outPng = $prefix . '.png';
-        $cmd = escapeshellcmd($pdftoppm) . ' -png -f ' . (int)$page . ' -singlefile -r 150 ' . escapeshellarg($planFile) . ' ' . escapeshellarg($prefix) . ' 2>&1';
-        @exec($cmd, $out, $rc);
-        if ($rc === 0 && is_file($outPng)) {
-            $tmp = tempnam(sys_get_temp_dir(), 'planthumb_') . '.png';
-            @copy($outPng, $tmp);
-            @unlink($outPng);
-            return ['tmp'=>$tmp,'method'=>'pdftoppm'];
-        }
-    }
-
-    $gs = trim((string)shell_exec('command -v gs 2>/dev/null'));
-    if ($gs) {
-        $prefix = sys_get_temp_dir() . '/planr_' . bin2hex(random_bytes(6));
-        $outPng = $prefix . '.png';
-        $cmd = escapeshellcmd($gs) . ' -dSAFER -dBATCH -dNOPAUSE -sDEVICE=pngalpha -r150 -dFirstPage=' . (int)$page . ' -dLastPage=' . (int)$page . ' -sOutputFile=' . escapeshellarg($outPng) . ' ' . escapeshellarg($planFile) . ' 2>&1';
-        @exec($cmd, $out, $rc);
-        if ($rc === 0 && is_file($outPng)) {
-            $tmp = tempnam(sys_get_temp_dir(), 'planthumb_') . '.png';
-            @copy($outPng, $tmp);
-            @unlink($outPng);
-            return ['tmp'=>$tmp,'method'=>'gs'];
-        }
-    }
-
-    // Fallback to Imagick if available
-    if (class_exists('Imagick')) {
-        try {
-            $im = new Imagick();
-            $im->setResolution(300,300);
-            $pageIndex = max(0, (int)$page - 1);
-            $im->readImage($planFile . '[' . $pageIndex . ']');
-            $im->setImageFormat('png');
-            $im->thumbnailImage($thumbWidthPx, 0);
-            $tmp = tempnam(sys_get_temp_dir(), 'planthumb_') . '.png';
-            $im->writeImage($tmp);
-            $im->clear();
-            return ['tmp'=>$tmp,'method'=>'imagick_plan'];
-        } catch (Exception $e) {
-            // fall through
-        }
-    }
     return null;
 }
 
@@ -656,20 +604,16 @@ foreach ($issue_list as $issue) {
             if (!$planFile) { $cand3 = storage_dir('plans/' . basename($fileRel)); if (is_file($cand3)) $planFile = $cand3; }
         }
         if ($planFile && is_file($planFile)) {
-            // Prefer server-side internal renderer first (raster composite) when raster mode is requested;
-            // when using vector mode we skip generating a raster pin composite and instead render a plan-only thumbnail later.
-            $pinImg = null;
-            $pin_drawn = false; // track if we've drawn a pin for this issue
-            if ($pin_mode === 'raster') {
-                $pinImg = render_pin_thumbnail($planFile, $issue['page'] ?? 1, $issue['x_norm'] ?? 0.5, $issue['y_norm'] ?? 0.5, 800, ($issue['id'] ?? null));
-                if (!$pinImg) {
-                    $renderUrl = base_url() . '/api/render_pin.php?plan_id=' . urlencode($plan_id) . '&issue_id=' . urlencode($issue['id'] ?? '');
-                    $imgData = @file_get_contents($renderUrl);
-                    if ($imgData !== false && strlen($imgData) > 200) {
-                        $tmpf = tempnam(sys_get_temp_dir(), 'srp') . '.png';
-                        file_put_contents($tmpf, $imgData);
-                        if (is_file($tmpf) && filesize($tmpf) > 0) $pinImg = ['tmp'=>$tmpf,'method'=>'http_render'];
-                    }
+            // Prefer server-side internal renderer first (works when HTTP to localhost is blocked);
+            // fall back to HTTP-rendered thumbnail if internal render fails.
+            $pinImg = render_pin_thumbnail($planFile, $issue['page'] ?? 1, $issue['x_norm'] ?? 0.5, $issue['y_norm'] ?? 0.5, 800, ($issue['id'] ?? null));
+            if (!$pinImg) {
+                $renderUrl = base_url() . '/api/render_pin.php?plan_id=' . urlencode($plan_id) . '&issue_id=' . urlencode($issue['id'] ?? '');
+                $imgData = @file_get_contents($renderUrl);
+                if ($imgData !== false && strlen($imgData) > 200) {
+                    $tmpf = tempnam(sys_get_temp_dir(), 'srp') . '.png';
+                    file_put_contents($tmpf, $imgData);
+                    if (is_file($tmpf) && filesize($tmpf) > 0) $pinImg = ['tmp'=>$tmpf,'method'=>'http_render'];
                 }
             }
             if ($debug) { error_log('export_report: render_pin attempt for issue=' . ($issue['id'] ?? '') . ' plan=' . $planFile . ' result=' . var_export($pinImg, true)); $includedPins[] = ['issue_id'=>$issue['id']??null,'plan_file_used'=>$planFile]; }
@@ -679,44 +623,13 @@ foreach ($issue_list as $issue) {
                 $pinMethod = is_array($pinImg) ? ($pinImg['method'] ?? null) : null;
                 if ($pinPathReal && is_file($pinPathReal) && filesize($pinPathReal)>0 && @getimagesize($pinPathReal)) {
                     $tempFiles[] = $pinPathReal;
+                    // Vector is default; allow raster embedding when explicitly requested
                     if ($pin_mode === 'vector') {
-                        // For vector mode, render a plan-only thumbnail and draw the vector pin on top of it
-                        $planThumb = render_plan_thumbnail($planFile, $issue['page'] ?? 1, 800);
-                        if ($planThumb && is_file($planThumb['tmp'])) {
-                            $bn = 'planthumb_' . ($plan_id ?? 'p') . '_' . ($issue['id'] ?? 'i') . '_' . bin2hex(random_bytes(4)) . '.png';
-                            $dstThumb = storage_dir('tmp/' . $bn);
-                            if (@copy($planThumb['tmp'], $dstThumb)) {
-                                @chmod($dstThumb, 0644);
-                                $tempFiles[] = $dstThumb;
-                                $x2 = $pdf->GetX();
-                                $yBefore = $pdf->GetY();
-                                $thumbWidthMM = 50;
-                                $pdf->Image($dstThumb, $x2, null, $thumbWidthMM, 0);
-                                $imgInfo = @getimagesize($dstThumb);
-                                if ($imgInfo) { list($pxW, $pxH) = [$imgInfo[0], $imgInfo[1]]; $thumbHMM = $thumbWidthMM * ($pxH / $pxW); } else { $thumbHMM = $thumbWidthMM * 0.707; }
-                                $cx_mm = $x2 + (($issue['x_norm'] ?? 0.5) * $thumbWidthMM);
-                                $cy_mm = $yBefore + (($issue['y_norm'] ?? 0.5) * $thumbHMM);
-                                $pinWidthMM = max(10, min(20, round($thumbWidthMM * 0.20)));
-                                $pinX = $cx_mm - ($pinWidthMM / 2);
-                                $pinY = $cy_mm - ($pinWidthMM * 0.36);
-                                $pdf->DrawPinAt($pinX, $pinY, $pinWidthMM, ($issue['id'] ?? null));
-                                $pdf->SetY($yBefore + $thumbHMM + 4);
-                                $pins_included_count++;
-                                if ($debug) $includedPins[] = ['issue_id'=>$issue['id']??null,'method'=>'vector_draw_on_thumb','thumb'=>$dstThumb];
-                            } else {
-                                $x2 = $pdf->GetX();
-                                $pdf->DrawPinAt($x2, $pdf->GetY(), 18, ($issue['id'] ?? null));
-                                $pdf->Ln(4);
-                                $pins_included_count++;
-                                if ($debug) $includedPins[] = ['issue_id'=>$issue['id']??null,'method'=>'vector_draw_fallback_no_thumb'];
-                            }
-                        } else {
-                            $x2 = $pdf->GetX();
-                            $pdf->DrawPinAt($x2, $pdf->GetY(), 18, ($issue['id'] ?? null));
-                            $pdf->Ln(4);
-                            $pins_included_count++;
-                            if ($debug) $includedPins[] = ['issue_id'=>$issue['id']??null,'method'=>'vector_draw_fallback_no_renderer'];
-                        }
+                        $x2 = $pdf->GetX();
+                        $pdf->DrawPinAt($x2, $pdf->GetY(), 60, ($issue['id'] ?? null));
+                        $pdf->Ln(4);
+                        $pins_included_count++;
+                        if ($debug) $includedPins[] = ['issue_id'=>$issue['id']??null,'method'=>'vector_draw','img'=>$pinPathReal,'original_method'=>$pinMethod];
                     } else {
                         $x2 = $pdf->GetX();
                         $pdf->Image($pinPathReal, $x2, null, 60, 0);
@@ -725,37 +638,6 @@ foreach ($issue_list as $issue) {
                         if ($debug) $includedPins[] = ['issue_id'=>$issue['id']??null,'img'=>$pinPathReal,'method'=>$pinMethod ?: 'embedded'];
                     }
                 } else { if ($debug) $skippedPins[] = ['issue_id'=>$issue['id']??null,'img'=>$pinPathReal,'reason'=>'invalid_or_missing']; }
-                    
-                    // If we didn't draw a pin earlier (e.g. no raster pin available) and we're in vector mode,
-                    // draw a small vector pin on top of a generated plan thumbnail so the report includes a plan reference.
-                    if (!$pin_drawn && $pin_mode === 'vector' && isset($planFile) && is_file($planFile)) {
-                        $planThumb = render_plan_thumbnail($planFile, $issue['page'] ?? 1, 800);
-                        if ($planThumb && is_file($planThumb['tmp'])) {
-                            $bn = 'planthumb_' . ($plan_id ?? 'p') . '_' . ($issue['id'] ?? 'i') . '_' . bin2hex(random_bytes(4)) . '.png';
-                            $dstThumb = storage_dir('tmp/' . $bn);
-                            if (@copy($planThumb['tmp'], $dstThumb)) {
-                                @chmod($dstThumb, 0644);
-                                $tempFiles[] = $dstThumb;
-                                $x2 = $pdf->GetX();
-                                $yBefore = $pdf->GetY();
-                                $thumbWidthMM = 50;
-                                $pdf->Image($dstThumb, $x2, null, $thumbWidthMM, 0);
-                                $imgInfo = @getimagesize($dstThumb);
-                                if ($imgInfo) { list($pxW, $pxH) = [$imgInfo[0], $imgInfo[1]]; $thumbHMM = $thumbWidthMM * ($pxH / $pxW); } else { $thumbHMM = $thumbWidthMM * 0.707; }
-                                $cx_mm = $x2 + (($issue['x_norm'] ?? 0.5) * $thumbWidthMM);
-                                $cy_mm = $yBefore + (($issue['y_norm'] ?? 0.5) * $thumbHMM);
-                                $pinWidthMM = max(10, min(20, round($thumbWidthMM * 0.20)));
-                                $pinX = $cx_mm - ($pinWidthMM / 2);
-                                $pinY = $cy_mm - ($pinWidthMM * 0.36);
-                                $pdf->DrawPinAt($pinX, $pinY, $pinWidthMM, ($issue['id'] ?? null));
-                                $pdf->SetY($yBefore + $thumbHMM + 4);
-                                $pins_included_count++;
-                                $pin_drawn = true;
-                                if ($debug) $includedPins[] = ['issue_id'=>$issue['id']??null,'method'=>'vector_draw_on_thumb','thumb'=>$dstThumb];
-                            }
-                        }
-                    }
-                }
             }
         }
     }
