@@ -1,0 +1,34 @@
+{
+    "21": {
+        "plan_file_used": null,
+        "http_fetch_ok": false,
+        "render_method": "imagick",
+        "pin_tmp": "\/var\/www\/vhosts\/hosting215226.ae97b.netcup.net\/survey.defecttracker.uk\/httpdocs\/storage\/tmp\/pin_export_19_21_af968441.png",
+        "embedded": false,
+        "skip_reason": null
+    },
+    "22": {
+        "plan_file_used": null,
+        "http_fetch_ok": false,
+        "render_method": "imagick",
+        "pin_tmp": "\/var\/www\/vhosts\/hosting215226.ae97b.netcup.net\/survey.defecttracker.uk\/httpdocs\/storage\/tmp\/pin_export_19_22_3a8463e8.png",
+        "embedded": false,
+        "skip_reason": null
+    },
+    "28": {
+        "plan_file_used": null,
+        "http_fetch_ok": false,
+        "render_method": "imagick",
+        "pin_tmp": "\/var\/www\/vhosts\/hosting215226.ae97b.netcup.net\/survey.defecttracker.uk\/httpdocs\/storage\/tmp\/pin_export_19_28_df024717.png",
+        "embedded": false,
+        "skip_reason": null
+    },
+    "29": {
+        "plan_file_used": null,
+        "http_fetch_ok": false,
+        "render_method": "imagick",
+        "pin_tmp": "\/var\/www\/vhosts\/hosting215226.ae97b.netcup.net\/survey.defecttracker.uk\/httpdocs\/storage\/tmp\/pin_export_19_29_190f2041.png",
+        "embedded": false,
+        "skip_reason": null
+    }
+}
