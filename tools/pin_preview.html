@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Pin Vector Preview</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; display:flex; height:100vh; margin:0; }
+    .sidebar { width:260px; padding:18px; border-right:1px solid #eee; box-sizing:border-box; }
+    .preview { flex:1; display:flex; align-items:center; justify-content:center; background:#fafafa; }
+    .card { width:760px; height:1040px; background:#fff; box-shadow:0 6px 18px rgba(0,0,0,0.06); border-radius:6px; display:block; padding:18px; box-sizing:border-box; }
+    label{display:block;margin:10px 0 6px}
+    input[type=range]{width:100%}
+    .controls{font-size:13px;color:#333}
+    button{margin-top:12px;padding:8px 10px;border-radius:6px;border:0;background:#06C08E;color:white;cursor:pointer}
+    .muted{color:#666;font-size:12px}
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <h3>Pin Preview</h3>
+    <p class="muted">Vector pin rendering used in PDF exports. Change label and size to preview.</p>
+    <div class="controls">
+      <label for="label">Label</label>
+      <input id="label" value="22" />
+      <label for="size">Size (mm)</label>
+      <input id="size" type="range" min="18" max="80" value="60" />
+      <div style="display:flex;justify-content:space-between;margin-top:6px"><span id="sizeVal">60</span><span class="muted">mm</span></div>
+      <label for="fill">Fill color</label>
+      <input id="fill" type="color" value="#39FF14" />
+      <label for="accent">Accent</label>
+      <input id="accent" type="color" value="#00FFE7" />
+      <button id="download">Download SVG</button>
+    </div>
+  </div>
+  <div class="preview">
+    <div class="card" id="card">
+      <!-- Inline SVG demonstration (keeps exact vector drawing) -->
+      <svg id="pinSvg" xmlns="http://www.w3.org/2000/svg" width="720" height="1004" viewBox="0 0 720 1004" aria-hidden="true" role="img">
+        <rect width="100%" height="100%" fill="#f8f8f8" rx="6"/>
+        <text x="360" y="28" font-size="18" text-anchor="middle" fill="#183838">Plan page — vector pin preview</text>
+        <defs>
+          <linearGradient id="g1" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0%" stop-color="#00FFE7"/>
+            <stop offset="100%" stop-color="#39FF14"/>
+          </linearGradient>
+          <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+            <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.18"/>
+          </filter>
+        </defs>
+        <g id="pinGroup" transform="translate(320,240)"></g>
+      </svg>
+    </div>
+  </div>
+
+  <script>
+    // Template pin (centered at 32,30 in a 64x92 box) - scaled in JS
+    const PIN_TEMPLATE = `
+      <g id="pin">
+        <path d="M32 30 C 20 40, 18 62, 32 92 C 46 62, 44 40, 32 30 Z" fill="url(#g1)" stroke="#063838" stroke-width="1" filter="url(#shadow)" />
+        <circle cx="32" cy="24" r="14" fill="rgba(6,56,56,0.06)" />
+        <circle cx="32" cy="24" r="11" fill="white" fill-opacity="0.18" />
+        <circle cx="32" cy="24" r="14" fill="url(#g1)" opacity="0.98" />
+        <text id="pinLabel" x="32" y="26" text-anchor="middle" dominant-baseline="central" font-weight="900" font-size="16" fill="#000">22</text>
+      </g>
+    `;
+
+    const group = document.getElementById('pinGroup');
+    group.innerHTML = PIN_TEMPLATE;
+
+    const labelInput = document.getElementById('label');
+    const sizeInput = document.getElementById('size');
+    const sizeVal = document.getElementById('sizeVal');
+    const fillInput = document.getElementById('fill');
+    const accentInput = document.getElementById('accent');
+    const downloadBtn = document.getElementById('download');
+
+    function updatePin() {
+      const label = labelInput.value || '';
+      const size = Number(sizeInput.value) || 60;
+      sizeVal.textContent = size;
+      // base template box is ~64x92 — compute scale in px for display: map mm to px roughly 3.78 px per mm at 96dpi
+      const pxPerMm = 3.78;
+      const widthPx = size * pxPerMm;
+      const scale = widthPx / 64; // template width 64
+      // position pin in the middle of card area
+      const x = 360 - (32*scale);
+      const y = 180 - (24*scale);
+      const transform = `translate(${x},${y}) scale(${scale})`;
+      group.setAttribute('transform', transform);
+      document.getElementById('pinLabel').textContent = label;
+      // tweak font-size to be proportional
+      document.getElementById('pinLabel').setAttribute('font-size', Math.max(10, Math.round(size * 0.2)));
+      // colors
+      const accent = accentInput.value;
+      const fill = fillInput.value;
+      // set gradient stops
+      const stop0 = document.querySelector('#g1 stop:first-child');
+      const stop1 = document.querySelector('#g1 stop:last-child');
+      stop0.setAttribute('stop-color', accent);
+      stop1.setAttribute('stop-color', fill);
+    }
+
+    labelInput.addEventListener('input', updatePin);
+    sizeInput.addEventListener('input', updatePin);
+    fillInput.addEventListener('input', updatePin);
+    accentInput.addEventListener('input', updatePin);
+
+    downloadBtn.addEventListener('click', ()=>{
+      const svg = document.getElementById('pinSvg').outerHTML;
+      const blob = new Blob([svg], {type: 'image/svg+xml'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'pin_preview.svg'; a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // init
+    updatePin();
+  </script>
+</body>
+</html>
