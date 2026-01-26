@@ -66,6 +66,31 @@ if (!$planFile || !is_file($planFile)) { http_response_code(404); echo 'Plan fil
 $thumbWidthPx = 200; // reasonable preview size
 $pinPath = __DIR__ . '/../assets/pin.png';
 
+// helper: create a simple neon pin PNG using GD when no raster asset is available
+function create_pin_gd($pinHeightPx) {
+    $ph = max(24, (int)$pinHeightPx);
+    $pw = (int)round($ph * 0.6);
+    $img = imagecreatetruecolor($pw, $ph);
+    imagesavealpha($img, true);
+    $trans = imagecolorallocatealpha($img, 0,0,0,127);
+    imagefill($img, 0, 0, $trans);
+    // neon colours
+    $c1 = [0,255,231]; // #00FFE7
+    $c2 = [57,255,20]; // #39FF14
+    // approximate gradient by blending two filled shapes
+    $headY = (int)round($ph * 0.28);
+    $headR = (int)round($pw * 0.42);
+    $col1 = imagecolorallocate($img, $c1[0], $c1[1], $c1[2]);
+    $col2 = imagecolorallocate($img, $c2[0], $c2[1], $c2[2]);
+    // draw tail as triangle
+    $tail = [ (int)round($pw*0.5), $ph-1, 1, (int)round($headY+$headR/2), $pw-1, (int)round($headY+$headR/2) ];
+    // simple filled triangle in c2
+    imagefilledpolygon($img, $tail, 3, $col2);
+    // draw head circle (use c1)
+    imagefilledellipse($img, (int)round($pw/2), $headY, $headR*2, $headR*2, $col1);
+    return $img;
+}
+
 if (class_exists('Imagick')) {
     try {
         $im = new Imagick();
@@ -75,8 +100,19 @@ if (class_exists('Imagick')) {
         $im->setImageFormat('png');
         $im->thumbnailImage($thumbWidthPx, 0);
         $w = $im->getImageWidth(); $h = $im->getImageHeight();
-        if (is_file($pinPath)) {
-            $pin = new Imagick($pinPath);
+        // Prefer generated neon SVG rasterized via Imagick when available, else fallback to raster asset
+        try {
+            $safeLabel = '';
+            $svg = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" .
+                   "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 64 80\" width=\"64\" height=\"80\">" .
+                   "<defs><linearGradient id=\"g\" x1=\"16\" y1=\"10\" x2=\"52\" y2=\"58\" gradientUnits=\"userSpaceOnUse\">" .
+                   "<stop stop-color=\"#00FFE7\"/><stop offset=\"1\" stop-color=\"#39FF14\"/></linearGradient></defs>" .
+                   "<path d=\"M32 76s20-16.3 20-34A20 20 0 1 0 12 42c0 17.7 20 34 20 34Z\" fill=\"url(#g)\"/>" .
+                   "<circle cx=\"32\" cy=\"26\" r=\"11\" fill=\"rgba(0,0,0,0.18)\"/>" .
+                   "<circle cx=\"32\" cy=\"26\" r=\"8.5\" fill=\"white\" fill-opacity=\"0.18\"/>" .
+                   "</svg>";
+            $pin = new Imagick();
+            $pin->readImageBlob($svg);
             $pin->setImageFormat('png');
             $pinHeight = max(24, intval($h * 0.12));
             $pin->thumbnailImage(0, $pinHeight);
@@ -87,6 +123,36 @@ if (class_exists('Imagick')) {
             $y = max(0, min($y, $h - $ph));
             $im->compositeImage($pin, Imagick::COMPOSITE_OVER, $x, $y);
             $pin->clear();
+        } catch (Exception $e) {
+            // Imagick failed to rasterize SVG; fallback to raster asset or GD-drawn pin
+                $pin = null;
+                // Prefer existing raster asset as Imagick object
+                if (is_file($pinPath)) {
+                    try { $pin = new Imagick($pinPath); $pin->setImageFormat('png'); } catch (Exception $_) { $pin = null; }
+                }
+                // If still no Imagick pin, create a temporary PNG via GD and read it into Imagick
+                if (!$pin && function_exists('imagecreatetruecolor')) {
+                    $pinHeight = max(24, intval($h * 0.12));
+                    $gd = create_pin_gd($pinHeight);
+                    $tmp = tempnam(sys_get_temp_dir(), 'pinimg_') . '.png';
+                    imagepng($gd, $tmp);
+                    imagedestroy($gd);
+                    if (is_file($tmp)) {
+                        try { $pin = new Imagick($tmp); $pin->setImageFormat('png'); } catch (Exception $_) { $pin = null; }
+                        @unlink($tmp);
+                    }
+                }
+                if ($pin) {
+                    $pinHeight = max(24, intval($h * 0.12));
+                    $pin->thumbnailImage(0, $pinHeight);
+                    $pw = $pin->getImageWidth(); $ph = $pin->getImageHeight();
+                    $x = intval($x_norm * $w) - intval($pw / 2);
+                    $y = intval($y_norm * $h) - $ph;
+                    $x = max(0, min($x, $w - $pw));
+                    $y = max(0, min($y, $h - $ph));
+                    $im->compositeImage($pin, Imagick::COMPOSITE_OVER, $x, $y);
+                    $pin->clear();
+                }
         }
         header('Content-Type: image/png');
         header('Cache-Control: no-cache, no-store, must-revalidate');

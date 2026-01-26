@@ -103,30 +103,35 @@ function render_pin_thumbnail($planFile, $page, $x_norm, $y_norm, $thumbWidthPx 
             $im->setImageFormat('png');
             $im->thumbnailImage($thumbWidthPx, 0);
             $w = $im->getImageWidth(); $h = $im->getImageHeight();
-            // Prefer styled SVG pin if available (neon green with number).
-            $pinSvgPath = __DIR__ . '/../assets/pin.svg';
-            $pin = null;
-            if (is_file($pinSvgPath)) {
-                $svg = @file_get_contents($pinSvgPath);
-                if ($svg !== false) {
-                    // Inject label into SVG .pin-number element if provided
-                    if ($label !== null) {
-                        $safeLabel = htmlspecialchars((string)$label, ENT_QUOTES | ENT_XML1, 'UTF-8');
-                        // replace inner text of <text class="pin-number">..</text>
-                        $svg = preg_replace('/(<text[^>]*class="pin-number"[^>]*>)(.*?)(<\/text>)/is', '$1' . $safeLabel . '$3', $svg);
-                    }
-                    $pin = new Imagick();
-                    // Read SVG from blob; let Imagick rasterize it
-                    $pin->readImageBlob($svg);
-                    $pin->setImageFormat('png');
-                }
-            }
-            // Fallback to raster pin PNG if SVG not available or failed
-            if (!$pin) {
-                $pinPath = __DIR__ . '/../assets/pin.png';
-                if (!is_file($pinPath)) return null;
-                $pin = new Imagick($pinPath);
+            // Generate a neon-green SVG pin (matching UI neon theme) and rasterize it.
+            // This avoids relying on filesystem `assets/pin.png` or `assets/pin.svg`.
+            $safeLabel = $label !== null ? htmlspecialchars((string)$label, ENT_QUOTES | ENT_XML1, 'UTF-8') : '';
+            $svg = <<<SVG
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 80" width="64" height="80" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="g" x1="16" y1="10" x2="52" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#00FFE7"/>
+      <stop offset="1" stop-color="#39FF14"/>
+    </linearGradient>
+  </defs>
+  <path d="M32 76s20-16.3 20-34A20 20 0 1 0 12 42c0 17.7 20 34 20 34Z" fill="url(#g)"/>
+  <circle cx="32" cy="26" r="11" fill="rgba(0,0,0,0.18)"/>
+  <circle cx="32" cy="26" r="8.5" fill="white" fill-opacity="0.18"/>
+  <text class="pin-number" x="32" y="26" text-anchor="middle" dominant-baseline="central" fill="#000" font-weight="900" font-size="12">{$safeLabel}</text>
+</svg>
+SVG;
+            $pin = new Imagick();
+            try {
+                $pin->readImageBlob($svg);
                 $pin->setImageFormat('png');
+            } catch (Exception $e) {
+                // If Imagick fails to rasterize SVG, fall back to existing raster PNG if available
+                $pin = null;
+                $pinPath = __DIR__ . '/../assets/pin.png';
+                if (is_file($pinPath)) {
+                    try { $pin = new Imagick($pinPath); $pin->setImageFormat('png'); } catch (Exception $_) { $pin = null; }
+                }
             }
             $pinHeight = max(40, intval($h * 0.12));
             $pin->thumbnailImage(0, $pinHeight);
