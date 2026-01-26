@@ -40,6 +40,7 @@ json_response([
   'ok' => true,
   'timestamp' => time(),
   'iso' => gmdate('c'),
+  'uk' => date('d/m/Y H:i'),
   'php_version' => PHP_VERSION,
   'base_url' => base_url(),
   'storage' => $storage,

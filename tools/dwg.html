@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>DWG Tools</title>
+<link rel="stylesheet" href="/assets/ui.css?v=20260124_1">
+<style>
+  .toolsCard{max-width:900px;margin:20px auto}
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <button onclick="history.back()" class="iconBtn">←</button>
+    <div class="brand">DWG Tools</div>
+    <div style="margin-left:auto" class="muted">View and convert DWG files (server-side conversion if available)</div>
+  </header>
+
+  <main style="padding:16px;">
+    <div class="card toolsCard">
+      <h2>DWG Viewer & Converter</h2>
+      <p>Upload a DWG file and convert it to PDF, SVG or DXF if conversion utilities are available on the server (LibreDWG, ODA, ImageMagick).</p>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+        <label style="flex:1">File: <input id="dwgFile" type="file" accept=".dwg,.dxf"></label>
+        <label>Output: <select id="outFmt" class="neonSelect small"><option value="pdf">PDF</option><option value="svg">SVG</option><option value="dxf">DXF</option></select></label>
+        <button id="btnConvert" class="btn">Convert</button>
+      </div>
+      <div id="dwgOut" class="muted">No conversion yet.</div>
+      <hr>
+      <h3>Available converters (server probe)</h3>
+      <div id="probeOut" class="muted">Probing server...</div>
+      <script>
+        async function probe(){
+          const r = await fetch('/api/diagnostics.php?probe=dwg');
+          const j = await r.json().catch(()=>null);
+          const el = document.getElementById('probeOut');
+          if(!j || !j.ok){ el.textContent = 'Unable to probe server.'; return; }
+          const parts = [];
+          if(j.dwgs && j.dwgs.length) parts.push('Converters: ' + j.dwgs.join(', ')); else parts.push('No DWG converters found');
+          if(j.imagemagick) parts.push('ImageMagick: available'); else parts.push('ImageMagick: not found');
+          el.innerHTML = parts.join(' — ');
+        }
+        probe();
+
+        document.getElementById('btnConvert').onclick = async ()=>{
+          const f = document.getElementById('dwgFile').files && document.getElementById('dwgFile').files[0];
+          const fmt = document.getElementById('outFmt').value;
+          const out = document.getElementById('dwgOut');
+          if(!f){ out.textContent = 'Please choose a DWG or DXF file first.'; return; }
+          out.textContent = 'Uploading...';
+          const fd = new FormData(); fd.append('file', f); fd.append('format', fmt);
+          try{
+            const r = await fetch('/api/convert_dwg.php', { method: 'POST', body: fd });
+            const txt = await r.text(); let data; try{ data = JSON.parse(txt); }catch{ data = null; }
+            if(!r.ok || !data || !data.ok) { 
+              const errorMsg = data && data.error ? data.error : txt;
+              out.innerHTML = `<div>Conversion failed: ${errorMsg}</div><button class="btn" id="fallbackBtn">Open in DWG Viewer</button>`;
+              document.getElementById('fallbackBtn').onclick = () => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                  const arrayBuffer = reader.result;
+                  console.log('Sending file to viewer:', f.name, arrayBuffer.byteLength);
+                  const win = window.open('/tools/dwgviewer/', '_blank');
+                  setTimeout(() => {
+                    win.postMessage({ type: 'loadFile', file: arrayBuffer, filename: f.name }, window.location.origin);
+                  }, 2000);
+                };
+                reader.readAsArrayBuffer(f);
+              };
+              return; 
+            }
+            const a = document.createElement('a'); a.href = '/storage/exports/' + encodeURIComponent(data.filename); a.target='_blank'; a.textContent = 'Download: ' + data.filename; a.style.display='block'; out.innerHTML = ''; out.appendChild(a);
+            // Open in DWG Viewer (same-origin)
+            const openBtn = document.createElement('button'); openBtn.className='btn'; openBtn.textContent='Open in Viewer'; openBtn.style.marginLeft='8px'; openBtn.onclick = ()=>{
+              const viewerUrl = '/tools/dwgviewer/?src=' + encodeURIComponent('/storage/exports/' + data.filename);
+              window.open(viewerUrl, '_blank');
+            };
+            out.appendChild(openBtn);
+            // Add Save as Plan and Crop buttons
+            const saveBtn = document.createElement('button'); saveBtn.className='btn'; saveBtn.textContent='Save as Plan'; saveBtn.onclick = async ()=>{
+              saveBtn.disabled = true; try{
+                const r2 = await fetch('/api/save_export_as_plan.php',{method:'POST',headers:{'Content-Type':'application/json'},body: JSON.stringify({ filename: data.filename, name: '' })});
+                const t2 = await r2.text(); const j2 = JSON.parse(t2);
+                if(!r2.ok || !j2.ok) throw new Error(j2.error || 'Save failed');
+                out.innerHTML += `<div>Saved as plan: <a href="/" onclick="event.preventDefault(); window.open('/?plan_id=${j2.plan.id}','_self');">${j2.plan.name} (#${j2.plan.id})</a></div>`;
+                // optionally refresh plans via parent UI if available
+                try{ if(window.refreshPlans) window.refreshPlans(); }catch(e){}
+              }catch(err){ out.textContent = 'Save failed: ' + err.message; }
+              saveBtn.disabled = false;
+            };
+            const cropBtn = document.createElement('button'); cropBtn.className='btn'; cropBtn.textContent='Crop converted PDF'; cropBtn.onclick = ()=>{
+              // open crop tool with pdf_url param
+              const url = '/tools/crop.html?pdf_url=' + encodeURIComponent('/storage/exports/' + data.filename);
+              window.open(url, '_blank');
+            };
+            out.appendChild(saveBtn);
+            out.appendChild(cropBtn);
+          }catch(e){ out.textContent = 'Network error: ' + e.message; }
+        };
+      </script>
+    </div>
+  </main>
+</body>
+</html>

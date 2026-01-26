@@ -7,4 +7,6 @@ if (!$plan_id) error_response('Missing or invalid plan_id', 400);
 $pdo = db();
 $stmt = $pdo->prepare('SELECT * FROM files WHERE plan_id=? ORDER BY created_at DESC');
 $stmt->execute([$plan_id]);
-json_response(['ok'=>true, 'files'=>$stmt->fetchAll()]);
+$rows = $stmt->fetchAll();
+$rows = format_dates_in_rows($rows);
+json_response(['ok'=>true, 'files'=>$rows]);

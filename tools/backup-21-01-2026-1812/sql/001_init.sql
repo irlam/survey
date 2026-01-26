@@ -1,8 +1,0 @@
--- 001_init.sql
-CREATE TABLE IF NOT EXISTS plans (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    filename VARCHAR(255) NOT NULL,
-    revision INT DEFAULT 1,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);

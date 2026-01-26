@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Annotate PDF Tool</title>
+<link rel="stylesheet" href="/assets/ui.css?v=20260124_1">
+<style>
+  /* touch/tap friendly UI helpers */
+  button, input, select {
+    min-height: 44px;
+    min-width: 44px;
+    font-size: 1.1em;
+    border-radius: 6px;
+  }
+  button:active, .btn:active, .btnPrimary:active {
+    filter: brightness(0.85);
+    box-shadow: 0 0 0 2px #0ff inset;
+  }
+  .cropOverlay, .annotateOverlay, .splitOverlay, .mergeOverlay, .printOverlay { touch-action: none; }
+  .toolsRow{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+  #annotStage{position:relative;padding:12px}
+  /* make the viewer stage wider and centered like main viewer */
+  #annotStage{ max-width: calc(100% - 48px); margin: 0 auto; }
+  #pdfCanvas{border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.2);background:#f6f7f9;display:block;z-index:1}
+  #annotCanvas{border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.2);background:transparent;display:block;z-index:2; touch-action: none;}
+  .toolBtn.active{outline:2px solid rgba(0,255,231,.2)}
+  /* small loader */
+  .loader{width:18px;height:18px;border:3px solid rgba(255,255,255,0.12);border-top-color:var(--neon);border-radius:50%;animation:spin 1s linear infinite;display:inline-block;vertical-align:middle;margin-left:8px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* Neon-style selects / inputs to match the buttons */
+  select{
+    background: linear-gradient(90deg, var(--neon), var(--neon2)) !important;
+    color: #041013 !important;
+    border: none !important;
+    padding: 6px 10px !important;
+    border-radius: 8px !important;
+    box-shadow: 0 8px 28px rgba(0,255,231,.12) !important;
+    outline: none !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    font-size: 14px !important;
+  }
+  input[type="number"], input[type="color"], input[type="file"] {
+    background: linear-gradient(180deg,#04262a,#021617) !important;
+    color: #e6fff9 !important;
+    border: 1px solid rgba(0,255,231,0.12) !important;
+    padding: 6px 10px !important;
+    border-radius: 8px !important;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.02) !important;
+    outline: none !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    font-size: 14px !important;
+  }
+  select:focus, input[type="number"]:focus, input[type="color"]:focus { box-shadow: 0 0 12px rgba(0,255,231,0.15) !important; border-color: rgba(0,255,231,0.5) !important; }
+  /* widen primary plan select to look nicer */
+  #planSelect{ min-width:360px; max-width:70%; }
+  #iconSelect{ min-width:120px; }
+  /* file input sits inside label; make it compact */
+  #fileUploader{ padding:6px 8px; background:transparent; border:none; color:var(--text); }
+  /* style file input button in WebKit/Blink */
+  input[type=file]::-webkit-file-upload-button{ background: linear-gradient(90deg, var(--neon), var(--neon2)); color:#041013; border:none; padding:6px 10px; border-radius:8px; margin-right:8px; }
+  /* style file input button in Firefox */
+  input[type=file]::file-selector-button{ background: linear-gradient(90deg, var(--neon), var(--neon2)); color:#041013; border:none; padding:6px 10px; border-radius:8px; margin-right:8px; }
+  /* hide default select arrow on WebKit and show our own via background-image if desired */
+  select::-ms-expand{display:none}
+  select::-webkit-inner-spin-button, select::-webkit-outer-spin-button{ -webkit-appearance:none; margin:0; }
+
+  /* explicit neon select box style (chevron, padding) */
+  .neonSelect{
+    padding-right: 40px !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24'%3E%3Cpath fill='%2300FFE7' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat !important;
+    background-position: right 10px center !important;
+    background-size: 18px 18px !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+  }
+
+  /* Match button visuals for disabled/hover states */
+  .neonSelect:hover{ box-shadow: 0 10px 22px rgba(0,255,231,0.06); }
+  .neonSelect:disabled{ opacity:0.5; cursor:not-allowed }
+
+  /* Custom select dropdown styles */
+  .customSelect{ position:relative; display:inline-block; }
+  .customSelect .selectButton{ width:100%; text-align:left; background: linear-gradient(90deg, var(--neon), var(--neon2)); border:none; padding:8px 12px; color:#041013; font-weight:800; font-size:14px; cursor:pointer; border-radius:12px; box-shadow: 0 8px 28px rgba(0,255,231,.12); }
+  .customSelect .selectList{ display:none; position:absolute; left:0; top:calc(100% + 8px); min-width:160px; max-height:300px; overflow:auto; background: linear-gradient(180deg, rgba(255,255,255,0.15), rgba(255,255,255,0.08)); border:1px solid rgba(0,255,231,0.08); box-shadow: 0 12px 30px rgba(0,0,0,0.5); border-radius:12px; z-index:9999; padding:8px; list-style:none; margin:0; }
+  .customSelect .selectList.open{ display:block }
+  .customSelect .selectList li{ padding:12px 14px; border-radius:8px; color:#041013 !important; cursor:pointer; font-weight:700; }
+  .customSelect .selectList li:hover{ background: linear-gradient(90deg, rgba(0,255,231,0.06), rgba(57,255,20,0.04)); color:#041013; font-weight:800; }
+  .customSelect .selectList li[aria-selected="true"]{ background: linear-gradient(90deg, var(--neon), var(--neon2)); color:#000000; font-weight:900; }
+  /* small styling for the page input */
+  #pageInput{ width:80px; }
+  /* layout for larger viewer with right-side controls */
+  .annotLayout{ display:flex; gap:18px; align-items:flex-start; }
+  .viewerCol{ flex:1 1 auto; }
+  .controlsCol{ width:320px; display:flex; flex-direction:column; align-items:flex-end; gap:12px; }
+  .controlsCol .btn, .controlsCol .btnPrimary{ min-width:120px }
+  @media (max-width:900px){ .annotLayout{ flex-direction:column; } .controlsCol{ width:100%; align-items:flex-start } }
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <button onclick="history.back()" class="iconBtn">←</button>
+    <div class="brand">Annotate PDF</div>
+    <div style="margin-left:auto" class="muted">Add arrows, lines, icons & text, export or save as plan</div>
+  </header>
+
+  <main style="padding:14px;">
+    <div class="card">
+      <div class="toolsRow">
+          <label style="flex:1">Select plan: 
+            <div id="planSelect" class="neonSelect customSelect" role="combobox" aria-haspopup="listbox" aria-expanded="false" tabindex="0">
+              <button class="selectButton" aria-label="Select plan"><span class="selectedLabel">-- choose plan --</span></button>
+              <ul class="selectList" role="listbox" tabindex="-1"></ul>
+            </div>
+            <span id="annotLoader" class="loader" style="display:none"></span>
+          </label>
+      </div>
+
+      <div class="toolsRow" style="margin-bottom:12px;">
+        <div style="display:flex;gap:6px;">
+          <button class="btn toolBtn" id="tool_select" data-tool="select">Select</button>
+          <button class="btn toolBtn" id="tool_line" data-tool="line">Line</button>
+          <button class="btn toolBtn" id="tool_arrow" data-tool="arrow">Arrow</button>
+          <button class="btn toolBtn" id="tool_rect" data-tool="rect">Rect</button>
+          <button class="btn toolBtn" id="tool_free" data-tool="free">Freehand</button>
+          <button class="btn toolBtn" id="tool_text" data-tool="text">Text</button>
+          <button class="btn toolBtn" id="tool_icon" data-tool="icon">Icon</button>
+          <div id="iconSelect" class="neonSelect customSelect" role="combobox" aria-haspopup="listbox" aria-expanded="false" tabindex="0" style="width:120px">
+            <div class="selectButton" role="button" tabindex="0" aria-label="Select icon"><span class="selectedLabel">Star</span></div>
+            <ul class="selectList" role="listbox" tabindex="-1">
+              <li role="option" data-value="circle">Circle</li>
+              <li role="option" data-value="square">Square</li>
+              <li role="option" data-value="star" aria-selected="true">Star</li>
+              <li role="option" data-value="checkmark">Check</li>
+              <li role="option" data-value="arrow">Arrow</li>
+              <li role="option" data-value="pin">Pin</li>
+              <li role="option" data-value="flag">Flag</li>
+            </ul>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;margin-left:8px;">
+            <label class="muted">Color</label>
+            <input type="color" id="colorPicker" value="#ff0000">
+            <label class="muted">Width</label>
+            <input id="strokeWidth" type="number" min="1" max="24" value="3" style="width:60px">
+          </div>
+        </div>
+      </div>
+
+      <div class="annotLayout">
+        <div class="viewerCol">
+          <div id="annotStage">
+            <canvas id="pdfCanvas"></canvas>
+            <canvas id="annotCanvas" style="position:absolute;left:0;top:0"></canvas>
+          </div>
+        </div>
+        <aside class="controlsCol">
+          <label style="display:block;margin-bottom:10px">Or upload PDF: <input id="fileUploader" type="file" accept="application/pdf"></label>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+            <label class="muted">Page:</label>
+            <input id="pageInput" type="number" min="1" value="1" style="width:80px">
+            <button id="btnUndo" class="btn">Undo</button>
+            <button id="btnClear" class="btn">Clear</button>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:8px;">
+            <button class="btn" id="btnExport">Export PDF</button>
+            <button class="btnPrimary" id="btnSavePlan">Save as Plan</button>
+          </div>
+        </aside>
+      </div>
+      <div id="annotOut" class="muted" style="margin-top:8px"></div>
+    </div>
+  </main>
+
+<script src="/vendor/pdfjs/pdf.min.js"></script>
+<script src="/vendor/pdfjs/pdf-lib.min.js"></script>
+<script>
+  // ensure pdfjsLib is available (some builds attach to window)
+  if (typeof pdfjsLib === 'undefined' && window && window.pdfjsLib) {
+    pdfjsLib = window.pdfjsLib;
+  }
+  if (typeof pdfjsLib === 'undefined') {
+    console.error('PDF.js not found at /vendor/pdfjs/pdf.min.js');
+    document.getElementById('annotOut').textContent = 'PDF.js not loaded; check /vendor/pdfjs/pdf.min.js';
+  } else {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '/vendor/pdfjs/pdf.worker.min.js';
+  }
+  const planSelect = document.getElementById('planSelect');
+  const fileUploader = document.getElementById('fileUploader');
+  const btnLoad = document.getElementById('btnLoad');
+  const canvas = document.getElementById('pdfCanvas');
+  const aCanvas = document.getElementById('annotCanvas');
+  const aCtx = aCanvas.getContext('2d');
+  const ctx = canvas.getContext('2d');
+  const out = document.getElementById('annotOut');
+  let pdfBytes = null, pdfDoc = null, curPage = 1, totalPages = 0, pageViewport=null;
+  let tool = 'select';
+  let color = '#ff0000', stroke = 3;
+  let shapes = []; // undo stack
+  let current = null; // current drawing
+
+  async function loadPlans(){
+    const r = await fetch('/api/list_plans.php');
+    const j = await r.json();
+    const list = planSelect.querySelector('.selectList');
+    list.innerHTML = '<li role="option" data-value="">-- choose plan --</li>';
+    if(j.ok){
+      for(const p of j.plans){
+        const li = document.createElement('li');
+        li.setAttribute('role','option');
+        li.dataset.value = p.id;
+        li.dataset.file = p.file_path||'';
+        li.textContent = `${p.name||'Plan #'+p.id} (#${p.id})`;
+        li.onclick = ()=>{ selectCustomOption(planSelect, p.id, li.textContent, p.file_path||''); };
+        list.appendChild(li);
+      }
+    }
+    // wire click open/close
+    initCustomSelect(planSelect);
+  }
+
+  function selectCustomOption(wrapper, value, label, filePath){
+    wrapper.querySelector('.selectedLabel').textContent = label;
+    wrapper.value = value;
+    if(filePath) wrapper.dataset.file = filePath;
+    wrapper.querySelector('.selectList').classList.remove('open');
+    wrapper.setAttribute('aria-expanded','false');
+    // mark aria-selected
+    wrapper.querySelectorAll('.selectList li').forEach(li=> li.setAttribute('aria-selected', li.dataset.value==value ? 'true' : 'false'));
+    // emit change event
+    wrapper.dispatchEvent(new Event('change'));
+  }
+
+  function initCustomSelect(wrapper){
+    const btn = wrapper.querySelector('.selectButton');
+    const list = wrapper.querySelector('.selectList');
+    // initialize selected item if present
+    const pre = list.querySelector('li[aria-selected="true"]') || list.querySelector('li[data-value]:not([data-value=""])') || list.querySelector('li');
+    if(pre){ wrapper.querySelector('.selectedLabel').textContent = pre.textContent; wrapper.value = pre.dataset.value || ''; if(pre.dataset.file) wrapper.dataset.file = pre.dataset.file; }
+    btn.addEventListener('pointerdown', (e)=>{
+      e.preventDefault();
+      const open = list.classList.toggle('open');
+      wrapper.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if(open) list.focus();
+    });
+    btn.onclick = (e)=>{ /* fallback */ const open = list.classList.toggle('open'); wrapper.setAttribute('aria-expanded', open ? 'true' : 'false'); if(open) list.focus(); };
+    wrapper.addEventListener('keydown', (e)=>{
+      const items = Array.from(list.querySelectorAll('li'));
+      const open = list.classList.contains('open');
+      if(e.key === 'ArrowDown'){ e.preventDefault(); if(!open){ list.classList.add('open'); wrapper.setAttribute('aria-expanded','true'); } const next = items.find(li=> li.getAttribute('aria-selected')!=='true') || items[0]; next && next.focus(); }
+      else if(e.key === 'ArrowUp'){ e.preventDefault(); if(!open){ list.classList.add('open'); wrapper.setAttribute('aria-expanded','true'); } items[items.length-1] && items[items.length-1].focus(); }
+      else if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); if(!open){ list.classList.add('open'); wrapper.setAttribute('aria-expanded','true'); } else{ const focused = document.activeElement; if(focused && focused.parentElement===list){ const v = focused.dataset.value; selectCustomOption(wrapper, v, focused.textContent, focused.dataset.file||''); } } }
+      else if(e.key === 'Escape'){ list.classList.remove('open'); wrapper.setAttribute('aria-expanded','false'); }
+    });
+    // make list items tabbable/clickable
+    list.querySelectorAll('li').forEach(li=>{
+      li.tabIndex = 0;
+      li.addEventListener('pointerdown', (e)=>{
+        e.preventDefault();
+        e.stopPropagation();
+        selectCustomOption(wrapper, li.dataset.value, li.textContent, li.dataset.file||'');
+      });
+      li.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); selectCustomOption(wrapper, li.dataset.value, li.textContent, li.dataset.file||''); } });
+    });
+    // click outside to close
+    document.addEventListener('pointerdown', (ev)=>{
+      if(!wrapper.contains(ev.target)) {
+        list.classList.remove('open');
+        wrapper.setAttribute('aria-expanded','false');
+      }
+    });
+    document.addEventListener('click', (ev)=>{ /* fallback */ if(!wrapper.contains(ev.target)) { list.classList.remove('open'); wrapper.setAttribute('aria-expanded','false'); } });
+  }
+  function showAnnotLoader(){ try{ document.getElementById('annotLoader').style.display = 'inline-block'; }catch(e){} }
+  function hideAnnotLoader(){ try{ document.getElementById('annotLoader').style.display = 'none'; }catch(e){} }
+
+  planSelect.onchange = async ()=>{
+    const id = planSelect.value; if(!id) return; showAnnotLoader();
+    try{
+      console.log('Loading plan id', id);
+      const res = await fetch('/api/get_plan.php?plan_id=' + encodeURIComponent(id));
+      const txt = await res.text(); let j;
+      try{ j = JSON.parse(txt); }catch(err){ console.error('get_plan.php returned non-JSON', txt); throw new Error('Invalid JSON from get_plan'); }
+      if(!res.ok || !j.ok) throw new Error(j.error || 'Failed to fetch plan info');
+      const pdfUrl = j.pdf_url || (j.plan && (j.plan.file_path ? ('/storage/' + j.plan.file_path) : null));
+      if(!pdfUrl) throw new Error('No PDF URL for plan');
+      console.log('Fetching PDF URL:', pdfUrl);
+      const r2 = await fetch(pdfUrl);
+      console.log('PDF fetch response', r2.status, r2.headers.get('content-type'));
+      if(!r2.ok) throw new Error('Failed to fetch PDF: HTTP ' + r2.status);
+      const ab = await r2.arrayBuffer();
+      await openPdfFromBytes(ab);
+    }catch(e){ alert('Failed to load plan: '+e.message); out.textContent = 'Load failed: ' + e.message; console.error(e); }
+    finally{ hideAnnotLoader(); }
+  };
+fileUploader.onchange = (e)=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=async ()=>{ pdfBytes=r.result; showAnnotLoader(); try{ await openPdfFromBytes(pdfBytes); }finally{ hideAnnotLoader(); } }; r.readAsArrayBuffer(f); };
+
+  async function openPdfFromBytes(ab){ try{ pdfDoc = await pdfjsLib.getDocument({data:ab}).promise; totalPages = pdfDoc.numPages; document.getElementById('pageInput').max = totalPages; document.getElementById('pageInput').value = 1; curPage=1; await renderPage(curPage); }catch(e){ throw e; }finally{ hideAnnotLoader(); } }
+  async function openPdfFromBytes(ab){
+    try{
+      console.log('openPdfFromBytes: creating PDF document');
+      pdfDoc = await pdfjsLib.getDocument({data:ab}).promise;
+      totalPages = pdfDoc.numPages;
+      console.log('PDF loaded, totalPages=', totalPages);
+      document.getElementById('pageInput').max = totalPages;
+      document.getElementById('pageInput').value = 1;
+      curPage=1;
+      await renderPage(curPage);
+    }catch(e){
+      console.error('openPdfFromBytes error', e);
+      throw e;
+    }finally{ hideAnnotLoader(); }
+  }
+  async function renderPage(n){ if(!pdfDoc) return; const page = await pdfDoc.getPage(n); pageViewport = page.getViewport({scale:1}); const w = Math.min(pageViewport.width, 1200); const s = w / pageViewport.width; pageViewport = page.getViewport({scale:s}); canvas.width = Math.floor(pageViewport.width); canvas.height = Math.floor(pageViewport.height); canvas.style.width = canvas.width+'px'; canvas.style.height = canvas.height+'px'; aCanvas.width = canvas.width; aCanvas.height = canvas.height; aCanvas.style.left = canvas.offsetLeft+'px'; aCanvas.style.top = canvas.offsetTop+'px'; await page.render({canvasContext:ctx, viewport:pageViewport}).promise; redrawAnnotations(); }
+  async function renderPage(n){
+    if(!pdfDoc) return;
+    try{
+      console.log('renderPage: page=', n);
+      const page = await pdfDoc.getPage(n);
+      pageViewport = page.getViewport({scale:1});
+      console.log('original viewport', {width: pageViewport.width, height: pageViewport.height});
+      // calculate available width: prefer stage width, but fall back to a large portion of the window
+      const stageEl = document.getElementById('annotStage');
+      const stagePadding = 24; // allow some breathing room
+      const fallback = Math.max(600, Math.floor(window.innerWidth * 0.72));
+      const stageAvail = stageEl ? Math.max(320, stageEl.clientWidth - stagePadding) : 0;
+      // Do NOT cap avail by the pageViewport.width here — we want to allow upscaling to fill the stage
+      const avail = Math.max(stageAvail || 0, fallback);
+        const originalWidth = pageViewport.width;
+        const originalHeight = pageViewport.height;
+        console.log('original viewport', {width: originalWidth, height: originalHeight});
+        const desiredScale = Math.min(2.0, Math.max( (avail / originalWidth), 1 ));
+        pageViewport = page.getViewport({scale: desiredScale});
+        console.log('scaled viewport', {scale: desiredScale, width: pageViewport.width, height: pageViewport.height});
+      canvas.width = Math.floor(pageViewport.width);
+      canvas.height = Math.floor(pageViewport.height);
+      // make canvas scale responsively to the stage width
+      canvas.style.width = Math.min(canvas.width, (stageEl ? stageEl.clientWidth - 12 : canvas.width)) + 'px';
+      canvas.style.height = canvas.height+'px';
+      aCanvas.width = canvas.width;
+      aCanvas.height = canvas.height;
+      aCanvas.style.left = '0px';
+      aCanvas.style.top = '0px';
+      // match displayed CSS size so annotation overlay lines up when canvas is scaled
+      aCanvas.style.width = canvas.style.width;
+      aCanvas.style.height = canvas.style.height;
+      // clear canvas so we can see if render leaves it blank
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle = '#f6f7f9';
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      try{
+        const renderTask = page.render({canvasContext:ctx, viewport:pageViewport});
+        await renderTask.promise;
+        console.log('page.render completed');
+      }catch(renderErr){
+        console.error('page.render failed', renderErr);
+        out.textContent = 'Render failed: ' + (renderErr && renderErr.message ? renderErr.message : String(renderErr));
+      }
+      redrawAnnotations();
+    }catch(e){ console.error('renderPage error', e); out.textContent = 'Render error: '+(e.message||e); }
+  }
+
+  document.getElementById('pageInput').onchange = async (e)=>{ const v=parseInt(e.target.value||'1',10); if(v>=1 && v<=totalPages){ curPage=v; await renderPage(curPage); } };
+
+  // tools
+  document.querySelectorAll('.toolBtn').forEach(b=>{ b.onclick=()=>{ document.querySelectorAll('.toolBtn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); tool=b.dataset.tool; }; });
+  document.getElementById('colorPicker').addEventListener('input', (e)=>{ color=e.target.value; });
+  document.getElementById('strokeWidth').addEventListener('change',(e)=>{ stroke=parseInt(e.target.value||3,10); });
+
+  aCanvas.addEventListener('pointerdown',(e)=>{ const r=aCanvas.getBoundingClientRect(); const scaleX = aCanvas.width / r.width; const scaleY = aCanvas.height / r.height; const x=(e.clientX-r.left) * scaleX; const y=(e.clientY-r.top) * scaleY; if(tool==='text'){ const txt = prompt('Text to add'); if(txt){ shapes.push({type:'text', x,y, text:txt, color, size:16}); redrawAnnotations(); } return; } current={tool, color, stroke, startX:x, startY:y, points: [{x,y}]}; // ensure pointer capture for drawing tools so pointermove/up fire reliably on touch
+    try{ if(typeof e.pointerId !== 'undefined') aCanvas.setPointerCapture(e.pointerId); }catch(ignore){}
+  });
+  aCanvas.addEventListener('pointermove',(e)=>{ if(!current) return; const r=aCanvas.getBoundingClientRect(); const scaleX = aCanvas.width / r.width; const scaleY = aCanvas.height / r.height; const x=(e.clientX-r.left) * scaleX; const y=(e.clientY-r.top) * scaleY; if(current.tool==='free'){ current.points.push({x,y}); drawTemp(); } else { current.endX=x; current.endY=y; drawTemp(); } });
+  aCanvas.addEventListener('pointerup',(e)=>{
+    if(!current) return;
+    if(current.tool==='icon'){
+      const id = document.getElementById('iconSelect').value;
+      current.icon = id;
+      current.size = 28;
+    }
+    // normalize saved shape to use `type` (redrawAnnotations checks `type`)
+    const saved = Object.assign({}, current);
+    if(!saved.type && saved.tool) saved.type = saved.tool;
+    shapes.push(saved);
+    current=null;
+    try{ aCanvas.releasePointerCapture(e.pointerId); }catch(ignore){}
+    redrawAnnotations();
+  });
+
+  // handle pointer cancel (e.g., OS gesture cancel) similar to pointerup
+  aCanvas.addEventListener('pointercancel', (e)=>{
+    if(!current) return; current = null; try{ aCanvas.releasePointerCapture(e.pointerId); }catch(ignore){}; redrawAnnotations();
+  });
+
+  function drawTemp(){ redrawAnnotations(); if(!current) return; aCtx.save(); aCtx.strokeStyle=current.color; aCtx.lineWidth=current.stroke; aCtx.fillStyle=current.color; if(current.tool==='free'){ aCtx.beginPath(); aCtx.moveTo(current.points[0].x, current.points[0].y); for(let p of current.points) aCtx.lineTo(p.x,p.y); aCtx.stroke(); } else if(current.tool==='line' || current.tool==='arrow'){ aCtx.beginPath(); aCtx.moveTo(current.startX,current.startY); aCtx.lineTo(current.endX,current.endY); aCtx.stroke(); if(current.tool==='arrow') drawArrowHead(aCtx,current.startX,current.startY,current.endX,current.endY,current.stroke,current.color); } else if(current.tool==='rect'){ aCtx.strokeRect(Math.min(current.startX,current.endX), Math.min(current.startY,current.endY), Math.abs(current.endX-current.startX), Math.abs(current.endY-current.startY)); } else if(current.tool==='icon'){ drawIconPreview(aCtx, current); } aCtx.restore(); }
+  function drawArrowHead(ctx,x1,y1,x2,y2,w, color){ const dx=x2-x1, dy=y2-y1; const dist = Math.hypot(dx,dy); const ang=Math.atan2(dy,dx); const len = Math.min( Math.max(12, dist * 0.15), 40 ); // scale arrow head with line length
+    ctx.fillStyle=color; ctx.beginPath(); ctx.moveTo(x2,y2); ctx.lineTo(x2 - len*Math.cos(ang - Math.PI/6), y2 - len*Math.sin(ang - Math.PI/6)); ctx.lineTo(x2 - len*Math.cos(ang + Math.PI/6), y2 - len*Math.sin(ang + Math.PI/6)); ctx.closePath(); ctx.fill(); }
+
+  function drawIcon(ctx, type, x, y, size, color){ ctx.save(); ctx.fillStyle=color; ctx.strokeStyle=color; ctx.lineWidth=2; if(type==='pin'){ ctx.beginPath(); ctx.arc(x, y - size*0.25, size*0.35, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x - size*0.4, y + size*0.6, x, y + size); ctx.quadraticCurveTo(x + size*0.4, y + size*0.6, x, y); ctx.fill(); } else if(type==='star'){ const spikes=5; const outer=size*0.5; const inner=outer*0.5; let rot=Math.PI/2*3; let cx=x; let cy=y; ctx.beginPath(); for(let i=0;i<spikes;i++){ let ox = cx + Math.cos(rot) * outer; let oy = cy + Math.sin(rot) * outer; ctx.lineTo(ox,oy); rot += Math.PI / spikes; ox = cx + Math.cos(rot) * inner; oy = cy + Math.sin(rot) * inner; ctx.lineTo(ox,oy); rot += Math.PI / spikes; } ctx.closePath(); ctx.fill(); } else if(type==='flag'){ ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + size*0.6, y - size*0.3); ctx.lineTo(x + size*0.6, y + size*0.3); ctx.closePath(); ctx.fill(); ctx.fillRect(x - size*0.05, y - size*0.6, size*0.1, size*1.2); } else if(type==='circle'){ ctx.beginPath(); ctx.arc(x, y, size*0.4, 0, Math.PI*2); ctx.fill(); } else if(type==='square'){ ctx.fillRect(x - size*0.4, y - size*0.4, size*0.8, size*0.8); } else if(type==='checkmark'){ ctx.beginPath(); ctx.moveTo(x - size*0.3, y); ctx.lineTo(x - size*0.1, y + size*0.2); ctx.lineTo(x + size*0.3, y - size*0.2); ctx.stroke(); } else if(type==='arrow'){ ctx.beginPath(); ctx.moveTo(x - size*0.4, y); ctx.lineTo(x + size*0.4, y); ctx.lineTo(x + size*0.2, y - size*0.2); ctx.moveTo(x + size*0.4, y); ctx.lineTo(x + size*0.2, y + size*0.2); ctx.stroke(); } ctx.restore(); }
+
+function drawIconPreview(ctx, current){ const size = 24; drawIcon(ctx, document.getElementById('iconSelect').value, current.startX, current.startY, size, current.color); }
+
+function redrawAnnotations(){ aCtx.clearRect(0,0,aCanvas.width,aCanvas.height); for(const s of shapes){ aCtx.save(); aCtx.strokeStyle=s.color; aCtx.fillStyle=s.color; aCtx.lineWidth=s.stroke||s.size||3; if(s.type==='free'){ aCtx.beginPath(); aCtx.moveTo(s.points[0].x,s.points[0].y); for(let p of s.points) aCtx.lineTo(p.x,p.y); aCtx.stroke(); } else if(s.type==='line'){ aCtx.beginPath(); aCtx.moveTo(s.startX,s.startY); aCtx.lineTo(s.endX,s.endY); aCtx.stroke(); } else if(s.type==='arrow'){ aCtx.beginPath(); aCtx.moveTo(s.startX,s.startY); aCtx.lineTo(s.endX,s.endY); aCtx.stroke(); drawArrowHead(aCtx,s.startX,s.startY,s.endX,s.endY,s.stroke,s.color); } else if(s.type==='rect'){ aCtx.strokeRect(Math.min(s.startX,s.endX), Math.min(s.startY,s.endY), Math.abs(s.endX-s.startX), Math.abs(s.endY-s.startY)); } else if(s.type==='text'){ aCtx.font=(s.size||16)+'px sans-serif'; aCtx.fillText(s.text, s.x, s.y); } else if(s.type==='icon'){ drawIcon(aCtx, s.icon, s.startX, s.startY, s.size||24, s.color); } aCtx.restore(); } }
+
+  document.getElementById('btnUndo').onclick = ()=>{ shapes.pop(); redrawAnnotations(); };
+  document.getElementById('btnClear').onclick = ()=>{ if(confirm('Clear all annotations?')){ shapes=[]; redrawAnnotations(); } };
+
+  document.getElementById('btnExport').onclick = async ()=>{
+    if(!pdfDoc) return alert('Load a PDF first');
+    try{
+      const page = await pdfDoc.getPage(curPage);
+      // render at a higher scale for quality
+      const desiredScale = Math.min(2, Math.max(1, Math.floor( (window.devicePixelRatio||1) * 1 )));
+      const vp = page.getViewport({scale: desiredScale * (pageViewport.scale || 1)});
+      const off = document.createElement('canvas'); off.width = Math.ceil(vp.width); off.height = Math.ceil(vp.height);
+      const offCtx = off.getContext('2d');
+      await page.render({canvasContext:offCtx, viewport:vp}).promise;
+      // draw annotations scaled
+      const scaleFactor = off.width / canvas.width;
+      // draw each shape scaled
+      offCtx.strokeStyle='#f00';
+      for(const s of shapes){ offCtx.save(); offCtx.strokeStyle = s.color; offCtx.fillStyle = s.color; offCtx.lineWidth = (s.stroke||3) * scaleFactor; if(s.type==='free'){ offCtx.beginPath(); offCtx.moveTo(s.points[0].x*scaleFactor, s.points[0].y*scaleFactor); for(let p of s.points) offCtx.lineTo(p.x*scaleFactor,p.y*scaleFactor); offCtx.stroke(); } else if(s.type==='line'){ offCtx.beginPath(); offCtx.moveTo(s.startX*scaleFactor,s.startY*scaleFactor); offCtx.lineTo(s.endX*scaleFactor,s.endY*scaleFactor); offCtx.stroke(); } else if(s.type==='arrow'){ offCtx.beginPath(); offCtx.moveTo(s.startX*scaleFactor,s.startY*scaleFactor); offCtx.lineTo(s.endX*scaleFactor,s.endY*scaleFactor); offCtx.stroke(); drawArrowHead(offCtx,s.startX*scaleFactor,s.startY*scaleFactor,s.endX*scaleFactor,s.endY*scaleFactor,(s.stroke||3)*scaleFactor,s.color); } else if(s.type==='rect'){ offCtx.strokeRect(Math.min(s.startX,s.endX)*scaleFactor, Math.min(s.startY,s.endY)*scaleFactor, Math.abs(s.endX-s.startX)*scaleFactor, Math.abs(s.endY-s.startY)*scaleFactor); } else if(s.type==='text'){ offCtx.font = ((s.size||16)*scaleFactor) + 'px sans-serif'; offCtx.fillText(s.text, s.x*scaleFactor, s.y*scaleFactor); } offCtx.restore(); }
+      // export as PDF using pdf-lib
+      const blob = await new Promise(r=> off.toBlob(r, 'image/jpeg', 0.95));
+      const bytes = await blob.arrayBuffer(); const pdflib = window.PDFLib; const newPdf = await pdflib.PDFDocument.create(); const img = await newPdf.embedJpg(bytes); const p = newPdf.addPage([img.width,img.height]); p.drawImage(img,{x:0,y:0,width:img.width,height:img.height}); const pdfBytesOut = await newPdf.save(); const blobOut = new Blob([pdfBytesOut], {type:'application/pdf'}); const url = URL.createObjectURL(blobOut); const a = document.createElement('a'); a.href=url; a.download = `annot_page_${curPage}.pdf`; a.textContent='Download annotated PDF'; a.style.display='block'; out.innerHTML=''; out.appendChild(a);
+    }catch(e){ out.textContent='Export failed: '+e.message; console.error(e); }
+  };
+
+  // Save as plan: upload generated PDF to /api/upload_plan.php
+  document.getElementById('btnSavePlan').onclick = async ()=>{
+    try{
+      // trigger export first
+      const page = await pdfDoc.getPage(curPage);
+      const vp = page.getViewport({scale:1.5 * (pageViewport.scale || 1)});
+      const off = document.createElement('canvas'); off.width=Math.ceil(vp.width); off.height=Math.ceil(vp.height); const offCtx = off.getContext('2d'); await page.render({canvasContext:offCtx, viewport:vp}).promise;
+      const scaleFactor = off.width / canvas.width;
+      for(const s of shapes){ offCtx.save(); offCtx.strokeStyle=s.color; offCtx.fillStyle=s.color; offCtx.lineWidth=(s.stroke||3)*scaleFactor; if(s.type==='free'){ offCtx.beginPath(); offCtx.moveTo(s.points[0].x*scaleFactor, s.points[0].y*scaleFactor); for(let p of s.points) offCtx.lineTo(p.x*scaleFactor,p.y*scaleFactor); offCtx.stroke(); } else if(s.type==='line'){ offCtx.beginPath(); offCtx.moveTo(s.startX*scaleFactor,s.startY*scaleFactor); offCtx.lineTo(s.endX*scaleFactor,s.endY*scaleFactor); offCtx.stroke(); } else if(s.type==='arrow'){ offCtx.beginPath(); offCtx.moveTo(s.startX*scaleFactor,s.startY*scaleFactor); offCtx.lineTo(s.endX*scaleFactor,s.endY*scaleFactor); offCtx.stroke(); drawArrowHead(offCtx,s.startX*scaleFactor,s.startY*scaleFactor,s.endX*scaleFactor,s.endY*scaleFactor,(s.stroke||3)*scaleFactor,s.color); } else if(s.type==='rect'){ offCtx.strokeRect(Math.min(s.startX,s.endX)*scaleFactor, Math.min(s.startY,s.endY)*scaleFactor, Math.abs(s.endX-s.startX)*scaleFactor, Math.abs(s.endY-s.startY)*scaleFactor); } else if(s.type==='text'){ offCtx.font = ((s.size||16)*scaleFactor) + 'px sans-serif'; offCtx.fillText(s.text, s.x*scaleFactor, s.y*scaleFactor); } offCtx.restore(); }
+      const blob = await new Promise(r=> off.toBlob(r, 'image/jpeg', 0.95)); const bytes = await blob.arrayBuffer(); const pdflib = window.PDFLib; const newPdf = await pdflib.PDFDocument.create(); const img = await newPdf.embedJpg(bytes); const p2 = newPdf.addPage([img.width,img.height]); p2.drawImage(img,{x:0,y:0,width:img.width,height:img.height}); const pdfBytesOut = await newPdf.save(); const blobOut = new Blob([pdfBytesOut],{type:'application/pdf'});
+      // upload using FormData to upload_plan.php
+      const fd = new FormData(); fd.append('file', blobOut, 'annotated.pdf'); fd.append('name','Annotated plan');
+      const res = await fetch('/api/upload_plan.php',{method:'POST', body:fd}); const txt = await res.text(); const j = JSON.parse(txt);
+      if(!res.ok || !j.ok) throw new Error(j.error||'Upload failed'); out.innerHTML = `Saved as plan: <a href='/?plan_id=${j.plan.id}'>${j.plan.name} (#${j.plan.id})</a>`; try{ if(window.refreshPlans) window.refreshPlans(); }catch(e){}
+    }catch(e){ out.textContent='Save failed: '+e.message; console.error(e); }
+  };
+
+  // open via pdf_url param
+  (async function(){ const params=new URLSearchParams(window.location.search); const pdfUrl=params.get('pdf_url'); if(pdfUrl){ showAnnotLoader(); try{ const r=await fetch(pdfUrl); if(!r.ok) return; const ab=await r.arrayBuffer(); await openPdfFromBytes(ab);}catch(e){ console.warn('pdf_url load failed',e);} finally{ hideAnnotLoader(); } } })();
+
+  loadPlans();
+  // init static icon select
+  try{ initCustomSelect(document.getElementById('iconSelect')); }catch(e){}
+</script>
+</body>
+</html>

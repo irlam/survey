@@ -1,5 +1,9 @@
 <?php
 
+// Start output buffering to capture any unexpected HTML or warnings
+if (function_exists('ob_start') && ob_get_level() === 0) {
+  @ob_start();
+}
 function require_method(string $method): void {
   if (($_SERVER['REQUEST_METHOD'] ?? '') !== $method) {
     error_response('Method not allowed', 405);
@@ -7,6 +11,21 @@ function require_method(string $method): void {
 }
 
 function json_response(array $data, int $status = 200): void {
+  // If unexpected output (PHP warnings/html) was emitted earlier, capture it when debug requested
+  $rawOutput = '';
+  if (function_exists('ob_get_level') && ob_get_level() > 0) {
+    $raw = @ob_get_clean();
+    if ($raw !== false && is_string($raw) && trim($raw) !== '') $rawOutput = $raw;
+  }
+  // If unexpected output (PHP warnings/html) was emitted earlier, include it
+  // in the JSON response so clients can surface server-side errors.
+  // NOTE: this makes responses include captured raw output which is useful
+  // for debugging in development environments. Remove or guard this in
+  // production if it leaks sensitive info.
+  if ($rawOutput !== '') {
+    $data['_raw_output'] = $rawOutput;
+  }
+
   http_response_code($status);
   header('Content-Type: application/json; charset=utf-8');
   echo json_encode($data, JSON_UNESCAPED_SLASHES);

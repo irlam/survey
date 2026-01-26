@@ -4,7 +4,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Survey PDF Editor</title>
-  <link rel="stylesheet" href="/assets/ui.css">
+  <link rel="stylesheet" href="/assets/ui.css?v=20260125_7">
+  <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512-maskable.png">
+  <link rel="apple-touch-icon" href="/icons/icon-512-maskable.png">
+  <meta name="theme-color" content="#39FF14">
 </head>
 <body class="sidebar-open">
   <header class="topbar">
@@ -17,24 +20,32 @@
     <aside class="sidebar">
       <div class="panelTitle">Plans</div>
 
-      <form id="uploadForm" class="card">
-        <div class="field">
-          <label>PDF</label>
-          <input name="file" type="file" accept="application/pdf" required>
-        </div>
-        <div class="field">
-          <label>Name (optional)</label>
-          <input name="name" type="text" placeholder="e.g. L00 West Main Concourse">
-        </div>
-        <div class="field">
-          <label>Revision (optional)</label>
-          <input name="revision" type="text" placeholder="e.g. P03">
-        </div>
-        <button class="btnPrimary" type="submit">Upload</button>
-        <div id="uploadOut" class="muted" style="margin-top:8px"></div>
-      </form>
+      <div style="display:flex;gap:8px;margin:10px 0 6px;">
+        <button type="button" id="btnPlans" class="btn" title="Upload Plans">Plans</button>
+        <a href="/tools/index.html" class="btn" title="Tools">Tools</a>
+        <a href="/tools/dwgviewer/" class="btn" title="DWG Viewer">DWG Viewer</a>
+        <button type="button" id="btnTrash" class="btn" title="View Trash">Trash</button>
+      </div>
 
-      <div id="plansList" class="list"></div>
+      <form id="uploadForm" class="card" style="display:none;">
+        <div id="uploadFields">
+          <div class="field">
+            <label>PDF</label>
+            <input name="file" type="file" accept="application/pdf" required>
+          </div>
+          <div class="field">
+            <label>Name (optional)</label>
+            <input name="name" type="text" placeholder="e.g. L00 West Main Concourse">
+          </div>
+          <div class="field">
+            <label>Revision (optional)</label>
+            <input name="revision" type="text" placeholder="e.g. P03">
+          </div>
+          <button class="btnPrimary" type="submit">Upload</button>
+          <div id="uploadOut" class="muted" style="margin-top:8px"></div>
+        </div>
+        <div id="plansList" class="list"></div>
+      </form>
     </aside>
 
     <main class="main">
@@ -64,6 +75,7 @@
           <button id="btnFit" class="btn">Fit</button>
 
           <button id="btnAddIssueMode" class="btn">Add Issue</button>
+          <button id="btnViewIssues" class="btn">View Issues</button>
         </div>
 
         <div id="viewerMsg" class="muted" style="margin:6px 2px 10px 2px;"></div>
@@ -75,6 +87,25 @@
     </main>
   </div>
 
+  <!-- Issues Modal -->
+  <div id="issuesModal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <span id="closeIssuesModal" class="close">&times;</span>
+      <h2>Issues for this Plan</h2>
+      <div id="issuesList"></div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:16px;">
+        <button id="btnGeneratePdf" class="btnPrimary">Generate PDF Report</button>
+        <button id="btnDownloadPdf" class="btn" style="display:none;">Download PDF</button>
+        <label style="display:flex;align-items:center;gap:6px;margin-left:8px;"> 
+          <input type="checkbox" id="chkIncludePin" checked>
+          <span style="font-size:13px;color:var(--muted);">Include pin thumbnail</span>
+          <small class="muted" style="margin-left:8px;font-size:12px;">(requires Imagick on server — omitted if unavailable)</small>
+        </label>
+        <div id="pdfReportOut" class="muted" style="margin-left:8px;flex:1"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- PDF.js -->
   <script src="/vendor/pdfjs/pdf.min.js"></script>
   <script>
@@ -83,7 +114,7 @@
     }
   </script>
 
-  <script src="/app/viewer.js?v=20260121_2"></script>
+    <script src="/app/viewer.js?v=20260125_8"></script>
   <script>
     // Fallback loader: if viewer.js failed (syntax error / truncated), try to fetch and load a fresh copy via src (browser parse)
     (function(){
@@ -148,8 +179,8 @@
       tryLoad();
     })();
   </script>
-  <script src="/app/ui.js?v=20260121_1"></script>
-  <script src="/app/app.js?v=20260121_1"></script>
+  <script src="/app/ui.js?v=20260125_2"></script>
+  <script src="/app/app.js?v=20260125_1"></script>
 
 </body>
 </html>

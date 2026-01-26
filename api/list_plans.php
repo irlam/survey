@@ -12,4 +12,5 @@ $stmt = $pdo->query('
 ');
 $plans = $stmt->fetchAll();
 
+$plans = format_dates_in_rows($plans);
 json_response(['ok' => true, 'plans' => $plans]);

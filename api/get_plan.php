@@ -20,6 +20,8 @@ if (!$plan) error_response('Plan not found', 404);
 
 $pdf_url = base_url() . '/api/plan_file.php?plan_id=' . $plan_id;
 
+// format uploaded_at
+if (!empty($plan['uploaded_at'])) $plan['uploaded_at'] = format_date_field('uploaded_at', $plan['uploaded_at']);
 json_response([
   'ok' => true,
   'plan' => $plan,

@@ -1,11 +1,15 @@
 {
     "require": {
         "setasign/fpdf": "^1.8",
-        "setasign/fpdi": "^2.3"
+        "setasign/fpdi": "^2.3",
+        "setasign/fpdi-fpdf": "^2.0"
     },
     "config": {
         "platform": {
             "php": "8.0"
         }
+    },
+    "scripts": {
+        "dwg:pull-image": "php -r \"if (!getenv('DWG_IMAGE')) { echo 'Set env var DWG_IMAGE and run again (e.g. DWG_IMAGE=libredwg/libredwg:latest)\\n'; exit(1); } $img=getenv('DWG_IMAGE'); passthru('docker pull '.escapeshellarg($img)); echo 'Pulled ' . $img . '\\n';\""
     }
 }

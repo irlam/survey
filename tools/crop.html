@@ -1,3 +1,259 @@
-<!-- Milestone 6: Crop tool stub -->
-<!DOCTYPE html>
-<html><body><h1>Crop PDF Tool</h1></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Crop PDF Tool</title>
+<link rel="stylesheet" href="/assets/ui.css?v=20260124_1">
+<style>
+  #cropStage{padding:12px}
+  #cropCanvas{border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.2);background:#222}
+  .cropOverlay{position:absolute;left:0;top:0;right:0;bottom:0;touch-action:none;}
+  button, input, select {
+    min-height: 44px;
+    min-width: 44px;
+    font-size: 1.1em;
+    border-radius: 6px;
+  }
+  button:active, .btn:active, .btnPrimary:active {
+    filter: brightness(0.85);
+    box-shadow: 0 0 0 2px #0ff inset;
+  }
+  .cropRect{position:absolute;border:2px dashed #0ff; background: rgba(0,255,231,0.06);}
+  .toolsRow{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <button onclick="history.back()" class="iconBtn">←</button>
+    <div class="brand">Crop PDF Tool</div>
+    <div style="margin-left:auto" class="muted">Crop a page and export as a new PDF</div>
+  </header>
+
+  <main style="padding:14px;">
+    <div class="card">
+      <div class="toolsRow">
+        <label style="flex:1">
+          Select plan:
+          <select id="planSelect" class="neonSelect" style="width:100%; min-width:320px;"></select>
+        </label>
+        <label style="width:230px">Or upload PDF: <input id="fileUploader" type="file" accept="application/pdf" style="min-width:44px;min-height:44px;"></label>
+        <label style="width:220px">DPI: <select id="dpiSelect" class="neonSelect small"><option value="150">150</option><option value="300" selected>300</option><option value="600">600</option><option value="1200">1200</option></select></label>
+        <label style="width:180px"><input id="vectorCrop" type="checkbox" style="min-width:44px;min-height:44px;"> Vector crop (server)</label>
+        <button id="btnLoad" class="btn">Load</button>
+      </div>
+
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        <div id="cropStage" style="position:relative;flex:1;">
+          <div id="canvasWrap" style="position:relative;display:inline-block;">
+            <canvas id="cropCanvas"></canvas>
+            <div class="cropOverlay" id="overlayArea"></div>
+          </div>
+        </div>
+        <div style="width:320px;">
+          <div style="margin-bottom:8px;">
+            <label>Page: <input id="pageInput" type="number" min="1" value="1" style="width:80px;min-width:44px;min-height:44px;"></label>
+            <button id="btnPrev" class="btn" style="min-width:44px;min-height:44px;">◀</button>
+            <button id="btnNext" class="btn" style="min-width:44px;min-height:44px;">▶</button>
+          </div>
+          <div style="margin-bottom:8px;">
+            <button id="btnCropPreview" class="btn" style="min-width:44px;min-height:44px;">Preview Crop</button>
+            <button id="btnExportPdf" class="btnPrimary" style="min-width:44px;min-height:44px;">Export Cropped PDF</button>
+          </div>
+          <div id="previewOut" class="muted"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="/vendor/pdfjs/pdf.min.js"></script>
+  <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+  <script>
+    // Basic crop tool: rasterize a page to canvas, allow drawing a rectangle, extract that rect and embed into new PDF
+    const planSelect = document.getElementById('planSelect');
+    const fileUploader = document.getElementById('fileUploader');
+    const btnLoad = document.getElementById('btnLoad');
+    const canvas = document.getElementById('cropCanvas');
+    const overlay = document.getElementById('overlayArea');
+    const ctx = canvas.getContext('2d');
+    let pdfBytes = null; // ArrayBuffer
+    let pdfDoc = null; // PDF.js doc
+    let curPage = 1;
+    let totalPages = 0;
+    let scale = 1.0;
+    let pageViewport = null;
+
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '/vendor/pdfjs/pdf.worker.min.js';
+
+    document.getElementById('dpiSelect').addEventListener('change', ()=>{ updateDpiInfo(); });
+
+    async function loadPlansList(){
+      try{
+        const r = await fetch('/api/list_plans.php');
+        const j = await r.json();
+        planSelect.innerHTML = '<option value="">-- choose plan --</option>';
+        if (j.ok && Array.isArray(j.plans)){
+          for(const p of j.plans){ const opt = document.createElement('option'); opt.value = p.id; opt.textContent = `${p.name || 'Plan #' + p.id} (#${p.id})`; opt.dataset.file = p.file_path || ''; planSelect.appendChild(opt); }
+        }
+      }catch(e){ console.warn('Failed to load plans', e); }
+    }
+
+    // support loading via ?pdf_url=/storage/exports/xxx.pdf
+    (async function(){
+      try{
+        const params = new URLSearchParams(window.location.search);
+        const pdfUrl = params.get('pdf_url');
+        if(pdfUrl){
+          // show loader
+          const loader = document.createElement('span'); loader.className='loader'; loader.id='cropLoader'; loader.style.marginLeft='8px'; document.querySelector('.toolsRow').appendChild(loader);
+          // fetch PDF as arraybuffer
+          const r = await fetch(pdfUrl, {cache:'no-cache'});
+          if(!r.ok) { console.warn('Failed to fetch pdf_url', r.status); loader.remove(); return; }
+          const ab = await r.arrayBuffer(); pdfBytes = ab; await openPdfFromBytes(ab); loader.remove();
+        }
+      }catch(e){ console.warn('pdf_url load failed', e); }
+    })();
+
+    planSelect.onchange = async ()=>{
+      const id = planSelect.value; if(!id) return;
+      const loader = document.createElement('span'); loader.className='loader'; loader.id='cropLoader'; loader.style.marginLeft='8px'; document.querySelector('.toolsRow').appendChild(loader);
+      try{
+        const res = await fetch('/api/get_plan.php?plan_id=' + encodeURIComponent(id));
+        const txt = await res.text(); let j;
+        try{ j = JSON.parse(txt); }catch{ throw new Error('Invalid JSON from get_plan'); }
+        if(!res.ok || !j.ok) throw new Error(j.error || 'Failed to fetch plan info');
+        const pdfUrl = j.pdf_url || (j.plan && (j.plan.file_path ? ('/storage/' + j.plan.file_path) : null));
+        if(!pdfUrl) throw new Error('No PDF URL for plan');
+        const r2 = await fetch(pdfUrl);
+        if(!r2.ok) throw new Error('Failed to fetch PDF: HTTP ' + r2.status);
+        const ab = await r2.arrayBuffer(); pdfBytes = ab; await openPdfFromBytes(ab);
+      }catch(e){ alert('Failed to fetch plan PDF: '+e.message); document.getElementById('previewOut').textContent = 'Load failed: ' + e.message; console.error(e); } finally { const l = document.getElementById('cropLoader'); if(l) l.remove(); }
+    }; 
+
+    fileUploader.onchange = (e)=>{ const f = e.target.files && e.target.files[0]; if(!f) return; const r = new FileReader(); r.onload = async ()=>{ pdfBytes = r.result; // show loader while opening
+      const loader = document.getElementById('cropLoader') || (function(){ const l=document.createElement('span'); l.className='loader'; l.id='cropLoader'; l.style.marginLeft='8px'; document.querySelector('.toolsRow').appendChild(l); return l; })();
+      try{ await openPdfFromBytes(pdfBytes); }finally{ if(loader) loader.remove(); }
+     }; r.readAsArrayBuffer(f); };
+
+    btnLoad.onclick = async ()=>{ if(pdfBytes) { await openPdfFromBytes(pdfBytes); } else if (planSelect.value){ planSelect.onchange(); } else { alert('Select a plan or upload a PDF first'); } };
+
+    async function openPdfFromBytes(ab){
+      pdfDoc = await pdfjsLib.getDocument({data: ab}).promise;
+      totalPages = pdfDoc.numPages; document.getElementById('pageInput').max = totalPages; document.getElementById('pageInput').value = 1; curPage = 1; await renderPage(curPage);
+    }
+
+    async function renderPage(pageNo){ if(!pdfDoc) return; const page = await pdfDoc.getPage(pageNo); const viewport = page.getViewport({scale:1}); const w = Math.min(viewport.width, 1200); scale = w / viewport.width; pageViewport = page.getViewport({scale}); canvas.width = Math.floor(pageViewport.width); canvas.height = Math.floor(pageViewport.height); canvas.style.width = canvas.width + 'px'; canvas.style.height = canvas.height + 'px'; const renderContext = { canvasContext: ctx, viewport: pageViewport }; await page.render(renderContext).promise; updateDpiInfo(); }
+
+    document.getElementById('btnPrev').onclick = async ()=>{ if(curPage>1) { curPage--; document.getElementById('pageInput').value = curPage; await renderPage(curPage); } };
+    document.getElementById('btnNext').onclick = async ()=>{ if(curPage<totalPages) { curPage++; document.getElementById('pageInput').value = curPage; await renderPage(curPage); } };
+    document.getElementById('pageInput').onchange = async (e)=>{ const v = parseInt(e.target.value||'1',10); if(v>=1 && v<=totalPages){ curPage = v; await renderPage(curPage); } };
+
+    // rectangle drawing
+    let rect = null; // {x,y,w,h} in canvas coords
+    let drawing = false; let startX=0,startY=0;
+    overlay.addEventListener('pointerdown', (e)=>{ drawing = true; const r = canvas.getBoundingClientRect(); startX = e.clientX - r.left; startY = e.clientY - r.top; rect = {x:startX, y:startY, w:0, h:0}; updateRect(); overlay.setPointerCapture(e.pointerId); });
+    overlay.addEventListener('pointermove', (e)=>{ if(!drawing) return; const r = canvas.getBoundingClientRect(); const x = e.clientX - r.left; const y = e.clientY - r.top; rect.w = x - startX; rect.h = y - startY; updateRect(); });
+    overlay.addEventListener('pointerup', (e)=>{ drawing = false; overlay.releasePointerCapture(e.pointerId); if(rect && (Math.abs(rect.w) < 10 || Math.abs(rect.h) < 10)) rect = null; updateRect(); });
+
+    function updateRect(){ // draw rect in overlay
+      overlay.innerHTML = '';
+      if(!rect) { updateDpiInfo(); return; }
+      const r = {x: Math.min(rect.x, rect.x+rect.w), y: Math.min(rect.y, rect.y+rect.h), w: Math.abs(rect.w), h: Math.abs(rect.h)};
+      const div = document.createElement('div'); div.className='cropRect'; div.style.left = r.x + 'px'; div.style.top = r.y + 'px'; div.style.width = Math.max(0,r.w) + 'px'; div.style.height = Math.max(0,r.h) + 'px'; overlay.appendChild(div);
+      updateDpiInfo();
+    }
+
+    function updateDpiInfo(){
+      const out = document.getElementById('previewOut'); out.textContent = '';
+      if(!pdfDoc || !rect) return;
+      (async ()=>{
+        try{
+          const dpi = Number(document.getElementById('dpiSelect').value || '300');
+          const page = await pdfDoc.getPage(curPage);
+          const desiredScale = dpi / 72; // PDF points are 72 per inch
+          const viewportHR = page.getViewport({scale: desiredScale});
+          // map rect (canvas coords) to high-res coordinates
+          const scaleFactor = viewportHR.width / canvas.width;
+          const rw = Math.max(1, Math.round(Math.abs(rect.w) * scaleFactor));
+          const rh = Math.max(1, Math.round(Math.abs(rect.h) * scaleFactor));
+          const kb = Math.round((rw * rh * 3) / 1024);
+          out.innerHTML = `Estimated output: <strong>${rw} × ${rh}</strong> px (~${kb} KB image) at ${dpi} DPI`;
+          // warn if large
+          if (rw > 8000 || rh > 8000) {
+            out.innerHTML += ` <span style="color:#ffb86b">(Large - may fail or be slow)</span>`;
+          }
+        }catch(e){ console.warn('dpi info error', e); }
+      })();
+    }
+
+    document.getElementById('btnCropPreview').onclick = ()=>{ if(!rect){ alert('Draw a rectangle on the page to crop'); return; } const r = {x: Math.min(rect.x, rect.x+rect.w), y: Math.min(rect.y, rect.y+rect.h), w: Math.abs(rect.w), h: Math.abs(rect.h)}; const tmp = document.createElement('canvas'); tmp.width = r.w; tmp.height = r.h; const tctx = tmp.getContext('2d'); tctx.drawImage(canvas, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h); const img = tmp.toDataURL('image/jpeg', 0.9); const out = document.getElementById('previewOut'); out.innerHTML = `<div style="margin-top:8px"><img src="${img}" style="max-width:100%"></div>`; updateDpiInfo(); };
+
+    document.getElementById('btnExportPdf').onclick = async ()=>{
+      if(!rect) { alert('Draw a rectangle on the page to crop'); return; }
+      const r = {x: Math.min(rect.x, rect.x+rect.w), y: Math.min(rect.y, rect.y+rect.h), w: Math.abs(rect.w), h: Math.abs(rect.h)};
+      const dpi = Number(document.getElementById('dpiSelect').value || '300');
+      const isVector = document.getElementById('vectorCrop').checked;
+      // If vector crop selected, send normalized rect to server for precise crop
+      if(isVector){
+        try{
+          const payload = new FormData();
+          if(planSelect.value){ payload.append('plan_id', planSelect.value); } else if(pdfBytes){ const blobFile = new Blob([pdfBytes], {type:'application/pdf'}); const f = new File([blobFile], 'upload.pdf', {type:'application/pdf'}); payload.append('file', f); }
+          payload.append('page', String(curPage));
+          // normalized coords (0..1) based on canvas size
+          payload.append('x_norm', String(r.x / canvas.width));
+          payload.append('y_norm', String(r.y / canvas.height));
+          payload.append('w_norm', String(r.w / canvas.width));
+          payload.append('h_norm', String(r.h / canvas.height));
+          payload.append('debug', '0');
+          const out = document.getElementById('previewOut'); out.textContent = 'Requesting server crop…';
+          const res = await fetch('/api/crop_pdf.php', { method:'POST', body: payload });
+          const txt = await res.text(); let data; try{ data = JSON.parse(txt); }catch{ data = null; }
+          if(!res.ok || !data || !data.ok){ throw new Error((data && data.error) ? data.error : 'Server crop failed'); }
+          out.innerHTML = `<a href="/storage/exports/${encodeURIComponent(data.filename)}" target="_blank">Download cropped PDF (vector)</a>`;
+        }catch(e){ const out = document.getElementById('previewOut'); out.textContent = 'Server crop failed: ' + e.message; }
+        return;
+      }
+
+      // Raster export at higher resolution (DPI): render an offscreen high-res page and then crop
+      try{
+        const page = await pdfDoc.getPage(curPage);
+        // calculate desired scale for render using DPI: scale = DPI / 72
+        const desiredScale = dpi / 72;
+        const viewportHR = page.getViewport({scale: desiredScale});
+        // Map original rect on screen canvas to high-res canvas
+        const scaleFactor = viewportHR.width / canvas.width;
+        const rx = Math.round(r.x * scaleFactor);
+        const ry = Math.round(r.y * scaleFactor);
+        const rw = Math.round(r.w * scaleFactor);
+        const rh = Math.round(r.h * scaleFactor);
+
+        // safety caps
+        const MAX_PIX = 10000; // avoid OOM
+        if (rw > MAX_PIX || rh > MAX_PIX) {
+          if (!confirm(`Cropped area is ${rw}×${rh} px at ${dpi} DPI. This may be very large and could fail. Continue?`)) return;
+        }
+
+        const off = document.createElement('canvas'); off.width = Math.ceil(viewportHR.width); off.height = Math.ceil(viewportHR.height);
+        const offCtx = off.getContext('2d');
+        await page.render({ canvasContext: offCtx, viewport: viewportHR }).promise;
+
+        const tmp = document.createElement('canvas'); tmp.width = rw; tmp.height = rh; const tctx = tmp.getContext('2d'); tctx.drawImage(off, rx, ry, rw, rh, 0, 0, rw, rh);
+        const blob = await new Promise(res=> tmp.toBlob(res, 'image/jpeg', 0.95));
+        const bytes = await blob.arrayBuffer();
+        const pdflib = window.PDFLib;
+        const newPdf = await pdflib.PDFDocument.create();
+        const imgEmbed = await newPdf.embedJpg(bytes);
+        const pageNew = newPdf.addPage([imgEmbed.width, imgEmbed.height]);
+        pageNew.drawImage(imgEmbed, { x:0, y:0, width: imgEmbed.width, height: imgEmbed.height });
+        const pdfBytesOut = await newPdf.save();
+        const blobOut = new Blob([pdfBytesOut], {type:'application/pdf'});
+        const url = URL.createObjectURL(blobOut);
+        const a = document.createElement('a'); a.href = url; a.download = `crop_page_${curPage}.pdf`; a.textContent = 'Download cropped PDF'; a.style.display='inline-block'; a.style.marginTop='8px'; document.getElementById('previewOut').appendChild(a);
+      }catch(e){ document.getElementById('previewOut').textContent = 'Export failed: ' + e.message; console.error(e); }
+    };
+
+    // init
+    loadPlansList();
+  </script>
+</body>
+</html>

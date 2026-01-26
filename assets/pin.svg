@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="56" height="72" fill="none" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="pinGrad" x1="16" y1="10" x2="52" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#00FFE7"/>
+      <stop offset="1" stop-color="#39FF14"/>
+    </linearGradient>
+  </defs>
+
+  <path d="M32 60s20-16.3 20-34A20 20 0 1 0 12 26c0 17.7 20 34 20 34Z" fill="url(#pinGrad)"/>
+  <circle cx="32" cy="26" r="8.5" fill="rgba(0,0,0,0.18)"/>
+  <circle cx="32" cy="26" r="6.5" fill="white" fill-opacity="0.18"/>
+  <!-- number placeholder centered on the pin head -->
+  <text class="pin-number" x="32" y="26" text-anchor="middle" dominant-baseline="central" fill="#000" font-weight="900" font-size="12"></text>
+</svg>

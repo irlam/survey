@@ -102,24 +102,149 @@ input{
   padding: 10px 12px;
   outline: none;
 }
-input:focus{border-color: rgba(0,255,231,.5); box-shadow: 0 0 0 3px rgba(0,255,231,.12);}
+input:focus{border-color: rgba(0,255,231,.5); box-shadow: 0 0 0 3px rgba(0,255,231,.12);} 
 
-.btn,.btnPrimary{
+/* Neon-style file input button */
+input[type=file]::-webkit-file-upload-button{ background: linear-gradient(90deg, var(--neon), var(--neon2)); color:#041013; border:none; padding:8px 12px; border-radius:12px; margin-right:8px; font-weight:800; }
+input[type=file]::file-selector-button{ background: linear-gradient(90deg, var(--neon), var(--neon2)); color:#041013; border:none; padding:8px 12px; border-radius:12px; margin-right:8px; font-weight:800; }
+
+/* Native selects: make neon-themed by default (chevron dark for contrast) */
+select{ background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24'%3E%3Cpath fill='%23041013' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; background-size: 18px 18px; padding-right: 40px; -webkit-appearance: none; appearance: none; border-radius:12px; border:none; background: linear-gradient(90deg, var(--neon), var(--neon2)); padding:10px 12px; color:#041013; min-height:40px; box-shadow: 0 8px 28px rgba(0,255,231,.12); transition: box-shadow .16s ease, transform .06s ease; }
+select:focus{ outline:none; box-shadow: 0 0 0 4px rgba(0,255,231,.12); transform: translateY(-1px); }
+
+/* Ensure modal selects inherit neon button appearance */
+.modal .customSelect .selectButton, .modal select{ background: linear-gradient(90deg, var(--neon), var(--neon2)); color:#041013; border:none; box-shadow: 0 8px 28px rgba(0,255,231,.12); }
+.modal .customSelect .selectedLabel, .modal select{ color:#000000; font-weight:800; }
+
+/* Ensure neon-styled selects have strong readable text */
+.neonSelect{ color:#041013 !important; font-weight:900; padding:10px 14px; min-height:44px; line-height:1.2; text-align:center; text-shadow: 0 0 6px rgba(0,0,0,0.35); }
+.neonSelect option{ color:#041013; background:transparent; }
+.neonSelect::-ms-expand{ display:none; }
+
+/* In some browsers the native fill color can be overridden; set this too */
+.neonSelect, .neonSelect option { -webkit-text-fill-color: #041013 !important; }
+
+/* Primary neon select button style to match .btnPrimary */
+.neonSelect{ min-height:44px; border-radius:12px; padding:8px 12px; font-weight:800; border:none; background: linear-gradient(90deg, var(--neon), var(--neon2)); color:#041013; box-shadow: 0 8px 28px rgba(0,255,231,.14); }
+.neonSelect:focus, select:focus{ outline: none; box-shadow: 0 0 0 4px rgba(0,255,231,.12); transform: translateY(-1px); }
+/* small variant useful for DPI */
+.neonSelect.small{ min-width:80px; padding:6px 10px; font-size:0.95em; }
+
+/* Dropdown button (for JS-driven dropdowns / contextual toggles) - match neon upload style */
+.dropdownButton{ display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius:12px; border:none; background: linear-gradient(90deg, var(--neon), var(--neon2)); color:#041013; cursor:pointer; box-shadow: 0 8px 28px rgba(0,255,231,.12); font-weight:800; transition: transform .08s ease, box-shadow .12s ease; }
+.dropdownButton:active{ transform: translateY(1px); }
+.dropdownButton:focus{ outline:none; box-shadow: 0 0 0 4px rgba(0,255,231,.12); transform: translateY(-1px); }
+.dropdownButton .chev{ width:14px; height:14px; display:inline-block; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24'%3E%3Cpath fill='%23041013' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:center; }
+
+/* Dropdown menu content (site-wide) */
+.dropdownMenu{ position:absolute; min-width:160px; background: linear-gradient(180deg,#021017,#011014); border-radius:10px; border:1px solid rgba(0,255,231,0.12); box-shadow: 0 18px 40px rgba(0,0,0,0.6); padding:6px; z-index:9999; }
+.dropdownMenu li, .selectList li{ list-style:none; padding:10px 12px; border-radius:8px; color:#041013; cursor:pointer; }
+.dropdownMenu li:hover, .selectList li:hover{ background: rgba(0,255,231,0.04); color:var(--neon); }
+.dropdownMenu li[aria-selected='true'], .selectList li[aria-selected='true']{ background: rgba(0,255,231,0.08); color:var(--neon); font-weight:800; }
+
+/* Dropdown open/close animation (using max-height & transform) */
+.selectList{ display:block; max-height:0; opacity:0; transform:translateY(-8px); overflow:hidden; transition: max-height .22s ease, opacity .18s ease, transform .18s ease; }
+.selectList.open{ max-height:360px; opacity:1; transform:translateY(0); }
+
+/* make selected label inside custom selects legible (dark for neon buttons) */
+.customSelect .selectButton .selectedLabel, .selectedLabel{ color: #000000; font-weight:800; }
+
+/* small helper so select-like buttons don't overflow */
+.selectLike{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+/* Ensure neonSelect text is always readable and centered */
+.neonSelect{ text-align:center; color: #041013; font-weight:800; }
+.neonSelect option{ color: #041013; }
+
+/* ===== Compact custom-select redesign (after) ===== */
+/* Keep the neon accent but make custom selects compact and darker */
+.customSelect { display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:12px; background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.04)); border:1px solid rgba(0,255,231,0.08); min-height:40px; box-shadow: none; }
+.customSelect.small{ padding:6px 8px; min-width:80px; }
+.customSelect .selectButton, .selectButton{ display:flex; align-items:center; justify-content:center; width:100%; min-height:44px; background: linear-gradient(90deg, var(--neon), var(--neon2)); border:none; padding:10px 14px; color:#000000; font-weight:900; cursor:pointer; border-radius:12px; box-shadow: 0 9px 34px rgba(0,255,231,.16); transition: transform .08s ease, box-shadow .12s ease; }
+.customSelect .selectButton:focus, .selectButton:focus{ outline:none; box-shadow: 0 0 0 4px rgba(0,255,231,.14); transform: translateY(-1px); }
+.customSelect.small .selectButton{ padding:8px 10px; border-radius:10px; min-width:56px; font-size:0.95em; min-height:44px; }
+.customSelect .selectedLabel{ color:#000000; font-weight:900; font-size:1rem; line-height:1; display:block; width:100%; text-align:center; text-shadow: 0 1px 0 rgba(255,255,255,0.12); }
+
+/* Ensure issue modal selects are explicit and match neon theme */
+#issueStatusSelect .selectButton, #issuePrioritySelect .selectButton, .modal .customSelect .selectButton{ background: linear-gradient(90deg, var(--neon), var(--neon2)); border:none; color:#000000; box-shadow: 0 9px 34px rgba(0,255,231,.16); min-width:84px; padding:12px 18px; }
+#issueStatusSelect .selectedLabel, #issuePrioritySelect .selectedLabel, .modal .customSelect .selectedLabel{ color:#000000 !important; font-weight:900; font-size:1rem; line-height:1; display:block; text-align:center; }
+#issuesModal .customSelect .selectButton .selectedLabel, #issueModal .customSelect .selectButton .selectedLabel{ color:#000000 !important; font-weight:900; font-size:1rem; line-height:1; text-shadow: 0 1px 0 rgba(255,255,255,0.12); }
+
+/* Ensure selects inside issue list cards show visible labels */
+.card .customSelect .selectButton{ min-height:44px; padding:10px 12px; display:flex; align-items:center; justify-content:center; }
+.card .customSelect .selectedLabel{ color:#000000; font-weight:800; }
+/* Modal/list specific: make dropdown controls and list items readable in the Issues modal/list */
+#issuesModal .customSelect, #issueModal .customSelect, .card .customSelect{ min-width:120px; }
+#issuesModal .customSelect.small, #issueModal .customSelect.small, .card .customSelect.small{ min-width:100px; }
+#issuesModal .customSelect .selectButton, #issueModal .customSelect .selectButton, .card .customSelect .selectButton{ padding:12px 18px; min-height:44px; color:#FFFFFF !important; border: 1px solid rgba(0,255,231,.22) !important; }
+#issuesModal .customSelect .selectedLabel, #issueModal .customSelect .selectedLabel, .card .customSelect .selectedLabel{ color:#FFFFFF !important; font-weight:900; font-size:1rem; line-height:1; display:block; text-align:center; text-shadow: 0 1px 0 rgba(0,0,0,0.5); }
+.customSelect.neonSelect .selectedLabel{ color:#000000 !important; }
+#issuesModal .customSelect .selectList, #issueModal .customSelect .selectList, .card .customSelect .selectList{ background: linear-gradient(180deg, rgba(255,255,255,0.15), rgba(255,255,255,0.08)); border-radius:12px; padding:10px; border:1px solid rgba(0,255,231,0.08); box-shadow: 0 12px 30px rgba(0,0,0,0.5); }
+#issuesModal .customSelect .selectList li, #issueModal .customSelect .selectList li, .card .customSelect .selectList li{ color: #041013 !important; font-weight:700; background: transparent; padding:12px 14px; border-radius:8px; }
+#issuesModal .customSelect .selectList li[aria-selected="true"], #issueModal .customSelect .selectList li[aria-selected="true"], .card .customSelect .selectList li[aria-selected="true"]{ color: #FFFFFF !important; background: rgba(0,255,231,0.2) !important; }
+
+
+/* Fallback: make any unstyled buttons match secondary neon style */
+button:not(.iconBtn):not(.selectButton):not(.toolBtn){ min-height:44px; border-radius:12px; border:1px solid var(--border); background: rgba(11,18,32,.72); color: var(--neon); font-weight:700; cursor:pointer; padding:10px 12px; box-shadow: var(--shadow); transition: transform .08s ease, box-shadow .12s ease; }
+button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-shadow: 0 0 0 4px rgba(0,255,231,.08); transform: translateY(-1px); }
+.customSelect .selectList{ margin-top:8px; min-width:140px; box-shadow: 0 12px 30px rgba(0,0,0,0.6); border-radius:10px; }
+.customSelect.neonSelect{ /* make wrapper transparent so the inner .selectButton shows the neon gradient — handles large inline paddings */
+  background: transparent;
+  border: none;
+}
+.customSelect.neonSelect .selectButton{ width:100%; display:block; padding:12px 16px; border-radius:12px; }
+
+/* Subtle chevron on custom select button */
+.customSelect .selectButton::after{ content:''; display:inline-block; width:14px; height:14px; margin-left:8px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24'%3E%3Cpath fill='%23000000' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:center; }
+
+/* Fallback: ensure any .selectButton (even outside .customSelect) uses neon appearance */
+.selectButton{ background: linear-gradient(90deg, var(--neon), var(--neon2)); color:#000000; border:none; padding:8px 12px; border-radius:12px; box-shadow: 0 8px 28px rgba(0,255,231,.12); font-weight:800; }
+
+/* Spinner (used on export buttons) */
+.spinner{ display:inline-block; width:14px; height:14px; border-radius:50%; border:2px solid rgba(255,255,255,0.15); border-top-color: var(--neon); animation: spin .9s linear infinite; margin-left:8px; vertical-align:middle; }
+@keyframes spin{ to { transform: rotate(360deg);} }
+
+/* Make spinner small and visible on dark buttons */
+.btn[aria-busy='true'], .btnPrimary[aria-busy='true']{ opacity:0.95; filter:brightness(1.02); }
+
+
+/* Custom select dropdown list items (used in multiple pages) */
+.customSelect .selectList{ background: linear-gradient(180deg, rgba(255,255,255,0.15), rgba(255,255,255,0.08)); border:1px solid rgba(0,255,231,0.08); box-shadow: 0 12px 30px rgba(0,0,0,0.5); border-radius:12px; z-index:9999; padding:8px; list-style:none; margin:0; min-width:160px; }
+.customSelect .selectList li{ padding:12px 14px; border-radius:8px; color:#041013 !important; cursor:pointer; font-weight:700; text-shadow:none; transition: background .12s ease, color .08s ease, transform .06s ease; }
+.customSelect .selectList li:hover{ background: linear-gradient(90deg, rgba(0,255,231,0.06), rgba(57,255,20,0.04)); color:#041013; font-weight:800; transform: translateY(-1px); box-shadow: inset 0 6px 12px rgba(0,255,231,0.02); }
+.customSelect .selectList li[aria-selected='true']{ background: linear-gradient(90deg, var(--neon), var(--neon2)); color:#000000; font-weight:900; box-shadow: 0 10px 30px rgba(0,255,231,0.12); }
+
+/* Secondary buttons (dark) - use subtle neon border/text */
+.btn{
   min-height:44px;
-  border-radius: 14px;
+  border-radius:14px;
   border:1px solid var(--border);
   background: rgba(11,18,32,.72);
   color: var(--neon);
   font-weight:700;
   cursor:pointer;
   padding: 10px 12px;
+  box-shadow: var(--shadow);
+  transition: transform .08s ease, box-shadow .12s ease;
 }
-.btn:active{transform: translateY(1px)}
+.btn:active{ transform: translateY(1px); }
+.btn:focus{ outline:none; box-shadow: 0 0 0 4px rgba(0,255,231,.08); transform: translateY(-1px); }
+
+/* Primary accent buttons remain bright neon */
 .btnPrimary{
+  min-height:44px;
+  border-radius:12px;
   border:none;
-  color:#041013;
+  color:#000000;
   background: linear-gradient(90deg, var(--neon), var(--neon2));
+  font-weight:800;
+  cursor:pointer;
+  padding:10px 14px;
+  box-shadow: 0 10px 36px rgba(0,255,231,.16);
+  transition: transform .08s ease, box-shadow .12s ease;
 }
+.btnPrimary:active{ transform: translateY(1px); }
+.btnPrimary:focus{ outline:none; box-shadow: 0 0 0 4px rgba(0,255,231,.12); transform: translateY(-1px); }
 
 .muted{color: var(--muted)}
 .error{color:#ff7b7b}
@@ -240,78 +365,107 @@ input:focus{border-color: rgba(0,255,231,.5); box-shadow: 0 0 0 3px rgba(0,255,2
 }
 
 .pin{
-  position: absolute !important;
-  transform: translate(-50%, -100%) !important;
-  width: 80px !important;
-  height: 80px !important;
-  border-radius: 999px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  font-weight: 900 !important;
-  font-size: 48px !important;
-  color: #fff !important;
-  background: #e00 !important;
-  box-shadow: 0 0 32px #000, 0 0 8px #fff !important;
-  border: 4px solid #fff !important;
-  outline: 4px solid lime !important;
-  opacity: 1 !important;
-  z-index: 999999 !important;
-  pointer-events: auto !important;
-  visibility: visible !important;
-}
-.pin{
-  position:absolute;
+  position: absolute;
   transform: translate(-50%, -100%);
-  width:32px;
-  height:32px;
-  border-radius: 999px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-weight:900;
-  font-size:16px;
-  color:#fff;
-  background: #e74c3c !important; /* bright red for debug */
-  border: 3px solid #fff !important;
+  width: 56px;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 13px;
+  color: transparent;
+  background-color: transparent;
+  border: none;
   z-index: 2000;
-  box-shadow: 0 0 16px #e74c3c, 0 0 8px #fff;
-}
-
-.pdfOverlay {
-  position: absolute !important;
-  top: 0 !important;
-  left: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-  border: 4px dashed blue !important; /* DEBUG: blue border for overlay */
-  background: rgba(0,0,255,0.05) !important; /* DEBUG: faint blue overlay */
-  z-index: 99999 !important;
+  box-shadow: none !important;
   pointer-events: auto !important;
+  /* SVG-based pin (no raster PNG). The SVG is injected inline by JS so it scales crisply and keeps transparency. */
+  padding: 0;
 }
 
-.pdfWrap {
-  position: relative !important;
+/* For legacy span labels (if any remain) make them black and centered */
+.pinLabel{
+  display:inline-block;
+  transform: none;
+  color: #000; /* black number inside pin */
+  font-weight: 900;
+  font-size: 12px;
+  line-height: 1;
+  pointer-events: none; /* clicks should hit the pin container */
 }
 
-#pdfCanvas {
-  border: 4px solid green !important; /* DEBUG: green border for canvas */
-  z-index: 1 !important;
-}
 
 .pdfOverlay {
-  border: 2px dashed blue !important; /* DEBUG: blue border for overlay */
-  background: rgba(0,0,255,0.05) !important; /* DEBUG: faint blue overlay */
-  z-index: 9998 !important;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1000;
 }
 
-/* LANDSCAPE TABLET RULES: collapse plans list, maximize viewer */
-@media (min-width: 900px) and (orientation: landscape){
+/* --- Modal Styles for Issues --- */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 10000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background: rgba(0,0,0,0.5);
+}
+.modal-content {
+  background: var(--panel2);
+  margin: 60px auto;
+  padding: 24px 20px 20px 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  width: 95%;
+  max-width: 900px; /* wider modal to avoid content overflow */
+  color: var(--text);
+  box-shadow: 0 0 32px rgba(0,255,231,.18);
+  position: relative;
+}
+/* Make issue cards inside modals wrap better on narrow screens */
+.modal .card{ flex-wrap: wrap; align-items: flex-start; }
+.modal .card > div{ min-width:0; }
+.modal .card .btnRow{ flex-wrap:wrap; gap:6px; }
+.close {
+  color: var(--muted);
+  position: absolute;
+  top: 12px;
+  right: 18px;
+  font-size: 28px;
+  font-weight: bold;
+  cursor: pointer;
+}
+.close:hover { color: var(--neon); }
+
+/* Responsive stacking for issue modal on small screens */
+@media (max-width: 760px) {
+  #issueModal .issueTop { flex-direction: column; gap:12px; }
+  #issueModal .issueTop > div:first-child { width:100% !important; }
+  #issueModal .issueTop > div:last-child { width:100% !important; border-left:none !important; padding-left:0 !important; margin-top:0; }
+  #issueModal .issueActions { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+  #issueModal .issueActions button { flex: 1 1 48%; min-width:0; }
+  #issueModal .photoControls{ flex-direction:column; align-items:stretch; }
+  #issueModal .photoControls label{ width:100%; }
+  #issueModal .photoControls button{ align-self:flex-end; }
+  #issueModal .photoActions{ display:flex; gap:8px; flex-wrap:wrap; }
+  #issueModal .photoActions button{ flex:1 1 48%; min-width:0; }
+}
+
+/* TABLET / Desktop RULES: place plans list on the left and viewer on the right */
+@media (min-width: 900px){
   .layout{grid-template-columns: 360px 1fr;}
   body.has-viewer:not(.sidebar-open) .layout{grid-template-columns: 0 1fr;}
   body.has-viewer:not(.sidebar-open) .sidebar{
     width:0; padding:0; border:none; overflow:hidden;
   }
   .main{padding:14px}
-  .pdfStage{height: calc(100vh - 210px);}
+  .pdfStage{height: calc(100vh - 210px);} 
 }
