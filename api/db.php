@@ -17,7 +17,12 @@ function json_response(array $data, int $status = 200): void {
     $raw = @ob_get_clean();
     if ($raw !== false && is_string($raw) && trim($raw) !== '') $rawOutput = $raw;
   }
-  if ($rawOutput !== '' && !empty($_REQUEST['debug'])) {
+  // If unexpected output (PHP warnings/html) was emitted earlier, include it
+  // in the JSON response so clients can surface server-side errors.
+  // NOTE: this makes responses include captured raw output which is useful
+  // for debugging in development environments. Remove or guard this in
+  // production if it leaks sensitive info.
+  if ($rawOutput !== '') {
     $data['_raw_output'] = $rawOutput;
   }
 
