@@ -738,7 +738,7 @@ foreach ($issue_list as $issue) {
                 $w_px = $imgInfo ? $imgInfo[0] : ($planThumb['w'] ?? null);
                 $h_px = $imgInfo ? $imgInfo[1] : ($planThumb['h'] ?? null);
                 if ($w_px && $h_px) {
-                    $thumbWidthMM = 50; // preview thumbnail width (doubled)
+                    $thumbWidthMM = 100; // preview thumbnail width (doubled again)
                     $thumbHeightMM = $thumbWidthMM * ($h_px / $w_px);
                     $x2 = $pdf->GetX();
                     $yTop = $pdf->GetY();
@@ -769,8 +769,8 @@ foreach ($issue_list as $issue) {
                         }
                     }
                 } else {
-                    // Unknown pixel dims; place a fallback-sized image (doubled)
-                    $x2 = $pdf->GetX(); $yTop = $pdf->GetY(); $pdf->Image($tmpThumb, $x2, $yTop, 50, 0); $pdf->Ln(56);
+                    // Unknown pixel dims; place a fallback-sized image (doubled again)
+                    $x2 = $pdf->GetX(); $yTop = $pdf->GetY(); $pdf->Image($tmpThumb, $x2, $yTop, 100, 0); $pdf->Ln(112);
                 }
             } else {
                 // fallback: try raster pin renderer and embed directly as before
@@ -845,7 +845,7 @@ foreach ($issue_list as $issue) {
                         $w_px = $imgInfo ? $imgInfo[0] : ($planThumb['w'] ?? null);
                         $h_px = $imgInfo ? $imgInfo[1] : ($planThumb['h'] ?? null);
                         if ($w_px && $h_px) {
-                            $thumbWidthMM = 60; // photo thumbnail width (doubled)
+                            $thumbWidthMM = 120; // photo thumbnail width (doubled again)
                             $thumbHeightMM = $thumbWidthMM * ($h_px / $w_px);
                             $x2 = $pdf->GetX(); $yTop = $pdf->GetY();
                             $pdf->Image($tmpThumb, $x2, $yTop, $thumbWidthMM, 0);
