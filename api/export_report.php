@@ -73,6 +73,16 @@ if (isset($_POST['include_pin'])) {
     $include_pin = !in_array($val, ['0','false','']);
 }
 
+// Pin rendering mode: 'vector' (default) or 'raster' (legacy PNG embedding)
+$pin_mode = 'vector';
+if (isset($_POST['pin_mode'])) {
+    $val = strtolower(trim((string)($_POST['pin_mode'] ?? '')));
+    if (in_array($val, ['raster','image','png'])) $pin_mode = 'raster';
+} elseif (isset($_GET['pin_mode'])) {
+    $val = strtolower(trim((string)($_GET['pin_mode'] ?? '')));
+    if (in_array($val, ['raster','image','png'])) $pin_mode = 'raster';
+}
+
 function get_exports_listing($limit = 20) {
     $dir = storage_dir('exports');
     if (!is_dir($dir)) return [];
@@ -613,11 +623,20 @@ foreach ($issue_list as $issue) {
                 $pinMethod = is_array($pinImg) ? ($pinImg['method'] ?? null) : null;
                 if ($pinPathReal && is_file($pinPathReal) && filesize($pinPathReal)>0 && @getimagesize($pinPathReal)) {
                     $tempFiles[] = $pinPathReal;
-                    $x2 = $pdf->GetX();
-                    // Draw the pin as a vector so background stays transparent and quality is preserved
-                    $pdf->DrawPinAt($x2, $pdf->GetY(), 60, ($issue['id'] ?? null));
-                    $pdf->Ln(4);
-                    if ($debug) $includedPins[] = ['issue_id'=>$issue['id']??null,'method'=>'vector_draw','img'=>$pinPathReal,'original_method'=>$pinMethod];
+                    // Vector is default; allow raster embedding when explicitly requested
+                    if ($pin_mode === 'vector') {
+                        $x2 = $pdf->GetX();
+                        $pdf->DrawPinAt($x2, $pdf->GetY(), 60, ($issue['id'] ?? null));
+                        $pdf->Ln(4);
+                        $pins_included_count++;
+                        if ($debug) $includedPins[] = ['issue_id'=>$issue['id']??null,'method'=>'vector_draw','img'=>$pinPathReal,'original_method'=>$pinMethod];
+                    } else {
+                        $x2 = $pdf->GetX();
+                        $pdf->Image($pinPathReal, $x2, null, 60, 0);
+                        $pdf->Ln(4);
+                        $pins_included_count++;
+                        if ($debug) $includedPins[] = ['issue_id'=>$issue['id']??null,'img'=>$pinPathReal,'method'=>$pinMethod ?: 'embedded'];
+                    }
                 } else { if ($debug) $skippedPins[] = ['issue_id'=>$issue['id']??null,'img'=>$pinPathReal,'reason'=>'invalid_or_missing']; }
             }
         }
@@ -759,19 +778,34 @@ foreach ($issue_list as $issue) {
                                     @chmod($dst2, 0644);
                                     $render_debug[$issue['id'] ?? '']['pin_tmp'] = $dst2;
                                     $pinPhotoRel = 'tmp/' . $bn2;
-                                    // Note: we no longer inject generated pin PNGs into the photos list —
-                                    // pins are rendered as vectors directly in the PDF to guarantee transparency and crispness.
-                                    // count it as included so debug reflects it
-                                    $pins_included_count++;
-                                    if ($debug) $includedPins[] = ['issue_id'=>$issue['id']??null,'img'=>$dst2,'method'=>$pinMethod ?: 'copied_to_storage'];
+                                    // Inject generated pin PNG into photos list only when raster mode is requested
+                                    if ($pin_mode === 'raster' && isset($ips) && is_array($ips)) {
+                                        array_unshift($ips, ['file_path' => $pinPhotoRel]);
+                                        $pins_included_count++;
+                                        if ($debug) $includedPins[] = ['issue_id'=>$issue['id']??null,'img'=>$dst2,'method'=>$pinMethod ?: 'copied_to_storage'];
+                                    } else {
+                                        // vector mode: mark included and continue (pin will be drawn as vector later)
+                                        $pins_included_count++;
+                                        if ($debug) $includedPins[] = ['issue_id'=>$issue['id']??null,'img'=>$dst2,'method'=>'vector_draw_available'];
+                                    }
                                 } else {
-                                    // fallback: draw vector pin directly (guaranteed transparent vector)
-                                    $x2 = $pdf->GetX();
-                                    $pdf->DrawPinAt($x2, $pdf->GetY(), 60, ($issue['id'] ?? null));
-                                    $pdf->Ln(4);
-                                    $render_debug[$issue['id'] ?? '']['embedded'] = true;
-                                    $pins_included_count++;
-                                    if ($debug) $includedPins[] = ['issue_id'=>$issue['id']??null,'method'=>'vector_draw','fallback_embed'=>$prepareEmbed,'orig_method'=>$pinMethod ?: null];
+                                    if ($pin_mode === 'raster') {
+                                        // fallback: embed directly if copy fails
+                                        $x2 = $pdf->GetX();
+                                        $pdf->Image($prepareEmbed, $x2, null, 60, 0);
+                                        $pdf->Ln(4);
+                                        $render_debug[$issue['id'] ?? '']['embedded'] = true;
+                                        $pins_included_count++;
+                                        if ($debug) $includedPins[] = ['issue_id'=>$issue['id']??null,'img'=>$prepareEmbed,'method'=>$pinMethod ?: 'converted_or_original_embedded'];
+                                    } else {
+                                        // fallback: draw vector pin directly (guaranteed transparent vector)
+                                        $x2 = $pdf->GetX();
+                                        $pdf->DrawPinAt($x2, $pdf->GetY(), 60, ($issue['id'] ?? null));
+                                        $pdf->Ln(4);
+                                        $render_debug[$issue['id'] ?? '']['embedded'] = true;
+                                        $pins_included_count++;
+                                        if ($debug) $includedPins[] = ['issue_id'=>$issue['id']??null,'method'=>'vector_draw','fallback_embed'=>$prepareEmbed,'orig_method'=>$pinMethod ?: null];
+                                    }
                                 }
                                 // note: using storage copy ensures the photos loop picks it up consistently across environments
                             }
