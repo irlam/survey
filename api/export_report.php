@@ -124,6 +124,9 @@ SVG;
             $pin = new Imagick();
             try {
                 $pin->readImageBlob($svg);
+                // ensure PNG has alpha preserved
+                $pin->setImageBackgroundColor(new ImagickPixel('transparent'));
+                if (defined('Imagick::ALPHACHANNEL_SET')) $pin->setImageAlphaChannel(Imagick::ALPHACHANNEL_SET);
                 $pin->setImageFormat('png');
             } catch (Exception $e) {
                 // If Imagick fails to rasterize SVG, fall back to existing raster PNG if available
@@ -567,24 +570,8 @@ foreach ($issue_list as $issue) {
                                 $render_debug[$issue['id'] ?? '']['skip_reason'] = 'invalid_image';
                                 if ($debug) $skippedPins[] = ['issue_id'=>$issue['id']??null,'img'=>$pinPathReal,'reason'=>'invalid_image'];
                             } else {
-                                // convert PNG (which may have alpha) to a JPG for reliable embedding in FPDF
-                                $jpgTmp = tempnam(sys_get_temp_dir(), 'srp') . '.jpg';
-                                $pngImg = @imagecreatefrompng($pinPathReal);
-                                if ($pngImg) {
-                                    // white background to flatten alpha
-                                    $w = imagesx($pngImg); $h = imagesy($pngImg);
-                                    $bg = imagecreatetruecolor($w, $h);
-                                    $white = imagecolorallocate($bg, 255,255,255);
-                                    imagefill($bg, 0,0, $white);
-                                    imagecopy($bg, $pngImg, 0,0,0,0, $w, $h);
-                                    imagejpeg($bg, $jpgTmp, 85);
-                                    imagedestroy($bg);
-                                    imagedestroy($pngImg);
-                                } else {
-                                    $jpgTmp = null; // conversion failed
-                                }
-
-                                $embedPath = $jpgTmp && is_file($jpgTmp) ? $jpgTmp : $pinPathReal;
+                                // Prefer PNG embed to preserve transparency (FPDF supports PNG).
+                                $embedPath = $pinPathReal;
                                 $tempFiles[] = $embedPath;
                                 // For diagnostics: when debug enabled, write a small PDF with just the pin image
                                 if ($debug && is_file($embedPath) && class_exists('\setasign\Fpdf\Fpdf')) {

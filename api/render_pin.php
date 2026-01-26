@@ -63,7 +63,7 @@ if ($fileRel) {
 if (!$planFile || !is_file($planFile)) { http_response_code(404); echo 'Plan file not found'; exit; }
 
 // attempt to render using Imagick first
-$thumbWidthPx = 200; // reasonable preview size
+$thumbWidthPx = 600; // larger preview size for better mobile zoom
 $pinPath = __DIR__ . '/../assets/pin.png';
 
 // helper: create a simple neon pin PNG using GD when no raster asset is available
@@ -113,6 +113,9 @@ if (class_exists('Imagick')) {
                    "</svg>";
             $pin = new Imagick();
             $pin->readImageBlob($svg);
+            // ensure PNG preserves transparency
+            $pin->setImageBackgroundColor(new ImagickPixel('transparent'));
+            if (defined('Imagick::ALPHACHANNEL_SET')) $pin->setImageAlphaChannel(Imagick::ALPHACHANNEL_SET);
             $pin->setImageFormat('png');
             $pinHeight = max(24, intval($h * 0.12));
             $pin->thumbnailImage(0, $pinHeight);
