@@ -53,10 +53,18 @@ try{
     if (-not $p.ok) { throw "list_photos failed" }
     Write-Host "Photos count: $($p.photos.Count)"
 
-    Write-Host "Requesting PDF report..."
-    $rpdf = Invoke-RestMethod -Uri "$BaseUrl/api/export_report.php" -Method Post -Body @{ plan_id = $PlanId } -ContentType 'application/x-www-form-urlencoded' -Headers $headers -ErrorAction Stop
+    Write-Host "Requesting PDF report (debug, assert vector pins)..."
+    $rpdf = Invoke-RestMethod -Uri "$BaseUrl/api/export_report.php" -Method Post -Body @{ plan_id = $PlanId; debug = 1 } -ContentType 'application/x-www-form-urlencoded' -Headers $headers -ErrorAction Stop
     if (-not $rpdf.ok) { throw "Export PDF failed: $($rpdf | ConvertTo-Json)" }
     Write-Host "PDF report generated: $($rpdf.filename)"
+    # Assert pins included and that at least one included_pin uses vector drawing (default)
+    if (-not $rpdf.pins_included -or $rpdf.pins_included -le 0) { throw "Export produced no pins (pins_included = $($rpdf.pins_included))" }
+    $foundVector = $false
+    if ($rpdf.included_pins) {
+        foreach ($p in $rpdf.included_pins) { if ($p.method -and $p.method -match 'vector') { $foundVector = $true; break } }
+    }
+    if (-not $foundVector) { throw "No vector pins reported in included_pins; expected default mode to be vector." }
+    Write-Host "Vector pin presence asserted (pins_included=$($rpdf.pins_included))." 
 
     Write-Host "Requesting CSV report..."
     $rcsv = Invoke-RestMethod -Uri "$BaseUrl/api/export_report.php" -Method Post -Body @{ plan_id = $PlanId; format='csv' } -ContentType 'application/x-www-form-urlencoded' -Headers $headers -ErrorAction Stop
