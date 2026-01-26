@@ -745,7 +745,7 @@ foreach ($issue_list as $issue) {
                     $pdf->Image($tmpThumb, $x2, $yTop, $thumbWidthMM, 0);
                     if ($pin_mode === 'vector') {
                         // Draw vector pin centered at normalized coords on the placed thumbnail
-                        $pinWidthMM = min(14, max(8, $thumbWidthMM * 0.18));
+                        $pinWidthMM = min(10, max(6, $thumbWidthMM * 0.12));
                         $pinX = $x2 + ($issue['x_norm'] ?? 0.5) * $thumbWidthMM - ($pinWidthMM / 2);
                         $pinY = $yTop + ($issue['y_norm'] ?? 0.5) * $thumbHeightMM - ($pinWidthMM * 0.9);
                         $pdf->DrawPinAt($pinX, $pinY, $pinWidthMM, ($issue['id'] ?? null));
@@ -758,6 +758,7 @@ foreach ($issue_list as $issue) {
                         if ($pinImg) {
                             $pinPathReal = $pinImg['tmp'] ?? null;
                             if ($pinPathReal && is_file($pinPathReal)) {
+                                // place composite scaled to thumbnail width
                                 $pdf->Image($pinPathReal, $x2, $yTop, $thumbWidthMM, 0);
                                 $pdf->Ln($thumbHeightMM + 4);
                                 $pins_included_count++;
@@ -848,7 +849,7 @@ foreach ($issue_list as $issue) {
                             $thumbHeightMM = $thumbWidthMM * ($h_px / $w_px);
                             $x2 = $pdf->GetX(); $yTop = $pdf->GetY();
                             $pdf->Image($tmpThumb, $x2, $yTop, $thumbWidthMM, 0);
-                            $pinWidthMM = min(14, max(8, $thumbWidthMM * 0.18));
+                            $pinWidthMM = min(10, max(6, $thumbWidthMM * 0.12));
                             $pinX = $x2 + ($issue['x_norm'] ?? 0.5) * $thumbWidthMM - ($pinWidthMM / 2);
                             $pinY = $yTop + ($issue['y_norm'] ?? 0.5) * $thumbHeightMM - ($pinWidthMM * 0.9);
                             $pdf->DrawPinAt($pinX, $pinY, $pinWidthMM, ($issue['id'] ?? null));
@@ -986,7 +987,7 @@ foreach ($issue_list as $issue) {
                                     if ($pin_mode === 'raster') {
                                         // fallback: embed directly if copy fails
                                         $x2 = $pdf->GetX();
-                                        $pdf->Image($prepareEmbed, $x2, null, 60, 0);
+                                        $pdf->Image($prepareEmbed, $x2, null, 30, 0);
                                         $pdf->Ln(4);
                                         $render_debug[$issue['id'] ?? '']['embedded'] = true;
                                         $pins_included_count++;
@@ -994,7 +995,7 @@ foreach ($issue_list as $issue) {
                                     } else {
                                         // fallback: draw vector pin directly (guaranteed transparent vector)
                                         $x2 = $pdf->GetX();
-                                        $pdf->DrawPinAt($x2, $pdf->GetY(), 60, ($issue['id'] ?? null));
+                                        $pdf->DrawPinAt($x2, $pdf->GetY(), 30, ($issue['id'] ?? null));
                                         $pdf->Ln(4);
                                         $render_debug[$issue['id'] ?? '']['embedded'] = true;
                                         $pins_included_count++;
