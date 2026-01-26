@@ -1,5 +1,9 @@
 <?php
 
+// Start output buffering to capture any unexpected HTML or warnings
+if (function_exists('ob_start') && ob_get_level() === 0) {
+  @ob_start();
+}
 function require_method(string $method): void {
   if (($_SERVER['REQUEST_METHOD'] ?? '') !== $method) {
     error_response('Method not allowed', 405);
