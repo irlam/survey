@@ -2,15 +2,39 @@
 require_once __DIR__ . '/config-util.php';
 require_once __DIR__ . '/db.php';
 if (php_sapi_name() !== 'cli') {
-    require_method('POST');
-    $plan_id = safe_int($_POST['plan_id'] ?? null);
-    if (!$plan_id) error_response('Missing plan_id', 400);
-    $pdo = db();
-    // Fetch plan data to include in reports
-    $stmtPlan = $pdo->prepare('SELECT * FROM plans WHERE id=?');
-    $stmtPlan->execute([$plan_id]);
-    $plan = $stmtPlan->fetch();
-    $plan_name = $plan['name'] ?? ('Plan ' . $plan_id);
+    // Convert PHP warnings/notices into exceptions so we can return JSON errors
+    set_error_handler(function($severity, $message, $file, $line) {
+        throw new ErrorException($message, 0, $severity, $file, $line);
+    });
+    // If a fatal error occurs, attempt to return JSON describing it (best-effort)
+    register_shutdown_function(function() {
+        $err = error_get_last();
+        if ($err && in_array($err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+            error_log('export_report shutdown fatal: ' . print_r($err, true));
+            if (!headers_sent()) {
+                http_response_code(500);
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['ok' => false, 'error' => 'Internal server error (fatal)', '_fatal' => $err]);
+            }
+        }
+    });
+
+    try {
+        require_method('POST');
+        $plan_id = safe_int($_POST['plan_id'] ?? null);
+        if (!$plan_id) error_response('Missing plan_id', 400);
+        $pdo = db();
+        // Fetch plan data to include in reports
+        $stmtPlan = $pdo->prepare('SELECT * FROM plans WHERE id=?');
+        $stmtPlan->execute([$plan_id]);
+        $plan = $stmtPlan->fetch();
+        $plan_name = $plan['name'] ?? ('Plan ' . $plan_id);
+    } catch (Throwable $e) {
+        error_log('export_report exception during request init: ' . $e->getMessage() . '\n' . $e->getTraceAsString());
+        // Expose exception details only when debug explicitly requested
+        $extra = !empty($_REQUEST['debug']) ? ['exception' => ['message' => $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine(), 'trace' => $e->getTraceAsString()]] : [];
+        error_response('Internal server error', 500, $extra);
+    }
 } else {
     // Included from CLI for testing: provide safe defaults so functions can be exercised
     $plan_id = null;
