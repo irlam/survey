@@ -482,12 +482,12 @@ if (class_exists('\setasign\Fpdf\Fpdf')) {
         public function DrawPinAt($x, $y, $width, $label = null) {
             // Improved teardrop pin: round head + smooth curved tail; tuned proportions to avoid vertical stretching
             $w = $width;
-            // head radius bigger so the head is dominant and number fits
-            $headR = max(4, $w * 0.40);
-            // shorter overall height so pin isn't elongated
-            $totalH = max($w * 0.9, $headR * 2 + 6);
+            // reduce minimum head radius so pins can scale down for small thumbnails
+            $headR = max(2, $w * 0.32);
+            // reduce overall height proportionally
+            $totalH = max($w * 0.8, $headR * 2 + 4);
             $cx = $x + ($w/2);
-            $tailTopY = $y + ($headR * 0.8);
+            $tailTopY = $y + ($headR * 0.72);
             $tipY = $y + $totalH;
 
             // colors
@@ -524,7 +524,7 @@ if (class_exists('\setasign\Fpdf\Fpdf')) {
 
             // label text (centered)
             if ($label !== null && $label !== '') {
-                $fontPt = max(8, min(14, (int)round($headR * 0.9)));
+                $fontPt = max(6, min(10, (int)round($headR * 0.8)));
                 $this->SetFont('Arial','B',$fontPt);
                 $this->SetTextColor(0,0,0);
                 $txtW = $this->GetStringWidth((string)$label);
@@ -561,8 +561,8 @@ if (class_exists('\setasign\Fpdf\Fpdf')) {
         }
         public function DrawPinAt($x, $y, $width, $label = null) {
             // Improved teardrop pin (global FPDF fallback variant)
-            $w = $width; $headR = max(4, $w * 0.40); $totalH = max($w * 0.9, $headR * 2 + 6);
-            $cx = $x + ($w/2); $tailTopY = $y + ($headR * 0.8); $tipY = $y + $totalH;
+            $w = $width; $headR = max(2, $w * 0.32); $totalH = max($w * 0.8, $headR * 2 + 4);
+            $cx = $x + ($w/2); $tailTopY = $y + ($headR * 0.72); $tipY = $y + $totalH;
             $this->SetDrawColor(6,56,56); $this->SetFillColor(0,255,160);
             $k = $this->k; $H = $this->h;
             $x1 = $cx - ($headR * 0.45); $y1 = $tailTopY; $x2 = $cx + ($headR * 0.45); $y2 = $tailTopY;
@@ -579,7 +579,7 @@ if (class_exists('\setasign\Fpdf\Fpdf')) {
             $this->Ellipse($cx, $y + ($headR * 0.9), $headR, $headR, 'F');
             $this->SetFillColor(255,255,255); $this->Ellipse($cx, $y + ($headR * 0.9) - 0.5, max(1, $headR * 0.45), max(1, $headR * 0.45), 'F');
             if ($label !== null && $label !== '') {
-                $fontPt = max(8, min(14, (int)round($headR * 0.9)));
+                $fontPt = max(6, min(10, (int)round($headR * 0.8)));
                 $this->SetFont('Arial','B',$fontPt);
                 $this->SetTextColor(0,0,0);
                 $txtW = $this->GetStringWidth((string)$label);
@@ -738,14 +738,14 @@ foreach ($issue_list as $issue) {
                 $w_px = $imgInfo ? $imgInfo[0] : ($planThumb['w'] ?? null);
                 $h_px = $imgInfo ? $imgInfo[1] : ($planThumb['h'] ?? null);
                 if ($w_px && $h_px) {
-                    $thumbWidthMM = 25; // small plan preview width (reduced by 50%)
+                    $thumbWidthMM = 12; // smaller plan preview width
                     $thumbHeightMM = $thumbWidthMM * ($h_px / $w_px);
                     $x2 = $pdf->GetX();
                     $yTop = $pdf->GetY();
                     $pdf->Image($tmpThumb, $x2, $yTop, $thumbWidthMM, 0);
                     if ($pin_mode === 'vector') {
                         // Draw vector pin centered at normalized coords on the placed thumbnail
-                        $pinWidthMM = min(10, max(6, $thumbWidthMM * 0.12));
+                        $pinWidthMM = min(8, max(4, $thumbWidthMM * 0.12));
                         $pinX = $x2 + ($issue['x_norm'] ?? 0.5) * $thumbWidthMM - ($pinWidthMM / 2);
                         $pinY = $yTop + ($issue['y_norm'] ?? 0.5) * $thumbHeightMM - ($pinWidthMM * 0.9);
                         $pdf->DrawPinAt($pinX, $pinY, $pinWidthMM, ($issue['id'] ?? null));
@@ -769,8 +769,8 @@ foreach ($issue_list as $issue) {
                         }
                     }
                 } else {
-                    // Unknown pixel dims; place a fallback-sized image (reduced)
-                    $x2 = $pdf->GetX(); $yTop = $pdf->GetY(); $pdf->Image($tmpThumb, $x2, $yTop, 25, 0); $pdf->Ln(28);
+                    // Unknown pixel dims; place a smaller fallback-sized image
+                    $x2 = $pdf->GetX(); $yTop = $pdf->GetY(); $pdf->Image($tmpThumb, $x2, $yTop, 12, 0); $pdf->Ln(20);
                 }
             } else {
                 // fallback: try raster pin renderer and embed directly as before
@@ -858,8 +858,8 @@ foreach ($issue_list as $issue) {
                             $pins_included_count++;
                             if ($debug) $includedPins[] = ['issue_id'=>$issue['id']??null,'method'=>'vector_draw','plan_thumb'=>$tmpThumb];
                         } else {
-                            // fallback placement if dims unknown (reduced)
-                            $x2 = $pdf->GetX(); $yTop = $pdf->GetY(); $pdf->Image($tmpThumb, $x2, $yTop, 30, 0); $pdf->DrawPinAt($x2 + 15, $yTop + 15, 8, ($issue['id'] ?? null)); $pdf->Ln(34);
+                            // fallback placement if dims unknown (smaller)
+                            $x2 = $pdf->GetX(); $yTop = $pdf->GetY(); $pdf->Image($tmpThumb, $x2, $yTop, 15, 0); $pdf->DrawPinAt($x2 + 8, $yTop + 8, 4, ($issue['id'] ?? null)); $pdf->Ln(22);
                         }
                     } else {
                         // Raster path or planThumb absent: render a pin-composited PNG and proceed with existing copy-to-storage flow
@@ -987,7 +987,7 @@ foreach ($issue_list as $issue) {
                                     if ($pin_mode === 'raster') {
                                         // fallback: embed directly if copy fails
                                         $x2 = $pdf->GetX();
-                                        $pdf->Image($prepareEmbed, $x2, null, 30, 0);
+                                        $pdf->Image($prepareEmbed, $x2, null, 12, 0);
                                         $pdf->Ln(4);
                                         $render_debug[$issue['id'] ?? '']['embedded'] = true;
                                         $pins_included_count++;
@@ -995,7 +995,7 @@ foreach ($issue_list as $issue) {
                                     } else {
                                         // fallback: draw vector pin directly (guaranteed transparent vector)
                                         $x2 = $pdf->GetX();
-                                        $pdf->DrawPinAt($x2, $pdf->GetY(), 30, ($issue['id'] ?? null));
+                                        $pdf->DrawPinAt($x2, $pdf->GetY(), 12, ($issue['id'] ?? null));
                                         $pdf->Ln(4);
                                         $render_debug[$issue['id'] ?? '']['embedded'] = true;
                                         $pins_included_count++;
