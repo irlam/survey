@@ -627,7 +627,14 @@ foreach ($issue_list as $issue) {
                     if ($pin_mode === 'vector') {
                         $x2 = $pdf->GetX();
                         $pdf->DrawPinAt($x2, $pdf->GetY(), 60, ($issue['id'] ?? null));
-                        $pdf->Ln(4);
+                        $pdf->Ln(2);
+                        // Also embed a small plan thumbnail showing the pin location so the exported report includes a visual plan reference
+                        try {
+                            $pdf->Image($pinPathReal, $pdf->GetX(), null, 50, 0);
+                            $pdf->Ln(4);
+                        } catch (Exception $_) {
+                            // if embedding fails, ignore and continue — vector pin still present
+                        }
                         $pins_included_count++;
                         if ($debug) $includedPins[] = ['issue_id'=>$issue['id']??null,'method'=>'vector_draw','img'=>$pinPathReal,'original_method'=>$pinMethod];
                     } else {
