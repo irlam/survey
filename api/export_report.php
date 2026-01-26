@@ -322,9 +322,144 @@ if (!file_exists(__DIR__ . '/../vendor/autoload.php')) {
 $requireAutoload = __DIR__ . '/../vendor/autoload.php';
 require_once $requireAutoload;
 if (class_exists('\setasign\Fpdf\Fpdf')) {
-    $pdf = new \setasign\Fpdf\Fpdf();
+    // Subclass FPDF to add vector pin drawing helpers (ellipse + simple teardrop tail)
+    class PDF_With_Pins extends \setasign\Fpdf\Fpdf {
+        // output a cubic bezier arc (helper for ellipse)
+        protected function _Arc($x1, $y1, $x2, $y2, $x3, $y3) {
+            $this->_out(sprintf('%.2F %.2F %.2F %.2F %.2F %.2F c', $x1*$this->k, ($this->h-$y1)*$this->k, $x2*$this->k, ($this->h-$y2)*$this->k, $x3*$this->k, ($this->h-$y3)*$this->k));
+        }
+        // draw an ellipse centered at x,y with radii rx,ry (style: 'F' fill, 'S' stroke, 'B' both)
+        public function Ellipse($x, $y, $rx, $ry, $style='F') {
+            $lx = 4/3 * (sqrt(2) - 1);
+            $k = $this->k; $h = $this->h;
+            $this->_out('q');
+            // set current fill/draw color operators (already stored by SetFillColor/SetDrawColor)
+            $this->_out($this->FillColor);
+            $this->_out($this->DrawColor);
+            // start path at rightmost point
+            $this->_out(sprintf('%.2F %.2F m', ($x+$rx)*$k, ($h-$y)*$k));
+            $this->_Arc($x+$rx, $y-$ry*$lx, $x+$rx*$lx, $y-$ry, $x, $y-$ry);
+            $this->_Arc($x-$rx*$lx, $y-$ry, $x-$rx, $y-$ry*$lx, $x-$rx, $y);
+            $this->_Arc($x-$rx, $y+$ry*$lx, $x-$rx*$lx, $y+$ry, $x, $y+$ry);
+            $this->_Arc($x+$rx*$lx, $y+$ry, $x+$rx, $y+$ry*$lx, $x+$rx, $y);
+            if ($style === 'F') $this->_out('f');
+            elseif ($style === 'FD' || $style === 'DF') $this->_out('B');
+            else $this->_out('S');
+            $this->_out('Q');
+        }
+        // Draw a simple vector pin at top-left origin x,y with given width (mm). Label is optional.
+        public function DrawPinAt($x, $y, $width, $label = null) {
+            // Improved teardrop pin: round head + smooth curved tail; tuned proportions to avoid vertical stretching
+            $w = $width;
+            // head radius bigger so the head is dominant and number fits
+            $headR = max(4, $w * 0.40);
+            // shorter overall height so pin isn't elongated
+            $totalH = max($w * 0.9, $headR * 2 + 6);
+            $cx = $x + ($w/2);
+            $tailTopY = $y + ($headR * 0.8);
+            $tipY = $y + $totalH;
+
+            // colors
+            $this->SetDrawColor(6,56,56);
+            $this->SetFillColor(0,255,160);
+
+            // Draw smooth tail using two cubic Bezier segments for a teardrop shape
+            $k = $this->k; $H = $this->h;
+            $x1 = $cx - ($headR * 0.45); $y1 = $tailTopY;
+            $x2 = $cx + ($headR * 0.45); $y2 = $tailTopY;
+            $ctrl1x = $cx - ($headR * 0.8); $ctrl1y = ($tailTopY + $tipY) / 2;
+            $ctrl2x = $cx - ($headR * 0.12); $ctrl2y = $tipY - ($headR * 0.12);
+            $ctrl3x = $cx + ($headR * 0.12); $ctrl3y = $tipY - ($headR * 0.12);
+            $ctrl4x = $cx + ($headR * 0.8); $ctrl4y = ($tailTopY + $tipY) / 2;
+
+            $this->_out('q');
+            $this->_out($this->FillColor);
+            $this->_out($this->DrawColor);
+            $this->_out(sprintf('%.2F %.2F m', $x1*$k, ($H-$y1)*$k));
+            $this->_out(sprintf('%.2F %.2F %.2F %.2F %.2F %.2F c', $ctrl1x*$k, ($H-$ctrl1y)*$k, $ctrl2x*$k, ($H-$ctrl2y)*$k, $cx*$k, ($H-$tipY)*$k));
+            $this->_out(sprintf('%.2F %.2F %.2F %.2F %.2F %.2F c', $ctrl3x*$k, ($H-$ctrl3y)*$k, $ctrl4x*$k, ($H-$ctrl4y)*$k, $x2*$k, ($H-$y2)*$k));
+            $this->_out('h');
+            $this->_out('f');
+            $this->_out('Q');
+
+            // head circle
+            $this->SetFillColor(57,255,20);
+            $this->SetDrawColor(6,56,56);
+            $this->Ellipse($cx, $y + ($headR * 0.9), $headR, $headR, 'F');
+
+            // inner glossy circle
+            $this->SetFillColor(255,255,255);
+            $this->Ellipse($cx, $y + ($headR * 0.9) - 0.5, max(1, $headR * 0.45), max(1, $headR * 0.45), 'F');
+
+            // label text (centered)
+            if ($label !== null && $label !== '') {
+                $fontPt = max(8, min(14, (int)round($headR * 0.9)));
+                $this->SetFont('Arial','B',$fontPt);
+                $this->SetTextColor(0,0,0);
+                $txtW = $this->GetStringWidth((string)$label);
+                // center horizontally; vertical adjustment so text sits centrally in the head circle
+                $tx = $cx - ($txtW / 2);
+                $ty = $y + ($headR * 0.9) - ($fontPt * 0.35);
+                $this->SetXY($tx, $ty);
+                $this->Cell($txtW, $fontPt/2 + 0.5, (string)$label, 0, 0, 'C');
+            }
+        }
+    }
+    $pdf = new PDF_With_Pins();
 } elseif (class_exists('FPDF')) {
-    $pdf = new \FPDF();
+    // Fallback for non-namespaced FPDF
+    class PDF_With_Pins_Global extends \FPDF {
+        protected function _Arc($x1, $y1, $x2, $y2, $x3, $y3) {
+            $this->_out(sprintf('%.2F %.2F %.2F %.2F %.2F %.2F c', $x1*$this->k, ($this->h-$y1)*$this->k, $x2*$this->k, ($this->h-$y2)*$this->k, $x3*$this->k, ($this->h-$y3)*$this->k));
+        }
+        public function Ellipse($x, $y, $rx, $ry, $style='F') {
+            $lx = 4/3 * (sqrt(2) - 1);
+            $k = $this->k; $h = $this->h;
+            $this->_out('q');
+            $this->_out($this->FillColor);
+            $this->_out($this->DrawColor);
+            $this->_out(sprintf('%.2F %.2F m', ($x+$rx)*$k, ($h-$y)*$k));
+            $this->_Arc($x+$rx, $y-$ry*$lx, $x+$rx*$lx, $y-$ry, $x, $y-$ry);
+            $this->_Arc($x-$rx*$lx, $y-$ry, $x-$rx, $y-$ry*$lx, $x-$rx, $y);
+            $this->_Arc($x-$rx, $y+$ry*$lx, $x-$rx*$lx, $y+$ry, $x, $y+$ry);
+            $this->_Arc($x+$rx*$lx, $y+$ry, $x+$rx, $y+$ry*$lx, $x+$rx, $y);
+            if ($style === 'F') $this->_out('f');
+            elseif ($style === 'FD' || $style === 'DF') $this->_out('B');
+            else $this->_out('S');
+            $this->_out('Q');
+        }
+        public function DrawPinAt($x, $y, $width, $label = null) {
+            // Improved teardrop pin (global FPDF fallback variant)
+            $w = $width; $headR = max(4, $w * 0.40); $totalH = max($w * 0.9, $headR * 2 + 6);
+            $cx = $x + ($w/2); $tailTopY = $y + ($headR * 0.8); $tipY = $y + $totalH;
+            $this->SetDrawColor(6,56,56); $this->SetFillColor(0,255,160);
+            $k = $this->k; $H = $this->h;
+            $x1 = $cx - ($headR * 0.45); $y1 = $tailTopY; $x2 = $cx + ($headR * 0.45); $y2 = $tailTopY;
+            $ctrl1x = $cx - ($headR * 0.8); $ctrl1y = ($tailTopY + $tipY) / 2;
+            $ctrl2x = $cx - ($headR * 0.12); $ctrl2y = $tipY - ($headR * 0.12);
+            $ctrl3x = $cx + ($headR * 0.12); $ctrl3y = $tipY - ($headR * 0.12);
+            $ctrl4x = $cx + ($headR * 0.8); $ctrl4y = ($tailTopY + $tipY) / 2;
+            $this->_out('q'); $this->_out($this->FillColor); $this->_out($this->DrawColor);
+            $this->_out(sprintf('%.2F %.2F m', $x1*$k, ($H-$y1)*$k));
+            $this->_out(sprintf('%.2F %.2F %.2F %.2F %.2F %.2F c', $ctrl1x*$k, ($H-$ctrl1y)*$k, $ctrl2x*$k, ($H-$ctrl2y)*$k, $cx*$k, ($H-$tipY)*$k));
+            $this->_out(sprintf('%.2F %.2F %.2F %.2F %.2F %.2F c', $ctrl3x*$k, ($H-$ctrl3y)*$k, $ctrl4x*$k, ($H-$ctrl4y)*$k, $x2*$k, ($H-$y2)*$k));
+            $this->_out('h'); $this->_out('f'); $this->_out('Q');
+            $this->SetFillColor(57,255,20); $this->SetDrawColor(6,56,56);
+            $this->Ellipse($cx, $y + ($headR * 0.9), $headR, $headR, 'F');
+            $this->SetFillColor(255,255,255); $this->Ellipse($cx, $y + ($headR * 0.9) - 0.5, max(1, $headR * 0.45), max(1, $headR * 0.45), 'F');
+            if ($label !== null && $label !== '') {
+                $fontPt = max(8, min(14, (int)round($headR * 0.9)));
+                $this->SetFont('Arial','B',$fontPt);
+                $this->SetTextColor(0,0,0);
+                $txtW = $this->GetStringWidth((string)$label);
+                $tx = $cx - ($txtW / 2);
+                $ty = $y + ($headR * 0.9) - ($fontPt * 0.35);
+                $this->SetXY($tx, $ty);
+                $this->Cell($txtW, $fontPt/2 + 0.5, (string)$label, 0, 0, 'C');
+            }
+        }
+    }
+    $pdf = new PDF_With_Pins_Global();
 } else {
     error_log('export_report: FPDI classes missing; declared classes count=' . count(get_declared_classes()));
     $extra = $debug ? ['exports'=>get_exports_listing()] : [];
@@ -478,8 +613,11 @@ foreach ($issue_list as $issue) {
                 $pinMethod = is_array($pinImg) ? ($pinImg['method'] ?? null) : null;
                 if ($pinPathReal && is_file($pinPathReal) && filesize($pinPathReal)>0 && @getimagesize($pinPathReal)) {
                     $tempFiles[] = $pinPathReal;
-                    $x2 = $pdf->GetX(); $pdf->Image($pinPathReal, $x2, null, 60, 0); $pdf->Ln(4);
-                    if ($debug) $includedPins[] = ['issue_id'=>$issue['id']??null,'img'=>$pinPathReal,'method'=>$pinMethod];
+                    $x2 = $pdf->GetX();
+                    // Draw the pin as a vector so background stays transparent and quality is preserved
+                    $pdf->DrawPinAt($x2, $pdf->GetY(), 60, ($issue['id'] ?? null));
+                    $pdf->Ln(4);
+                    if ($debug) $includedPins[] = ['issue_id'=>$issue['id']??null,'method'=>'vector_draw','img'=>$pinPathReal,'original_method'=>$pinMethod];
                 } else { if ($debug) $skippedPins[] = ['issue_id'=>$issue['id']??null,'img'=>$pinPathReal,'reason'=>'invalid_or_missing']; }
             }
         }
@@ -591,25 +729,49 @@ foreach ($issue_list as $issue) {
                                 $ext = strtolower(pathinfo($embedPath, PATHINFO_EXTENSION)) ?: 'png';
                                 $bn2 = 'pin_export_' . ($plan_id ?? 'p') . '_' . ($issue['id'] ?? 'i') . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
                                 $dst2 = storage_dir('tmp/' . $bn2);
-                                if (@copy($embedPath, $dst2)) {
+                                // If embed is a PNG, re-encode with GD to ensure proper alpha channel is preserved.
+                                $prepareEmbed = $embedPath;
+                                $ext = strtolower(pathinfo($embedPath, PATHINFO_EXTENSION));
+                                if ($ext === 'png' && function_exists('imagecreatefrompng')) {
+                                    try {
+                                        $tmpAlpha = tempnam(sys_get_temp_dir(), 'pinalpha_') . '.png';
+                                        $srcIm = @imagecreatefrompng($embedPath);
+                                        if ($srcIm) {
+                                            $w0 = imagesx($srcIm); $h0 = imagesy($srcIm);
+                                            $outIm = imagecreatetruecolor($w0, $h0);
+                                            imagealphablending($outIm, false);
+                                            imagesavealpha($outIm, true);
+                                            $transparent = imagecolorallocatealpha($outIm, 0, 0, 0, 127);
+                                            imagefilledrectangle($outIm, 0, 0, $w0, $h0, $transparent);
+                                            imagecopyresampled($outIm, $srcIm, 0, 0, 0, 0, $w0, $h0, $w0, $h0);
+                                            imagepng($outIm, $tmpAlpha);
+                                            imagedestroy($outIm);
+                                            imagedestroy($srcIm);
+                                            $prepareEmbed = $tmpAlpha;
+                                            $tempFiles[] = $tmpAlpha; // ensure cleanup later
+                                        }
+                                    } catch (Exception $_) {
+                                        // ignore - fall back to original embed
+                                        $prepareEmbed = $embedPath;
+                                    }
+                                }
+                                if (@copy($prepareEmbed, $dst2)) {
                                     @chmod($dst2, 0644);
                                     $render_debug[$issue['id'] ?? '']['pin_tmp'] = $dst2;
                                     $pinPhotoRel = 'tmp/' . $bn2;
-                                    // ensure the generated pin is included in the photos list for this issue
-                                    if (isset($ips) && is_array($ips)) {
-                                        array_unshift($ips, ['file_path' => $pinPhotoRel]);
-                                    }
+                                    // Note: we no longer inject generated pin PNGs into the photos list —
+                                    // pins are rendered as vectors directly in the PDF to guarantee transparency and crispness.
                                     // count it as included so debug reflects it
                                     $pins_included_count++;
                                     if ($debug) $includedPins[] = ['issue_id'=>$issue['id']??null,'img'=>$dst2,'method'=>$pinMethod ?: 'copied_to_storage'];
                                 } else {
-                                    // fallback: embed directly if copy fails
+                                    // fallback: draw vector pin directly (guaranteed transparent vector)
                                     $x2 = $pdf->GetX();
-                                    $pdf->Image($embedPath, $x2, null, 60, 0);
+                                    $pdf->DrawPinAt($x2, $pdf->GetY(), 60, ($issue['id'] ?? null));
                                     $pdf->Ln(4);
                                     $render_debug[$issue['id'] ?? '']['embedded'] = true;
                                     $pins_included_count++;
-                                    if ($debug) $includedPins[] = ['issue_id'=>$issue['id']??null,'img'=>$embedPath,'method'=>$pinMethod ?: 'converted_or_original_embedded'];
+                                    if ($debug) $includedPins[] = ['issue_id'=>$issue['id']??null,'method'=>'vector_draw','fallback_embed'=>$prepareEmbed,'orig_method'=>$pinMethod ?: null];
                                 }
                                 // note: using storage copy ensures the photos loop picks it up consistently across environments
                             }
