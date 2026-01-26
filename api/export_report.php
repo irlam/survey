@@ -738,14 +738,14 @@ foreach ($issue_list as $issue) {
                 $w_px = $imgInfo ? $imgInfo[0] : ($planThumb['w'] ?? null);
                 $h_px = $imgInfo ? $imgInfo[1] : ($planThumb['h'] ?? null);
                 if ($w_px && $h_px) {
-                    $thumbWidthMM = 12; // smaller plan preview width
+                    $thumbWidthMM = 50; // preview thumbnail width (doubled)
                     $thumbHeightMM = $thumbWidthMM * ($h_px / $w_px);
                     $x2 = $pdf->GetX();
                     $yTop = $pdf->GetY();
                     $pdf->Image($tmpThumb, $x2, $yTop, $thumbWidthMM, 0);
                     if ($pin_mode === 'vector') {
                         // Draw vector pin centered at normalized coords on the placed thumbnail
-                        $pinWidthMM = min(8, max(4, $thumbWidthMM * 0.12));
+                        $pinWidthMM = min(10, max(6, $thumbWidthMM * 0.12));
                         $pinX = $x2 + ($issue['x_norm'] ?? 0.5) * $thumbWidthMM - ($pinWidthMM / 2);
                         $pinY = $yTop + ($issue['y_norm'] ?? 0.5) * $thumbHeightMM - ($pinWidthMM * 0.9);
                         $pdf->DrawPinAt($pinX, $pinY, $pinWidthMM, ($issue['id'] ?? null));
@@ -769,8 +769,8 @@ foreach ($issue_list as $issue) {
                         }
                     }
                 } else {
-                    // Unknown pixel dims; place a smaller fallback-sized image
-                    $x2 = $pdf->GetX(); $yTop = $pdf->GetY(); $pdf->Image($tmpThumb, $x2, $yTop, 12, 0); $pdf->Ln(20);
+                    // Unknown pixel dims; place a fallback-sized image (doubled)
+                    $x2 = $pdf->GetX(); $yTop = $pdf->GetY(); $pdf->Image($tmpThumb, $x2, $yTop, 50, 0); $pdf->Ln(56);
                 }
             } else {
                 // fallback: try raster pin renderer and embed directly as before
@@ -845,7 +845,7 @@ foreach ($issue_list as $issue) {
                         $w_px = $imgInfo ? $imgInfo[0] : ($planThumb['w'] ?? null);
                         $h_px = $imgInfo ? $imgInfo[1] : ($planThumb['h'] ?? null);
                         if ($w_px && $h_px) {
-                            $thumbWidthMM = 30; // reduced by 50%
+                            $thumbWidthMM = 60; // photo thumbnail width (doubled)
                             $thumbHeightMM = $thumbWidthMM * ($h_px / $w_px);
                             $x2 = $pdf->GetX(); $yTop = $pdf->GetY();
                             $pdf->Image($tmpThumb, $x2, $yTop, $thumbWidthMM, 0);
@@ -858,8 +858,8 @@ foreach ($issue_list as $issue) {
                             $pins_included_count++;
                             if ($debug) $includedPins[] = ['issue_id'=>$issue['id']??null,'method'=>'vector_draw','plan_thumb'=>$tmpThumb];
                         } else {
-                            // fallback placement if dims unknown (smaller)
-                            $x2 = $pdf->GetX(); $yTop = $pdf->GetY(); $pdf->Image($tmpThumb, $x2, $yTop, 15, 0); $pdf->DrawPinAt($x2 + 8, $yTop + 8, 4, ($issue['id'] ?? null)); $pdf->Ln(22);
+                            // fallback placement if dims unknown (restored)
+                            $x2 = $pdf->GetX(); $yTop = $pdf->GetY(); $pdf->Image($tmpThumb, $x2, $yTop, 60, 0); $pdf->DrawPinAt($x2 + 30, $yTop + 30, 12, ($issue['id'] ?? null)); $pdf->Ln(68);
                         }
                     } else {
                         // Raster path or planThumb absent: render a pin-composited PNG and proceed with existing copy-to-storage flow
