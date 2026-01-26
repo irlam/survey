@@ -7,6 +7,16 @@ function require_method(string $method): void {
 }
 
 function json_response(array $data, int $status = 200): void {
+  // If unexpected output (PHP warnings/html) was emitted earlier, capture it when debug requested
+  $rawOutput = '';
+  if (function_exists('ob_get_level') && ob_get_level() > 0) {
+    $raw = @ob_get_clean();
+    if ($raw !== false && is_string($raw) && trim($raw) !== '') $rawOutput = $raw;
+  }
+  if ($rawOutput !== '' && !empty($_REQUEST['debug'])) {
+    $data['_raw_output'] = $rawOutput;
+  }
+
   http_response_code($status);
   header('Content-Type: application/json; charset=utf-8');
   echo json_encode($data, JSON_UNESCAPED_SLASHES);
