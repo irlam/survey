@@ -99,6 +99,7 @@
         <label style="display:flex;align-items:center;gap:6px;margin-left:8px;"> 
           <input type="checkbox" id="chkIncludePin" checked>
           <span style="font-size:13px;color:var(--muted);">Include pin thumbnail</span>
+          <button id="imgHelp" title="Checking server capability..." style="display:none;border:none;background:transparent;color:var(--muted);font-size:14px;padding:6px;">❔</button>
         </label>
         <div id="pdfReportOut" class="muted" style="margin-left:8px;flex:1"></div>
       </div>
@@ -114,6 +115,25 @@
   </script>
 
     <script src="/app/viewer.js?v=20260125_8"></script>
+  <script>
+    // Check server-side capabilities and show Imagick hint only when missing
+    (async ()=>{
+      try{
+        const res = await fetch('/api/diagnostics.php');
+        if (!res.ok) return;
+        const info = await res.json();
+        const btn = document.getElementById('imgHelp');
+        if (!btn) return;
+        if (info && info.imagick && !info.imagick.available) {
+          btn.style.display = 'inline-block';
+          btn.title = 'Pin thumbnails require Imagick on the server. Currently unavailable.';
+        } else {
+          // hide when available
+          btn.style.display = 'none';
+        }
+      }catch(e){ /* ignore network errors */ }
+    })();
+  </script>
   <script>
     // Fallback loader: if viewer.js failed (syntax error / truncated), try to fetch and load a fresh copy via src (browser parse)
     (function(){

@@ -90,4 +90,17 @@ try {
   $info['db'] = ['ok' => false, 'error' => $e->getMessage()];
 }
 
+// Imagick availability (server-side PHP Imagick extension)
+$info['imagick'] = ['available' => class_exists('Imagick')];
+if ($info['imagick']['available']) {
+  try {
+    $im = new Imagick();
+    $ver = (array)$im->getVersion();
+    $info['imagick']['version'] = $ver['versionString'] ?? null;
+  } catch (Throwable $e) {
+    $info['imagick']['available'] = false;
+    $info['imagick']['error'] = $e->getMessage();
+  }
+}
+
 json_response($info);
