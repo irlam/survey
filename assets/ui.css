@@ -469,3 +469,23 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
   .main{padding:14px}
   .pdfStage{height: calc(100vh - 210px);} 
 }
+
+/* Site footer shown on main page (neon, centered at bottom) */
+.siteFooter{
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 14px;
+  text-align: center;
+  z-index: 60;
+  pointer-events: none; /* non-interactive */
+  color: var(--neon);
+  font-weight: 900;
+  text-shadow: 0 0 10px rgba(0,255,231,.6), 0 0 28px rgba(0,255,231,.12);
+  font-size: 13px;
+  letter-spacing: .2px;
+}
+
+@media (max-width: 520px){
+  .siteFooter{ font-size:12px; bottom:10px; }
+}
