@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Issue Manager</title>
+  <link rel="stylesheet" href="/assets/ui.css?v=20260124_1">
+</head>
+<body>
+  <header class="topbar">
+    <button onclick="history.back()" class="iconBtn">←</button>
+    <div class="brand">Issue Manager</div>
+  </header>
+
+  <main style="padding:16px;">
+    <div class="card">
+      <h2>All issues</h2>
+      <div id="issuesList">Loading…</div>
+    </div>
+  </main>
+
+  <script>
+    async function loadIssues(){
+      const wrap = document.getElementById('issuesList');
+      wrap.innerHTML = 'Loading…';
+      const res = await fetch('/api/list_issues.php');
+      if (!res.ok) { wrap.innerHTML = 'Failed to load'; return; }
+      const data = await res.json();
+      if (!data.ok) { wrap.innerHTML = 'Failed: ' + (data.error || 'unknown'); return; }
+      if (!Array.isArray(data.issues) || data.issues.length === 0) { wrap.innerHTML = '<div>No issues found</div>'; return; }
+      const table = document.createElement('table'); table.style.width='100%'; table.style.borderCollapse='collapse';
+      table.innerHTML = `<thead><tr><th>ID</th><th>Plan</th><th>Page</th><th>Title</th><th>Coords</th><th>Photos</th><th>Actions</th></tr></thead>`;
+      const tbody = document.createElement('tbody');
+      for(const iss of data.issues){
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${iss.id||''}</td><td>${iss.plan_name||iss.plan_id||''}</td><td>${iss.page||''}</td><td>${iss.title||''}</td><td>${iss.x_norm!==null && iss.y_norm!==null? (Number(iss.x_norm).toFixed(2)+', '+Number(iss.y_norm).toFixed(2)) : ''}</td><td id="ph-${iss.id}">Loading…</td><td><button data-id="${iss.id}" data-plan="${iss.plan_id}" class="delIssue">Delete</button></td>`;
+        tbody.appendChild(tr);
+      }
+      table.appendChild(tbody); wrap.innerHTML = ''; wrap.appendChild(table);
+
+      // fetch photo counts per issue
+      for(const iss of data.issues){
+        (async ()=>{
+          const phWrap = document.getElementById('ph-' + iss.id);
+          try{
+            const r = await fetch(`/api/list_photos.php?plan_id=${encodeURIComponent(iss.plan_id)}&issue_id=${encodeURIComponent(iss.id)}`);
+            const j = await r.json();
+            if (j && j.ok && Array.isArray(j.photos)) {
+              phWrap.textContent = j.photos.length + ' photo(s)';
+            } else phWrap.textContent = '0';
+          }catch(e){ phWrap.textContent = '0'; }
+        })();
+      }
+
+      Array.from(document.querySelectorAll('.delIssue')).forEach(b=> b.onclick = async (ev)=>{
+        const id = Number(ev.target.dataset.id); const plan = Number(ev.target.dataset.plan);
+        if (!confirm('Delete issue ' + id + ' and all associated photos?')) return;
+        try{
+          const resp = await fetch('/api/delete_issue_with_photos.php', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id, plan_id: plan })});
+          const resj = await resp.json();
+          if (!resp.ok || !resj.ok) { alert('Delete failed: ' + (resj.error||'unknown')); return; }
+          alert('Deleted — files moved to trash: ' + (resj.trash||'')); loadIssues();
+        }catch(e){ alert('Delete failed: '+e.message); }
+      });
+    }
+    loadIssues();
+  </script>
+</body>
+</html>

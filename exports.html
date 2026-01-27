@@ -15,6 +15,15 @@
     <ul id="exportsList"></ul>
   </main>
   <script>
+    async function deleteExport(id) {
+      if (!confirm('Delete this export file? This will remove the file and the DB record.')) return;
+      const res = await fetch('/api/delete_export.php', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ id }) });
+      if (!res.ok) { alert('Delete failed'); return; }
+      const data = await res.json();
+      if (!data.ok) { alert('Delete failed: ' + (data.error||'unknown')); return; }
+      loadExports();
+    }
+
     async function loadExports() {
       const ul = document.getElementById('exportsList');
       ul.innerHTML = '<li>Loading...</li>';
@@ -24,10 +33,11 @@
       ul.innerHTML = '';
       for (const exp of data.exports) {
         const li = document.createElement('li');
-        li.innerHTML = `<a href="/storage/exports/${exp.filename}" target="_blank">${exp.filename}</a> <span>${exp.type}</span> <span>${exp.created_at}</span>`;
+        li.innerHTML = `<a href="/storage/exports/${exp.filename}" target="_blank">${exp.filename}</a> <span>${exp.type}</span> <span>${exp.created_at}</span> <button data-id="${exp.id}" class="delBtn">Delete</button>`;
         li.style.minHeight = '44px';
         ul.appendChild(li);
       }
+      Array.from(document.querySelectorAll('.delBtn')).forEach(b=> b.onclick = (e)=>{ const id = Number(e.target.dataset.id); deleteExport(id); });
     }
     loadExports();
     document.getElementById('menuBtn').onclick = () => {
