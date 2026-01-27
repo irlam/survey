@@ -19,7 +19,29 @@
     filter: brightness(0.85);
     box-shadow: 0 0 0 2px #0ff inset;
   }
-  .cropRect{position:absolute;border:2px dashed #0ff; background: rgba(0,255,231,0.06);}
+  /* Neon square selection with handles */
+  .cropRect{
+    position:absolute;
+    border:2px solid rgba(0,255,217,0.95);
+    background: linear-gradient(180deg, rgba(0,255,217,0.06), rgba(0,255,217,0.02));
+    box-shadow: 0 0 18px rgba(0,255,217,0.35), 0 0 64px rgba(0,255,217,0.08) inset;
+    border-radius:6px;
+    cursor:move;
+    overflow:visible;
+    z-index:6;
+  }
+  .cropRect .cropHandle{
+    position:absolute;
+    width:14px;height:14px;
+    background:linear-gradient(180deg,#fff,#c7fef3);
+    border-radius:3px;
+    box-shadow:0 0 10px rgba(0,255,217,0.9);
+    border:2px solid rgba(0,0,0,0.25);
+    transform:translate(-50%,-50%);
+    z-index:8;
+  }
+  .cropRect .sizeLabel{position:absolute;left:8px;top:8px;background:rgba(0,0,0,0.6);color:#fff;padding:4px 6px;border-radius:4px;font-size:12px;box-shadow:0 2px 6px rgba(0,0,0,0.4);z-index:9}
+  .cropOverlay .mask{position:absolute;background:rgba(0,0,0,0.55);pointer-events:none;z-index:4}
   .toolsRow{display:flex;gap:8px;align-items:center;margin-bottom:8px}
 </style>
 </head>
@@ -151,20 +173,107 @@
     document.getElementById('btnNext').onclick = async ()=>{ if(curPage<totalPages) { curPage++; document.getElementById('pageInput').value = curPage; await renderPage(curPage); } };
     document.getElementById('pageInput').onchange = async (e)=>{ const v = parseInt(e.target.value||'1',10); if(v>=1 && v<=totalPages){ curPage = v; await renderPage(curPage); } };
 
-    // rectangle drawing
-    let rect = null; // {x,y,w,h} in canvas coords
-    let drawing = false; let startX=0,startY=0;
-    overlay.addEventListener('pointerdown', (e)=>{ drawing = true; const r = canvas.getBoundingClientRect(); startX = e.clientX - r.left; startY = e.clientY - r.top; rect = {x:startX, y:startY, w:0, h:0}; updateRect(); overlay.setPointerCapture(e.pointerId); });
-    overlay.addEventListener('pointermove', (e)=>{ if(!drawing) return; const r = canvas.getBoundingClientRect(); const x = e.clientX - r.left; const y = e.clientY - r.top; rect.w = x - startX; rect.h = y - startY; updateRect(); });
-    overlay.addEventListener('pointerup', (e)=>{ drawing = false; overlay.releasePointerCapture(e.pointerId); if(rect && (Math.abs(rect.w) < 10 || Math.abs(rect.h) < 10)) rect = null; updateRect(); });
+    // square selection with resize handles and move support
+    let rect = null; // {x,y,w,h} in canvas coords (square: w==h)
+    let selectionEl = null;
+    let mode = null; // 'drawing' | 'moving' | 'resizing'
+    let activeHandle = null;
+    let startX=0, startY=0;
 
-    function updateRect(){ // draw rect in overlay
-      overlay.innerHTML = '';
-      if(!rect) { updateDpiInfo(); return; }
-      const r = {x: Math.min(rect.x, rect.x+rect.w), y: Math.min(rect.y, rect.y+rect.h), w: Math.abs(rect.w), h: Math.abs(rect.h)};
-      const div = document.createElement('div'); div.className='cropRect'; div.style.left = r.x + 'px'; div.style.top = r.y + 'px'; div.style.width = Math.max(0,r.w) + 'px'; div.style.height = Math.max(0,r.h) + 'px'; overlay.appendChild(div);
+    overlay.addEventListener('pointerdown', (e)=>{
+      // start drawing a square selection
+      const rBounds = canvas.getBoundingClientRect();
+      const x = e.clientX - rBounds.left, y = e.clientY - rBounds.top;
+      mode = 'drawing'; startX = x; startY = y;
+      rect = {x:startX, y:startY, w:0, h:0};
+      createOrUpdateSelection();
+      overlay.setPointerCapture(e.pointerId);
+    });
+
+    overlay.addEventListener('pointermove', (e)=>{
+      const rBounds = canvas.getBoundingClientRect();
+      const x = e.clientX - rBounds.left, y = e.clientY - rBounds.top;
+      if(mode === 'drawing'){
+        const dx = x - startX, dy = y - startY;
+        const size = Math.max(Math.abs(dx), Math.abs(dy));
+        const nx = dx < 0 ? startX - size : startX;
+        const ny = dy < 0 ? startY - size : startY;
+        rect.x = Math.max(0, Math.min(canvas.width, nx));
+        rect.y = Math.max(0, Math.min(canvas.height, ny));
+        rect.w = Math.min(size, canvas.width - rect.x);
+        rect.h = rect.w;
+        createOrUpdateSelection();
+      } else if(mode === 'moving' && selectionEl){
+        const dx = x - startX, dy = y - startY;
+        startX = x; startY = y;
+        rect.x = Math.max(0, Math.min(canvas.width - rect.w, rect.x + dx));
+        rect.y = Math.max(0, Math.min(canvas.height - rect.h, rect.y + dy));
+        updateSelectionElement();
+      } else if(mode === 'resizing' && selectionEl && activeHandle){
+        const corner = activeHandle.dataset.corner;
+        // Determine opposite corner
+        const oppX = (corner === 'nw' || corner === 'sw') ? rect.x + rect.w : rect.x;
+        const oppY = (corner === 'nw' || corner === 'ne') ? rect.y + rect.h : rect.y;
+        const newSize = Math.max(8, Math.min(canvas.width, Math.max(Math.abs(oppX - x), Math.abs(oppY - y))));
+        if(corner === 'nw'){ rect.x = Math.max(0, oppX - newSize); rect.y = Math.max(0, oppY - newSize); rect.w = newSize; rect.h = newSize; }
+        else if(corner === 'ne'){ rect.x = Math.max(0, oppX - newSize); rect.y = Math.max(0, oppY - newSize); rect.w = newSize; rect.h = newSize; rect.x = oppX - rect.w; }
+        else if(corner === 'sw'){ rect.x = Math.max(0, oppX - newSize); rect.y = Math.max(0, oppY - newSize); rect.w = newSize; rect.h = newSize; rect.x = oppX - rect.w; rect.y = oppY - rect.h; }
+        else if(corner === 'se'){ rect.w = newSize; rect.h = newSize; if(rect.x + rect.w > canvas.width) rect.x = canvas.width - rect.w; if(rect.y + rect.h > canvas.height) rect.y = canvas.height - rect.h; }
+        // constrain
+        if(rect.x < 0) rect.x = 0; if(rect.y < 0) rect.y = 0;
+        if(rect.x + rect.w > canvas.width) rect.w = canvas.width - rect.x;
+        if(rect.y + rect.h > canvas.height) rect.h = canvas.height - rect.y;
+        updateSelectionElement();
+      }
+    });
+
+    overlay.addEventListener('pointerup', (e)=>{
+      if(mode === 'drawing'){
+        if(!rect || rect.w < 6) { rect = null; removeSelection(); }
+        else updateSelectionElement();
+      }
+      mode = null; activeHandle = null; overlay.releasePointerCapture(e.pointerId); updateDpiInfo();
+    });
+
+    function createOrUpdateSelection(){
+      if(!selectionEl){
+        selectionEl = document.createElement('div'); selectionEl.className='cropRect'; selectionEl.style.position='absolute';
+        // add handles
+        ['nw','ne','sw','se'].forEach(corner=>{
+          const h = document.createElement('div'); h.className='cropHandle'; h.dataset.corner = corner; h.style.position='absolute';
+          h.addEventListener('pointerdown', (ev)=>{ ev.stopPropagation(); ev.preventDefault(); mode='resizing'; activeHandle = h; const r = canvas.getBoundingClientRect(); startX = ev.clientX - r.left; startY = ev.clientY - r.top; overlay.setPointerCapture(ev.pointerId); });
+          selectionEl.appendChild(h);
+        });
+        // move handler
+        selectionEl.addEventListener('pointerdown', (ev)=>{ ev.stopPropagation(); mode='moving'; const r = canvas.getBoundingClientRect(); startX = ev.clientX - r.left; startY = ev.clientY - r.top; overlay.setPointerCapture(ev.pointerId); });
+        // size label
+        const label = document.createElement('div'); label.className='sizeLabel'; selectionEl.appendChild(label);
+        overlay.appendChild(selectionEl);
+      }
+      updateSelectionElement();
+    }
+
+    function updateSelectionElement(){
+      if(!selectionEl || !rect) return;
+      selectionEl.style.left = rect.x + 'px'; selectionEl.style.top = rect.y + 'px';
+      selectionEl.style.width = rect.w + 'px'; selectionEl.style.height = rect.h + 'px';
+      // position handles
+      const hw = selectionEl.querySelectorAll('.cropHandle');
+      hw.forEach(h=>{
+        const c = h.dataset.corner;
+        if(c === 'nw') { h.style.left = '0px'; h.style.top = '0px'; }
+        if(c === 'ne') { h.style.left = '100%'; h.style.top = '0px'; }
+        if(c === 'sw') { h.style.left = '0px'; h.style.top = '100%'; }
+        if(c === 'se') { h.style.left = '100%'; h.style.top = '100%'; }
+      });
+      // update label
+      const label = selectionEl.querySelector('.sizeLabel'); if(label){ label.textContent = `${rect.w} × ${rect.h}`; }
+      // update global rect var for existing code
+      rect = {x: rect.x, y: rect.y, w: rect.w, h: rect.h};
       updateDpiInfo();
     }
+
+    function removeSelection(){ if(selectionEl){ selectionEl.remove(); selectionEl = null; } overlay.innerHTML=''; }
 
     function updateDpiInfo(){
       const out = document.getElementById('previewOut'); out.textContent = '';
