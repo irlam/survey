@@ -235,9 +235,16 @@
     });
 
     overlay.addEventListener('pointerup', (e)=>{
+      // If we just finished drawing or resizing, show the preview automatically
+      const finishedMode = mode;
       if(mode === 'drawing'){
         if(!rect || rect.w < 6) { rect = null; removeSelection(); }
         else updateSelectionElement();
+      }
+      // If user finished drawing or resizing and a valid rect exists, show preview
+      if((finishedMode === 'drawing' || finishedMode === 'resizing') && rect && rect.w > 6){
+        // give UI a tick to settle before generating preview
+        setTimeout(()=>{ try{ showPreviewFromRect(rect); }catch(e){ console.warn('Auto-preview failed', e); } }, 8);
       }
       mode = null; activeHandle = null; overlay.releasePointerCapture(e.pointerId); updateDpiInfo();
     });
@@ -305,14 +312,12 @@
       })();
     }
 
-    document.getElementById('btnCropPreview').onclick = ()=>{
+    function showPreviewFromRect(raw){
       try{
-        if(!rect){ alert('Draw a rectangle on the page to crop'); return; }
-        // normalize and validate rect
-        const r = {x: Math.max(0, Math.min(rect.x, rect.x+rect.w)), y: Math.max(0, Math.min(rect.y, rect.y+rect.h)), w: Math.round(Math.abs(rect.w)), h: Math.round(Math.abs(rect.h))};
+        if(!raw){ alert('Draw a rectangle on the page to crop'); return; }
+        const r = {x: Math.max(0, Math.min(raw.x, raw.x+raw.w)), y: Math.max(0, Math.min(raw.y, raw.y+raw.h)), w: Math.round(Math.abs(raw.w)), h: Math.round(Math.abs(raw.h))};
         console.debug('Preview crop rect:', r);
         if (r.w <= 0 || r.h <= 0){ alert('Selected area is too small. Draw a larger rectangle.'); return; }
-        // clamp to canvas bounds
         if (r.x < 0) r.x = 0; if (r.y < 0) r.y = 0;
         if (r.x + r.w > canvas.width) r.w = canvas.width - r.x;
         if (r.y + r.h > canvas.height) r.h = canvas.height - r.y;
@@ -323,7 +328,6 @@
         tctx.drawImage(canvas, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h);
         const img = tmp.toDataURL('image/jpeg', 0.9);
         const out = document.getElementById('previewOut');
-        // show preview inside a small form with download buttons
         out.innerHTML = `
           <form id="previewForm" style="margin-top:8px;display:flex;flex-direction:column;gap:8px;">
             <img id="previewImg" src="${img}" style="max-width:100%;border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,0.6)">
@@ -334,7 +338,6 @@
             </div>
           </form>
         `;
-        // helper to convert dataURL to blob
         function dataURLToBlob(dataURL){ const parts = dataURL.split(','); const meta = parts[0]; const bstr = atob(parts[1]); let n = bstr.length; const u8 = new Uint8Array(n); while(n--) u8[n] = bstr.charCodeAt(n); const mime = meta.match(/:(.*?);/)[1]; return new Blob([u8], {type:mime}); }
         try{
           const blob = dataURLToBlob(img);
@@ -360,8 +363,11 @@
 
           document.getElementById('closePreview').addEventListener('click', ()=>{ out.innerHTML = ''; revokeImgURL(); });
         }catch(e){ console.warn('Preview helper setup failed', e); }
+        updateDpiInfo();
       }catch(err){ console.error('Preview crop failed:', err); alert('Preview failed: ' + (err && err.message ? err.message : String(err))); }
-    };
+    }
+
+    document.getElementById('btnCropPreview').onclick = ()=> showPreviewFromRect(rect);
 
     document.getElementById('btnExportPdf').onclick = async ()=>{
       if(!rect) { alert('Draw a rectangle on the page to crop'); return; }
