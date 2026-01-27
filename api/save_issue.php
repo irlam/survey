@@ -33,7 +33,8 @@ if ($x_norm === null || $y_norm === null) error_response('Missing x_norm/y_norm'
 if ($x_norm < 0 || $x_norm > 1 || $y_norm < 0 || $y_norm > 1) {
   error_response('x_norm/y_norm must be between 0 and 1', 400);
 }
-if (trim($title) === '') error_response('Title is required', 400);
+// For new issues require a non-empty title; for updates we'll prefer the existing title if client leaves it blank
+if (!$id && trim($title) === '') error_response('Title is required', 400);
 
 // Validate status/category/priority to known sets (server-side enforcement)
 $allowed_status = ['Open', 'In Progress', 'Closed'];
@@ -62,6 +63,18 @@ if ($id) {
   $chk2 = $pdo->prepare('SELECT id FROM issues WHERE id=? AND plan_id=?');
   $chk2->execute([$id, $plan_id]);
   if (!$chk2->fetch()) error_response('Issue not found for this plan', 404);
+
+  // If client left title blank on update, preserve existing title if present
+  if (trim($title) === '') {
+    $cur = $pdo->prepare('SELECT title FROM issues WHERE id=? AND plan_id=?');
+    $cur->execute([$id, $plan_id]);
+    $row = $cur->fetch();
+    if ($row && trim($row['title']) !== '') {
+      $title = $row['title'];
+    } else {
+      error_response('Title is required', 400);
+    }
+  }
 
   $stmt = $pdo->prepare('
     UPDATE issues
