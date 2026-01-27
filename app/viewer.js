@@ -266,6 +266,8 @@ async function showIssueModal(pin){
         </label>
       </div>
       <div id="photoThumbs" style="margin-bottom:12px;display:flex;flex-wrap:wrap;"></div>
+      <!-- Queue for photos added before saving an issue -->
+      <div id="photoQueue" style="margin-bottom:12px;display:flex;flex-wrap:wrap;gap:8px;"></div>
       <div class="photoControls" style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
         <label style="flex:1">Select Photo:<br>
           <input id="issuePhotoInput" type="file" accept="image/*" style="width:100%;" />
@@ -277,7 +279,7 @@ async function showIssueModal(pin){
         <div style="flex:1;">
           <div id="photoPreviewInfo" style="color:var(--muted);font-size:13px;margin-bottom:8px;"></div>
           <div class="photoActions" style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button id="issueUploadConfirmBtn" class="btnPrimary">Upload Photo</button>
+            <button id="issueUploadConfirmBtn" class="btnPrimary">Add to Queue</button>
             <button id="issueUploadCancelBtn" class="btn">Cancel</button>
           </div>
         </div>
@@ -308,6 +310,28 @@ async function showIssueModal(pin){
       }
     })();
 
+    // pending photos (queued before issue is saved)
+    let pendingPhotos = [];
+    function renderPendingPhotos(){
+      const q = modal.querySelector('#photoQueue'); if(!q) return; q.innerHTML='';
+      pendingPhotos.forEach((f, idx)=>{
+        const wrap = document.createElement('div'); wrap.style.display='flex'; wrap.style.flexDirection='column'; wrap.style.alignItems='center'; wrap.style.gap='6px'; wrap.style.width='96px';
+        const thumb = document.createElement('img'); thumb.style.maxWidth='88px'; thumb.style.maxHeight='88px'; thumb.style.borderRadius='6px'; thumb.style.boxShadow='0 4px 12px rgba(0,0,0,0.6)';
+        thumb.src = f.previewUrl || URL.createObjectURL(f); // cache previewUrl to avoid leaking
+        if(!f.previewUrl) f.previewUrl = thumb.src;
+        wrap.appendChild(thumb);
+        const btnRow = document.createElement('div'); btnRow.style.display='flex'; btnRow.style.gap='6px';
+        const ann = document.createElement('button'); ann.className='btn'; ann.textContent='Annotate'; ann.onclick = ()=>{ openAnnotator(f, async (blob)=>{ try{ const newFile = new File([blob], (f.name||('photo_' + idx + '.jpg')), {type: blob.type}); pendingPhotos[idx] = newFile; // replace
+              if(f.previewUrl) URL.revokeObjectURL(f.previewUrl);
+              newFile.previewUrl = URL.createObjectURL(newFile);
+              renderPendingPhotos(); }catch(e){ console.error('Annotate save failed', e); } }); };
+        const rem = document.createElement('button'); rem.className='btn'; rem.textContent='Remove'; rem.onclick = ()=>{ try{ if(f.previewUrl) URL.revokeObjectURL(f.previewUrl); }catch(e){} pendingPhotos.splice(idx,1); renderPendingPhotos(); };
+        btnRow.appendChild(ann); btnRow.appendChild(rem);
+        wrap.appendChild(btnRow);
+        q.appendChild(wrap);
+      });
+    }
+
     async function loadPhotoThumbs(){
     const planId = getPlanIdFromUrl(); if(!planId || !pin.id) return;
     try{
@@ -335,9 +359,67 @@ async function showIssueModal(pin){
       }
     }catch(e){}
   }
+
+  // Simple annotator: opens a modal with a canvas overlay to draw freehand annotations
+  function openAnnotator(fileOrBlob, doneCallback){
+    try{
+      const reader = new FileReader();
+      reader.onload = ()=>{
+        const imgSrc = reader.result;
+        let ann = document.getElementById('annotatorModal');
+        if(!ann){
+          ann = document.createElement('div'); ann.id='annotatorModal';
+          ann.style.position='fixed'; ann.style.left=0; ann.style.top=0; ann.style.width='100%'; ann.style.height='100%'; ann.style.background='rgba(0,0,0,0.85)'; ann.style.display='flex'; ann.style.flexDirection='column'; ann.style.alignItems='center'; ann.style.justifyContent='center'; ann.style.zIndex=200500;
+          const wrap = document.createElement('div'); wrap.style.width='min(90%,1000px)'; wrap.style.maxHeight='90%'; wrap.style.background='linear-gradient(180deg,#011014,#021417)'; wrap.style.padding='12px'; wrap.style.borderRadius='10px'; wrap.style.boxShadow='0 18px 60px rgba(0,0,0,0.6)'; wrap.style.display='flex'; wrap.style.flexDirection='column';
+          const canvas = document.createElement('canvas'); canvas.id = 'annotatorCanvas'; canvas.style.maxWidth = '100%'; canvas.style.border = '1px solid rgba(255,255,255,0.04)'; canvas.style.borderRadius='6px'; canvas.style.background = '#111';
+          const controls = document.createElement('div'); controls.style.display='flex'; controls.style.gap='8px'; controls.style.marginTop='8px';
+          const saveBtn = document.createElement('button'); saveBtn.className='btnPrimary'; saveBtn.textContent='Save Annotation';
+          const undoBtn = document.createElement('button'); undoBtn.className='btn'; undoBtn.textContent='Undo';
+          const clearBtn = document.createElement('button'); clearBtn.className='btn'; clearBtn.textContent='Clear';
+          const closeBtn = document.createElement('button'); closeBtn.className='btn'; closeBtn.textContent='Close';
+          controls.appendChild(saveBtn); controls.appendChild(undoBtn); controls.appendChild(clearBtn); controls.appendChild(closeBtn);
+          wrap.appendChild(canvas); wrap.appendChild(controls); ann.appendChild(wrap); document.body.appendChild(ann);
+
+          // drawing state
+          let ctx = canvas.getContext('2d'); let drawing=false; let strokes=[]; let current=[];
+          function redraw(){ ctx.clearRect(0,0,canvas.width,canvas.height); const img = new Image(); img.src = canvas.dataset.bg || ''; img.onload = ()=>{ ctx.drawImage(img,0,0,canvas.width,canvas.height); // then draw strokes
+              ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle = 'rgba(255,0,0,0.92)'; ctx.lineWidth = 4; for(const s of strokes){ ctx.beginPath(); ctx.moveTo(s[0].x, s[0].y); for(let i=1;i<s.length;i++) ctx.lineTo(s[i].x, s[i].y); ctx.stroke(); }
+            };
+          }
+          // pointer handlers
+          canvas.addEventListener('pointerdown', (ev)=>{ ev.preventDefault(); drawing=true; current=[]; const r = canvas.getBoundingClientRect(); current.push({x:(ev.clientX-r.left)*(canvas.width/r.width), y:(ev.clientY-r.top)*(canvas.height/r.height)}); });
+          canvas.addEventListener('pointermove', (ev)=>{ if(!drawing) return; const r = canvas.getBoundingClientRect(); current.push({x:(ev.clientX-r.left)*(canvas.width/r.width), y:(ev.clientY-r.top)*(canvas.height/r.height)}); strokes.push([]); // temporary
+              // more efficient: redraw once per move
+              ctx.beginPath(); ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle = 'rgba(255,0,0,0.92)'; ctx.lineWidth = 4; const s = current; ctx.moveTo(s[0].x, s[0].y); for(let i=1;i<s.length;i++) ctx.lineTo(s[i].x, s[i].y); ctx.stroke(); }
+          );
+          canvas.addEventListener('pointerup', (ev)=>{ if(!drawing) return; drawing=false; strokes.push(current.slice()); current=[]; });
+
+          undoBtn.onclick = ()=>{ if(strokes.length) strokes.pop(); redraw(); };
+          clearBtn.onclick = ()=>{ strokes=[]; redraw(); };
+          closeBtn.onclick = ()=>{ ann.style.display='none'; };
+          saveBtn.onclick = ()=>{
+            // export canvas to blob (it's already a canvas draw — but ensure bg image + strokes merged)
+            // draw background image first synchronously
+            const sav = document.createElement('canvas'); sav.width = canvas.width; sav.height = canvas.height; const sctx = sav.getContext('2d');
+            const bg = new Image(); bg.src = canvas.dataset.bg || '';
+            bg.onload = ()=>{ sctx.drawImage(bg,0,0,sav.width,sav.height); sctx.lineCap='round'; sctx.lineJoin='round'; sctx.strokeStyle='rgba(255,0,0,0.92)'; sctx.lineWidth = 4; for(const s of strokes){ sctx.beginPath(); sctx.moveTo(s[0].x, s[0].y); for(let i=1;i<s.length;i++) sctx.lineTo(s[i].x, s[i].y); sctx.stroke(); }
+              sav.toBlob((blob)=>{ if(typeof doneCallback === 'function') doneCallback(blob); ann.style.display='none'; }, 'image/jpeg', 0.9);
+            };
+          };
+        }
+        // setup image
+        const canvas = document.getElementById('annotatorCanvas'); const img = new Image(); img.onload = ()=>{ // size canvas at natural size but limit to viewport
+          const maxW = Math.min(window.innerWidth*0.85, 1200); const ratio = Math.min(1, maxW / img.width); canvas.width = Math.round(img.width * ratio); canvas.height = Math.round(img.height * ratio); const ctx = canvas.getContext('2d'); ctx.drawImage(img,0,0,canvas.width, canvas.height); canvas.dataset.bg = canvas.toDataURL('image/png'); // store bg for redraws
+        }; img.src = imgSrc;
+        document.getElementById('annotatorModal').style.display='flex';
+      };
+      reader.readAsDataURL(fileOrBlob);
+    }catch(e){ console.error('openAnnotator failed', e); }
+  }
     // helper used by both file inputs -- will resize/compress client-side then upload
-    async function uploadProcessedFile(blobOrFile){
-      const planId = getPlanIdFromUrl(); const issueId = pin.id;
+    async function uploadProcessedFile(blobOrFile, targetIssueId){
+      const planId = getPlanIdFromUrl(); const issueId = targetIssueId || pin.id;
+      if(!planId || !issueId) { throw new Error('Missing plan or issue id — save the issue first'); }
       const fd = new FormData(); fd.append('file', blobOrFile, (blobOrFile.name||'photo.jpg'));
       fd.append('plan_id', planId); fd.append('issue_id', issueId);
       try{
@@ -353,29 +435,23 @@ async function showIssueModal(pin){
 
     // show preview and wire confirm/cancel
     function handleSelectedFile(file){ if(!file) return; const previewWrap = modal.querySelector('#photoPreview'); const imgEl = modal.querySelector('#photoPreviewImg'); const infoEl = modal.querySelector('#photoPreviewInfo'); previewWrap.style.display='flex'; const url = URL.createObjectURL(file); imgEl.src = url; infoEl.textContent = `${Math.round(file.size/1024)} KB — ${file.type}`;
-      // set confirm handler to resize then upload
-      const confirmBtn = modal.querySelector('#issueUploadConfirmBtn'); const cancelBtn = modal.querySelector('#issueUploadCancelBtn'); confirmBtn.disabled = false; confirmBtn.onclick = async ()=>{ confirmBtn.disabled = true; try{ 
-        if(!pin.id){
-          const title = modal.querySelector('#issueTitle').value.trim();
-          const notes = modal.querySelector('#issueNotes').value.trim();
-          const status = modal.querySelector('#issueStatusSelect').value;
-          const priority = modal.querySelector('#issuePrioritySelect').value;
-          const assignee = modal.querySelector('#issueAssignee').value.trim();
-          if(!title){ localShowToast('Title is required to upload photos.'); confirmBtn.disabled=false; return; }
-          const issue = { plan_id: planId, page: pin.page, x_norm: pin.x_norm, y_norm: pin.y_norm, title, notes, status, priority, assignee };
-          try{
-            const saved = await apiSaveIssue(issue);
-            pin.id = saved.id;
-            await reloadDbPins();
-            await renderPage(currentPage);
-          }catch(e){
-            localShowToast('Error saving issue: '+e.message);
-            confirmBtn.disabled=false;
-            return;
-          }
-        }
+      // set confirm handler to either queue (if issue unsaved) or upload immediately
+      const confirmBtn = modal.querySelector('#issueUploadConfirmBtn'); const cancelBtn = modal.querySelector('#issueUploadCancelBtn'); confirmBtn.disabled = false; confirmBtn.onclick = async ()=>{ confirmBtn.disabled = true; try{
+        // process the file (resize) into a blob first
         const blob = await resizeImageFile(file);
-        const out = new File([blob], (file.name||'photo.jpg'), {type: blob.type}); await uploadProcessedFile(out); previewWrap.style.display='none'; URL.revokeObjectURL(url);
+        const procFile = new File([blob], (file.name||'photo.jpg'), {type: blob.type});
+        if(!pin.id){
+          // queue the processed file for upload after issue is saved
+          procFile.previewUrl = URL.createObjectURL(procFile);
+          pendingPhotos.push(procFile);
+          renderPendingPhotos();
+          previewWrap.style.display='none'; URL.revokeObjectURL(url);
+          localShowToast('Photo added to queue — it will upload after you save the issue');
+        } else {
+          // upload immediately
+          await uploadProcessedFile(procFile);
+          previewWrap.style.display='none'; URL.revokeObjectURL(url);
+        }
       }catch(err){ localShowToast('Image processing failed: '+err.message); confirmBtn.disabled=false; } };
       cancelBtn.onclick = ()=>{ previewWrap.style.display='none'; imgEl.src=''; infoEl.textContent=''; URL.revokeObjectURL(url); };
     }
@@ -432,6 +508,14 @@ async function showIssueModal(pin){
     if(pin.id) issue.id = pin.id;
     try{
       const saved = await apiSaveIssue(issue);
+      // after saving, upload any queued photos that were added before save
+      if(pendingPhotos && pendingPhotos.length){
+        pin.id = saved.id || pin.id;
+        for(const pf of pendingPhotos){
+          try{ await uploadProcessedFile(pf, pin.id); }catch(e){ console.error('Queued photo upload failed', e); }
+        }
+        pendingPhotos = []; renderPendingPhotos();
+      }
       modal.style.display='none';
       await reloadDbPins();
       await renderPage(currentPage);

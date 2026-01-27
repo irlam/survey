@@ -290,7 +290,12 @@
     function removeSelection(){ if(selectionEl){ selectionEl.remove(); selectionEl = null; } overlay.innerHTML=''; }
 
     function updateDpiInfo(){
-      const out = document.getElementById('previewOut'); out.textContent = '';
+      const out = document.getElementById('previewOut');
+      // If a preview dialog is open, update its meta section instead of clearing the preview
+      const previewForm = document.getElementById('previewForm');
+      if(previewForm){ const meta = previewForm.querySelector('#previewMeta'); if(!pdfDoc || !rect){ if(meta) meta.textContent = ''; return; } (async ()=>{ try{ const dpi = Number(document.getElementById('dpiSelect').value || '300'); const page = await pdfDoc.getPage(curPage); const desiredScale = dpi / 72; const viewportHR = page.getViewport({scale: desiredScale}); const scaleFactor = viewportHR.width / canvas.width; const rw = Math.max(1, Math.round(Math.abs(rect.w) * scaleFactor)); const rh = Math.max(1, Math.round(Math.abs(rect.h) * scaleFactor)); const kb = Math.round((rw * rh * 3) / 1024); if(meta) meta.innerHTML = `Estimated output: <strong>${rw} × ${rh}</strong> px (~${kb} KB image) at ${dpi} DPI`; if (rw > 8000 || rh > 8000) { if(meta) meta.innerHTML += ` <span style="color:#ffb86b">(Large - may fail or be slow)</span>`; } }catch(e){ console.warn('dpi info error', e); } })(); return; }
+      // otherwise update the previewOut area as before
+      out.textContent = '';
       if(!pdfDoc || !rect) return;
       (async ()=>{
         try{
@@ -331,6 +336,7 @@
         out.innerHTML = `
           <form id="previewForm" style="margin-top:8px;display:flex;flex-direction:column;gap:8px;">
             <img id="previewImg" src="${img}" style="max-width:100%;border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,0.6)">
+            <div id="previewMeta" class="muted" style="font-size:13px;">Preview: ${r.w} × ${r.h} px — DPI: ${document.getElementById('dpiSelect') ? document.getElementById('dpiSelect').value : '300'}</div>
             <div style="display:flex;gap:8px;">
               <a id="downloadImg" class="btn" href="#">Download JPG</a>
               <button type="button" id="downloadPdf" class="btn">Download PDF</button>
@@ -363,7 +369,6 @@
 
           document.getElementById('closePreview').addEventListener('click', ()=>{ out.innerHTML = ''; revokeImgURL(); });
         }catch(e){ console.warn('Preview helper setup failed', e); }
-        updateDpiInfo();
       }catch(err){ console.error('Preview crop failed:', err); alert('Preview failed: ' + (err && err.message ? err.message : String(err))); }
     }
 
