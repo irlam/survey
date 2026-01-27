@@ -59,10 +59,34 @@
           const resp = await fetch('/api/delete_issue_with_photos.php', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id, plan_id: plan })});
           const resj = await resp.json();
           if (!resp.ok || !resj.ok) { alert('Delete failed: ' + (resj.error||'unknown')); return; }
-          alert('Deleted — files moved to trash: ' + (resj.trash||'')); loadIssues();
+          // show snackbar with undo
+          showUndoSnack('Issue deleted', 'Undo', async ()=>{
+            const trash = resj.trash; if(!trash) throw new Error('No trash info');
+            const r = await fetch('/api/restore_trash.php',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ trash }) });
+            const jr = await r.json(); if(!r.ok || !jr.ok) throw new Error(jr.error||'restore failed');
+            loadIssues();
+          });
+          loadIssues();
         }catch(e){ alert('Delete failed: '+e.message); }
       });
     }
+
+    /* Snackbar & Menu helpers */
+    function showUndoSnack(message, undoLabel, undoCb) {
+      let sb = document.getElementById('snackbar');
+      if (!sb) {
+        sb = document.createElement('div'); sb.id = 'snackbar'; sb.style.position='fixed'; sb.style.left='50%'; sb.style.transform='translateX(-50%)'; sb.style.bottom='20px'; sb.style.zIndex=99999; sb.style.background='linear-gradient(90deg, rgba(6,56,56,0.95), rgba(0,255,160,0.06))'; sb.style.color='#fff'; sb.style.padding='12px 16px'; sb.style.borderRadius='10px'; sb.style.boxShadow='0 12px 30px rgba(0,0,0,.5)'; sb.style.display='flex'; sb.style.gap='12px'; sb.style.alignItems='center'; document.body.appendChild(sb);
+      }
+      sb.innerHTML = '';
+      const txt = document.createElement('div'); txt.textContent = message; sb.appendChild(txt);
+      if (undoCb) {
+        const undo = document.createElement('button'); undo.className = 'btnPrimary'; undo.textContent = undoLabel||'Undo'; undo.onclick = async ()=>{ try{ await undoCb(); }catch(e){ alert('Undo failed'); } sb.style.display='none'; };
+        sb.appendChild(undo);
+      }
+      sb.style.display = 'flex'; clearTimeout(sb._timeout); sb._timeout = setTimeout(()=>{ sb.style.display='none'; }, 8000);
+    }
+
+    const off = document.createElement('nav'); off.id='offcanvasMenu'; off.style.position='fixed'; off.style.left='-280px'; off.style.top='0'; off.style.bottom='0'; off.style.width='260px'; off.style.background='rgba(2,6,10,.95)'; off.style.padding='18px'; off.style.zIndex='99999'; off.style.boxShadow='6px 0 30px rgba(0,0,0,.6)'; off.style.transition='left .22s ease'; off.innerHTML = `<button id="menuClose" class="iconBtn">×</button><div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;"><a href="/" style="color:var(--text);text-decoration:none">Home</a><a href="/tools/index.html" style="color:var(--text);text-decoration:none">Tools</a><a href="/exports.html" style="color:var(--text);text-decoration:none">Exports</a></div>`; document.body.appendChild(off); document.getElementById('menuBtn').onclick = ()=>{ off.style.left='0'; }; document.getElementById('menuClose').onclick = ()=>{ off.style.left='-280px'; };
     loadIssues();
   </script>
 </body>

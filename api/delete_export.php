@@ -41,6 +41,10 @@ function move_to_trash_file_local($src, $trashDir){
 
 $moved = null;
 if (is_file($fullPath)) {
+    // write manifest with original DB row for possible restore
+    $manifest = ['type'=>'export', 'export'=>$export, 'timestamp'=>date('c')];
+    @file_put_contents(rtrim($trashDir, '/') . '/manifest.json', json_encode($manifest, JSON_PRETTY_PRINT));
+
     $moved = move_to_trash_file_local($fullPath, $trashDir);
 }
 
@@ -49,4 +53,4 @@ $del = $pdo->prepare('DELETE FROM exports WHERE id=?');
 $del->execute([$id]);
 $deleted = ($del->rowCount() > 0);
 
-json_response(['ok'=>true, 'deleted'=>$deleted, 'moved'=>$moved ? str_replace(resolve_storage_path() . '/', '', $moved) : null, 'trash' => str_replace(resolve_storage_path() . '/', '', $trashDir)]);
+json_response(['ok'=>true, 'deleted'=>$deleted, 'moved'=>$moved ? str_replace(resolve_storage_path() . '/', '', $moved) : null, 'trash' => str_replace(resolve_storage_path() . '/', '', $trashDir), 'manifest' => basename(rtrim($trashDir, '/') . '/manifest.json')]);

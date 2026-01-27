@@ -30,6 +30,12 @@ function move_to_trash_file_local($src, $trashDir){
 
 $deleted = ['issue_deleted'=>false, 'photos_deleted'=>0, 'photos'=>[], 'thumbs'=>[], 'exports_deleted'=>[]];
 
+// write a manifest with issue + photos + intent so undo can restore
+try {
+    $manifest = ['type'=>'issue','issue'=>$issue, 'photos'=>$photos, 'timestamp'=>date('c')];
+    @file_put_contents(rtrim($trashDir, '/') . '/manifest.json', json_encode($manifest, JSON_PRETTY_PRINT));
+} catch (Exception $e) { error_log('delete_issue_with_photos: failed to write manifest: ' . $e->getMessage()); }
+
 try {
   $pdo->beginTransaction();
 
@@ -107,5 +113,8 @@ foreach ($photos as $ph) {
     }
   }
 }
+
+// write final manifest into trash for restore
+try { @file_put_contents(rtrim($trashDir, '/') . '/manifest.json', json_encode(['type'=>'issue','issue'=>$issue,'deleted'=>$deleted,'photos'=>$photos,'timestamp'=>date('c')], JSON_PRETTY_PRINT)); } catch (Exception $_) {}
 
 json_response(['ok'=>true, 'deleted'=>$deleted, 'trash' => str_replace(resolve_storage_path() . '/', '', $trashDir)]);

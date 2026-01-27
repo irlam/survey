@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Trash Viewer</title>
+  <link rel="stylesheet" href="/assets/ui.css?v=20260124_1">
+</head>
+<body>
+  <header class="topbar">
+    <button onclick="history.back()" class="iconBtn">←</button>
+    <div class="brand">Trash Viewer</div>
+  </header>
+  <main style="padding:16px;">
+    <div class="card">
+      <h2>Trash</h2>
+      <div id="trashList">Loading…</div>
+    </div>
+  </main>
+
+  <script>
+    function formatFileSize(bytes){ if (!bytes) return '0 B'; const units=['B','KB','MB','GB']; let i=0; while(bytes >= 1024 && i<units.length-1){ bytes/=1024; i++; } return bytes.toFixed(bytes<10?1:0) + ' ' + units[i]; }
+
+    async function loadTrash(){
+      const wrap = document.getElementById('trashList'); wrap.innerHTML = 'Loading…';
+      try{
+        const res = await fetch('/api/list_trash.php'); if(!res.ok) { wrap.innerHTML = 'Failed to load'; return; }
+        const data = await res.json(); if(!data.ok) { wrap.innerHTML = 'Failed: ' + (data.error||'unknown'); return; }
+        const items = data.trash || [];
+        if (items.length === 0) { wrap.innerHTML = '<div class="muted">Trash is empty</div>'; return; }
+        const ul = document.createElement('div'); ul.style.display='flex'; ul.style.flexDirection='column'; ul.style.gap='10px';
+        for(const t of items){
+          const card = document.createElement('div'); card.className = 'planRow';
+          const left = document.createElement('div'); left.innerHTML = `<div style="font-weight:800">${t.dir}</div><div class="muted">${t.files.length} file(s) • ${new Date(t.mtime*1000).toLocaleString()}</div>`;
+          const right = document.createElement('div'); right.style.display='flex'; right.style.gap='8px';
+          const viewBtn = document.createElement('button'); viewBtn.className='btn'; viewBtn.textContent='View'; viewBtn.onclick = ()=> viewTrash(t);
+          const restoreBtn = document.createElement('button'); restoreBtn.className='btnPrimary'; restoreBtn.textContent='Restore'; restoreBtn.onclick = async ()=>{ if(!confirm('Restore this item?')) return; const r = await fetch('/api/restore_trash.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ trash: t.path })}); const jr = await r.json(); if(r.ok && jr.ok){ alert('Restored'); loadTrash(); } else alert('Restore failed'); };
+          const delBtn = document.createElement('button'); delBtn.className='btnDanger'; delBtn.textContent='Delete permanently'; delBtn.onclick = async ()=>{ if(!confirm('Permanently delete this trash folder? This cannot be undone.')) return; const r = await fetch('/api/delete_trash.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ trash: t.dir })}); const jr = await r.json(); if(r.ok && jr.ok){ alert('Deleted'); loadTrash(); } else alert('Delete failed: '+(jr.errors||'unknown')); };
+          right.appendChild(viewBtn); right.appendChild(restoreBtn); right.appendChild(delBtn);
+          card.appendChild(left); card.appendChild(right);
+          ul.appendChild(card);
+        }
+        wrap.innerHTML = ''; wrap.appendChild(ul);
+      }catch(e){ wrap.innerHTML = 'Load error'; }
+    }
+
+    function viewTrash(t){
+      const w = window.open('', '_blank');
+      w.document.title = 'Trash: ' + t.dir;
+      w.document.body.style.background = '#071014'; w.document.body.style.color = '#dff';
+      const h = document.createElement('div'); h.style.padding='12px'; h.innerHTML = `<h3>${t.dir}</h3><p>${t.files.length} file(s)</p>`;
+      const list = document.createElement('div'); list.style.display='grid'; list.style.gap='6px';
+      for(const f of t.files){ const el = document.createElement('div'); el.style.display='flex'; el.style.justifyContent='space-between'; el.style.padding='8px'; el.style.background='rgba(255,255,255,0.02)'; el.style.borderRadius='8px'; el.innerHTML = `<div><strong>${f.name}</strong><div class='muted' style='font-size:12px'>${new Date(f.mtime*1000).toLocaleString()}</div></div><div class='muted'>${formatFileSize(f.size)}</div>`; list.appendChild(el); }
+      h.appendChild(list); w.document.body.appendChild(h);
+    }
+
+    loadTrash();
+  </script>
+</body>
+</html>
