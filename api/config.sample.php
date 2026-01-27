@@ -15,5 +15,9 @@ return [
     // 'dwg_converter' => [ 'use_docker' => true, 'docker_image' => 'libredwg/libredwg:latest' ]
     'dwg_converter' => [ 'use_docker' => false, 'docker_image' => '' ],
 
-    'actor_name' => '' // optional, for audit
+    'actor_name' => '' // optional, for audit,
+
+    // Feature flags
+    // Turn on experimental features by setting in config.php
+    // 'FEATURE_PIN_DRAG' => false
 ];
