@@ -179,6 +179,15 @@ async function showIssueModal(pin){
 
           <div><strong>Created by:</strong> <span id="issueCreatedBy">${pin.created_by||pin.author||''}</span></div>
           <div style="margin-top:6px;"><strong>Created:</strong><div id="issueCreated" style="font-weight:700;margin-top:2px;">&nbsp;</div></div>
+
+          <div id="issuePreview" style="margin-top:8px;">
+            <div style="font-size:13px;margin-bottom:6px;"><strong>Preview</strong></div>
+            <div id="issuePreviewWrap" style="width:220px;border:1px solid rgba(255,255,255,.06);position:relative;overflow:hidden;background:#111;">
+              <canvas id="issuePreviewCanvas" style="display:block;width:100%;height:auto;"></canvas>
+              <div id="issuePreviewOverlay" style="position:absolute;left:0;top:0;right:0;bottom:0;"></div>
+            </div>
+            <div style="font-size:12px;color:var(--muted);margin-top:6px;">Coords: <span id="issueCoords">x:0.00 y:0.00</span></div>
+          </div>
         </div>
       </div>
       <div style="margin-bottom:12px;">
@@ -251,6 +260,50 @@ async function showIssueModal(pin){
     const createdByEl = modal.querySelector('#issueCreatedBy'); if(createdByEl) createdByEl.textContent = details.created_by||details.author||'';
     const createdVal = details.created_at || details.created || details.createdAt || details.ts;
     const createdEl = modal.querySelector('#issueCreated'); if(createdEl){ if(createdVal){ if (typeof createdVal === 'string' && createdVal.indexOf('/') !== -1) { createdEl.textContent = createdVal; } else { const d = new Date(createdVal); const pad=(n)=>n.toString().padStart(2,'0'); createdEl.textContent = `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; } createdEl.style.display='block'; } else createdEl.style.display='none'; }
+
+    // Setup PinDraggable preview if Add Issue Mode is active and feature enabled
+    (async ()=>{
+      try{
+        if(!addIssueMode) return; // only enable during add-issue workflow
+        if(window.FEATURE_PIN_DRAG === false) return; // respect opt-out flag if provided
+        // attempt to load PinDraggable lib if not present
+        if(!window.PinDraggable){ await new Promise((resolve,reject)=>{
+          const s = document.createElement('script'); s.src = '/app/pin-draggable.js'; s.onload = resolve; s.onerror = ()=>{ console.warn('Failed to load pin-draggable.js'); resolve(); }; document.head.appendChild(s);
+        }); }
+        if(!window.PinDraggable) return; // library missing
+        const previewWrap = modal.querySelector('#issuePreviewWrap'); const previewCanvas = modal.querySelector('#issuePreviewCanvas'); const previewOverlay = modal.querySelector('#issuePreviewOverlay'); if(!previewWrap || !previewCanvas) return;
+        // render a scaled snapshot of the current viewer canvas into previewCanvas
+        const mainCanvas = document.getElementById('pdfCanvas'); if(!mainCanvas) return;
+        const previewWidth = Math.min(220, mainCanvas.clientWidth);
+        const scale = previewWidth / mainCanvas.clientWidth;
+        previewCanvas.width = Math.floor(mainCanvas.width * scale);
+        previewCanvas.height = Math.floor(mainCanvas.height * scale);
+        previewCanvas.getContext('2d').drawImage(mainCanvas, 0, 0, previewCanvas.width, previewCanvas.height);
+        previewWrap.style.width = previewWidth + 'px'; previewWrap.style.height = Math.round(mainCanvas.clientHeight * scale) + 'px';
+
+        // instantiate PinDraggable on the preview
+        let pd = null;
+        try{
+          const PD = window.PinDraggable && window.PinDraggable.PinDraggable ? window.PinDraggable.PinDraggable : window.PinDraggable;
+          pd = new PD({
+            container: previewWrap,
+            img: previewCanvas,
+            initial: { x_norm: (pin.x_norm !== undefined ? pin.x_norm : 0.5), y_norm: (pin.y_norm !== undefined ? pin.y_norm : 0.5) },
+            onChange: (coords)=>{ pin.x_norm = coords.x_norm; pin.y_norm = coords.y_norm; const el = modal.querySelector('#issueCoords'); if(el) el.textContent = `x:${coords.x_norm.toFixed(2)} y:${coords.y_norm.toFixed(2)}`; },
+            onSave: (coords)=>{ pin.x_norm = coords.x_norm; pin.y_norm = coords.y_norm; const el = modal.querySelector('#issueCoords'); if(el) el.textContent = `x:${coords.x_norm.toFixed(2)} y:${coords.y_norm.toFixed(2)}`; }
+          });
+          // set initial coords display
+          const elc = modal.querySelector('#issueCoords'); if(elc) elc.textContent = `x:${(pin.x_norm||0.5).toFixed(2)} y:${(pin.y_norm||0.5).toFixed(2)}`;
+        }catch(e){ console.warn('PinDraggable init failed', e); }
+
+        // cleanup when modal is closed or cancelled
+        const cleanup = ()=>{ try{ if(pd && typeof pd.destroy === 'function') pd.destroy(); }catch(e){} };
+        const cancelBtn = modal.querySelector('#issueCancelBtn'); if(cancelBtn){ const prev = cancelBtn.onclick; cancelBtn.onclick = ()=>{ cleanup(); if(typeof prev === 'function') prev(); }; }
+        // also cleanup on save hide
+        const saveBtn = modal.querySelector('#issueSaveBtn'); if(saveBtn){ const prevS = saveBtn.onclick; saveBtn.onclick = async ()=>{ if(typeof pd !== 'undefined' && pd && typeof pd.destroy === 'function') pd.destroy(); if(typeof prevS === 'function') await prevS(); } }
+      }catch(e){ console.warn('Setting up pin draggable preview failed', e); }
+    })();
+
   })();
 
   // helper used by both file inputs -- will resize/compress client-side then upload

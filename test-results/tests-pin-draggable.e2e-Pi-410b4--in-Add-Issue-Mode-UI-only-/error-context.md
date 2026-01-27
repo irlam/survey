@@ -1,0 +1,131 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - button "Menu" [ref=e3] [cursor=pointer]: ☰
+    - generic [ref=e4]: Survey PDF Editor
+    - generic "Online" [ref=e5]
+  - generic [ref=e6]:
+    - complementary [ref=e7]:
+      - generic [ref=e8]: Plans
+      - generic [ref=e9]:
+        - button "Upload Plan" [ref=e10] [cursor=pointer]
+        - link "Tools" [ref=e11] [cursor=pointer]:
+          - /url: /tools/index.html
+        - link "DWG Viewer" [ref=e12] [cursor=pointer]:
+          - /url: /tools/dwgviewer/
+        - button "Trash" [ref=e13] [cursor=pointer]
+      - generic [ref=e15]:
+        - generic [ref=e16]:
+          - generic [ref=e17]:
+            - generic [ref=e18]: Level 5 Combined Finishes Plan-v2
+            - generic [ref=e19]: "#19"
+          - button "Open" [ref=e21] [cursor=pointer]
+        - generic [ref=e22]:
+          - generic [ref=e23]:
+            - generic [ref=e24]: Level 4 Combined Finishes Plan-v2
+            - generic [ref=e25]: "#18"
+          - button "Open" [ref=e27] [cursor=pointer]
+        - generic [ref=e28]:
+          - generic [ref=e29]:
+            - generic [ref=e30]: Level 3 Mezz Combined Finishes Plan-v2
+            - generic [ref=e31]: "#17"
+          - button "Open" [ref=e33] [cursor=pointer]
+        - generic [ref=e34]:
+          - generic [ref=e35]:
+            - generic [ref=e36]: Level 3 M2 Combined Finishes Plan-v2
+            - generic [ref=e37]: "#16"
+          - button "Open" [ref=e39] [cursor=pointer]
+        - generic [ref=e40]:
+          - generic [ref=e41]:
+            - generic [ref=e42]: Level 3 Combined Finishes Plan-v2
+            - generic [ref=e43]: "#15"
+          - button "Open" [ref=e45] [cursor=pointer]
+        - generic [ref=e46]:
+          - generic [ref=e47]:
+            - generic [ref=e48]: Level 2M Combined Finishes Plan-v2
+            - generic [ref=e49]: "#14"
+          - button "Open" [ref=e51] [cursor=pointer]
+        - generic [ref=e52]:
+          - generic [ref=e53]:
+            - generic [ref=e54]: Level 2 Combined Finishes Plan-v2
+            - generic [ref=e55]: "#13"
+          - button "Open" [ref=e57] [cursor=pointer]
+        - generic [ref=e58]:
+          - generic [ref=e59]:
+            - generic [ref=e60]: Level 1 Combined Finishes Plan-v2
+            - generic [ref=e61]: "#12"
+          - button "Open" [ref=e63] [cursor=pointer]
+        - generic [ref=e64]:
+          - generic [ref=e65]:
+            - generic [ref=e66]: Level 0 Combined Finishes Plan-v2
+            - generic [ref=e67]: "#11"
+          - button "Open" [ref=e69] [cursor=pointer]
+    - main [ref=e70]:
+      - generic [ref=e71]:
+        - generic [ref=e72]:
+          - generic [ref=e73]:
+            - generic [ref=e74]: Select a plan
+            - generic [ref=e75]: Page - / -
+          - button "Close" [ref=e76] [cursor=pointer]
+        - generic [ref=e77]:
+          - button "◀" [ref=e78] [cursor=pointer]
+          - button "▶" [ref=e79] [cursor=pointer]
+          - generic [ref=e80]: Page
+          - spinbutton [ref=e81]: "1"
+          - button "Go" [ref=e82] [cursor=pointer]
+          - button "−" [ref=e83] [cursor=pointer]
+          - generic [ref=e84]: 100%
+          - button "+" [ref=e85] [cursor=pointer]
+          - button "Fit" [ref=e86] [cursor=pointer]
+          - button "Add Issue" [ref=e87] [cursor=pointer]
+          - button "View Issues" [ref=e88] [cursor=pointer]
+  - generic [ref=e91]:
+    - generic [ref=e92]:
+      - generic [ref=e93]:
+        - generic [ref=e94]:
+          - text: "Title:"
+          - textbox "Title:" [ref=e95]
+        - generic [ref=e96]:
+          - generic [ref=e97]:
+            - generic [ref=e98]: "Status:"
+            - combobox [ref=e99]:
+              - button "Status" [ref=e100] [cursor=pointer]:
+                - generic [ref=e101]: Open
+              - listbox [ref=e102]:
+                - option "Open" [selected] [ref=e103] [cursor=pointer]
+                - option "In Progress" [ref=e104] [cursor=pointer]
+                - option "Resolved" [ref=e105] [cursor=pointer]
+                - option "Closed" [ref=e106] [cursor=pointer]
+          - generic [ref=e107]:
+            - generic [ref=e108]: "Priority:"
+            - combobox [ref=e109]:
+              - button "Priority" [ref=e110] [cursor=pointer]:
+                - generic [ref=e111]: Medium
+              - listbox [ref=e112]:
+                - option "Low" [ref=e113] [cursor=pointer]
+                - option "Medium" [selected] [ref=e114] [cursor=pointer]
+                - option "High" [ref=e115] [cursor=pointer]
+        - generic [ref=e116]:
+          - text: "Assignee:"
+          - textbox "Assignee:" [ref=e117]
+      - generic [ref=e118]:
+        - strong [ref=e120]: "ID:"
+        - generic [ref=e121]:
+          - strong [ref=e122]: "Page:"
+          - text: "1"
+        - strong [ref=e124]: "Created by:"
+        - strong [ref=e126]: "Created:"
+    - generic [ref=e128]:
+      - text: "Notes:"
+      - textbox "Notes:" [ref=e129]
+    - generic [ref=e130]:
+      - generic [ref=e131]:
+        - text: "Select Photo:"
+        - button "Select Photo:" [ref=e132]
+      - button "Take Photo" [ref=e133] [cursor=pointer]
+    - generic [ref=e134]:
+      - button "Save" [ref=e135] [cursor=pointer]
+      - button "Cancel" [ref=e136] [cursor=pointer]
+```

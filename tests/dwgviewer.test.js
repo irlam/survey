@@ -25,8 +25,11 @@ test('DWG viewer loads without syntax errors', async ({ page }) => {
   const loaderSuccess = messages.some(msg => msg.includes('dwgviewer-loader imported successfully'));
   expect(loaderSuccess).toBe(true);
 
-  // Check that the bundle loaded
-  const bundleLoaded = messages.some(msg => msg.includes('Loaded repaired bundle via script tag'));
+  // Check that the bundle loaded (either via script tag or via blob import)
+  const bundleLoaded = messages.some(msg =>
+    msg.includes('Loaded repaired bundle via script tag') ||
+    msg.includes('Imported repaired bundle via blob URL')
+  );
   expect(bundleLoaded).toBe(true);
 });
 
