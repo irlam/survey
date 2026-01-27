@@ -1,18 +1,24 @@
 const { test, expect } = require('@playwright/test');
 // NOTE: This E2E test is skipped by default because it targets the UI wiring
-// which requires the local changes to be deployed to the running site.
-// It can be enabled for local/dev runs by removing the skip below.
-test.skip('skipping remote run - enable locally', async ()=>{});
+// which requires a deployed/dev site available. Enable by setting the
+// environment variable `RUN_PIN_DRAG_E2E=1` and optionally `PIN_DRAG_E2E_URL`.
+const RUN_PIN = !!process.env.RUN_PIN_DRAG_E2E || !!process.env.RUN_REMOTE_E2E;
+if (!RUN_PIN) test.skip('Pin-drag E2E skipped (set RUN_PIN_DRAG_E2E=1 to enable)', () => {});
 
-
+const SITE_URL = process.env.PIN_DRAG_E2E_URL || 'https://survey.defecttracker.uk/';
 
 test('Pin is draggable in Add Issue Mode (UI only)', async ({ page }) => {
-  await page.goto('https://survey.defecttracker.uk/');
+  await page.goto(SITE_URL, { waitUntil: 'networkidle' });
+
+  // Wait for the Add Issue toggle to be available then enable it via UI
+  const addBtn = page.locator('#btnAddIssueMode');
+  await addBtn.waitFor({ state: 'visible', timeout: 15000 });
+  await addBtn.click();
 
   // Ensure the viewer globals are present
   await page.waitForLoadState('networkidle');
 
-  // Create a fake pdfCanvas so the preview snapshot can be produced
+  // Create a fake pdfCanvas if the site doesn't render one
   await page.evaluate(() => {
     let c = document.getElementById('pdfCanvas');
     if (!c) {
@@ -23,7 +29,6 @@ test('Pin is draggable in Add Issue Mode (UI only)', async ({ page }) => {
       const ctx = c.getContext('2d'); ctx.fillStyle = '#444'; ctx.fillRect(0,0,c.width,c.height);
       document.body.appendChild(c);
     }
-    window.addIssueMode = true; // ensure Add Issue Mode is active
   });
 
   // Open the issue modal directly with a new pin
@@ -38,15 +43,24 @@ test('Pin is draggable in Add Issue Mode (UI only)', async ({ page }) => {
   // Wait for the modal and preview area to appear
   const modal = page.locator('#issueModal');
   await expect(modal).toBeVisible();
+
   // debug: ensure PinDraggable lib loaded (or attempted)
   const libLoaded = await page.evaluate(() => !!window.PinDraggable);
   console.log('PinDraggable lib present:', libLoaded);
+
   const previewWrap = modal.locator('#issuePreviewWrap');
-  await expect(previewWrap).toBeVisible();
+  try{
+    await expect(previewWrap).toBeVisible({ timeout: 5000 });
+  }catch(e){
+    const inner = await modal.innerHTML();
+    console.log('Modal innerHTML snapshot (first 1000 chars):', inner.slice(0,1000));
+    throw new Error('Preview area not available on the site. Ensure the deployed code includes the preview markup (#issuePreviewWrap / #issuePreviewCanvas).');
+  }
+
   // wait for the draggable pin to be created (poll for up to 3s)
   let pin = null;
   try {
-    pin = await modal.locator('.pin-draggable').first();
+    pin = modal.locator('.pin-draggable').first();
     await pin.waitFor({ state: 'visible', timeout: 3000 });
   } catch (e) {
     // On failure, capture preview innerHTML for diagnostics
@@ -59,7 +73,7 @@ test('Pin is draggable in Add Issue Mode (UI only)', async ({ page }) => {
   const coordsEl = modal.locator('#issueCoords');
   const initialCoords = await coordsEl.textContent();
 
-  // Drag the pin by ~40 pixels to the right
+  // Drag the pin by ~60 pixels to the right
   const box = await pin.boundingBox();
   expect(box).not.toBeNull();
   const startX = box.x + box.width / 2; const startY = box.y + box.height / 2;
@@ -69,7 +83,7 @@ test('Pin is draggable in Add Issue Mode (UI only)', async ({ page }) => {
   await page.mouse.up();
 
   // Wait a moment for onChange/debounce to update coords
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(700);
 
   const afterCoords = await coordsEl.textContent();
   expect(initialCoords).not.toBe(afterCoords);

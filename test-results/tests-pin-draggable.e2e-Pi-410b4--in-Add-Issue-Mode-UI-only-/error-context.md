@@ -1,7 +1,7 @@
 # Page snapshot
 
 ```yaml
-- generic [active] [ref=e1]:
+- generic [ref=e1]:
   - banner [ref=e2]:
     - button "Menu" [ref=e3] [cursor=pointer]: ☰
     - generic [ref=e4]: Survey PDF Editor
@@ -68,64 +68,65 @@
           - generic [ref=e73]:
             - generic [ref=e74]: Select a plan
             - generic [ref=e75]: Page - / -
-          - button "Close" [ref=e76] [cursor=pointer]
-        - generic [ref=e77]:
-          - button "◀" [ref=e78] [cursor=pointer]
-          - button "▶" [ref=e79] [cursor=pointer]
-          - generic [ref=e80]: Page
-          - spinbutton [ref=e81]: "1"
-          - button "Go" [ref=e82] [cursor=pointer]
-          - button "−" [ref=e83] [cursor=pointer]
-          - generic [ref=e84]: 100%
-          - button "+" [ref=e85] [cursor=pointer]
-          - button "Fit" [ref=e86] [cursor=pointer]
-          - button "Add Issue" [ref=e87] [cursor=pointer]
-          - button "View Issues" [ref=e88] [cursor=pointer]
-  - generic [ref=e91]:
-    - generic [ref=e92]:
-      - generic [ref=e93]:
-        - generic [ref=e94]:
+            - generic [ref=e76]: ● Add Issue Mode
+          - button "Close" [ref=e77] [cursor=pointer]
+        - generic [ref=e78]:
+          - button "◀" [ref=e79] [cursor=pointer]
+          - button "▶" [ref=e80] [cursor=pointer]
+          - generic [ref=e81]: Page
+          - spinbutton [ref=e82]: "1"
+          - button "Go" [ref=e83] [cursor=pointer]
+          - button "−" [ref=e84] [cursor=pointer]
+          - generic [ref=e85]: 100%
+          - button "+" [ref=e86] [cursor=pointer]
+          - button "Fit" [ref=e87] [cursor=pointer]
+          - button "Done" [active] [ref=e88] [cursor=pointer]
+          - button "View Issues" [ref=e89] [cursor=pointer]
+  - generic [ref=e92]:
+    - generic [ref=e93]:
+      - generic [ref=e94]:
+        - generic [ref=e95]:
           - text: "Title:"
-          - textbox "Title:" [ref=e95]
-        - generic [ref=e96]:
-          - generic [ref=e97]:
-            - generic [ref=e98]: "Status:"
-            - combobox [ref=e99]:
-              - button "Status" [ref=e100] [cursor=pointer]:
-                - generic [ref=e101]: Open
-              - listbox [ref=e102]:
-                - option "Open" [selected] [ref=e103] [cursor=pointer]
-                - option "In Progress" [ref=e104] [cursor=pointer]
-                - option "Resolved" [ref=e105] [cursor=pointer]
-                - option "Closed" [ref=e106] [cursor=pointer]
-          - generic [ref=e107]:
-            - generic [ref=e108]: "Priority:"
-            - combobox [ref=e109]:
-              - button "Priority" [ref=e110] [cursor=pointer]:
-                - generic [ref=e111]: Medium
-              - listbox [ref=e112]:
-                - option "Low" [ref=e113] [cursor=pointer]
-                - option "Medium" [selected] [ref=e114] [cursor=pointer]
-                - option "High" [ref=e115] [cursor=pointer]
-        - generic [ref=e116]:
+          - textbox "Title:" [ref=e96]
+        - generic [ref=e97]:
+          - generic [ref=e98]:
+            - generic [ref=e99]: "Status:"
+            - combobox [ref=e100]:
+              - button "Status" [ref=e101] [cursor=pointer]:
+                - generic [ref=e102]: Open
+              - listbox [ref=e103]:
+                - option "Open" [selected] [ref=e104] [cursor=pointer]
+                - option "In Progress" [ref=e105] [cursor=pointer]
+                - option "Resolved" [ref=e106] [cursor=pointer]
+                - option "Closed" [ref=e107] [cursor=pointer]
+          - generic [ref=e108]:
+            - generic [ref=e109]: "Priority:"
+            - combobox [ref=e110]:
+              - button "Priority" [ref=e111] [cursor=pointer]:
+                - generic [ref=e112]: Medium
+              - listbox [ref=e113]:
+                - option "Low" [ref=e114] [cursor=pointer]
+                - option "Medium" [selected] [ref=e115] [cursor=pointer]
+                - option "High" [ref=e116] [cursor=pointer]
+        - generic [ref=e117]:
           - text: "Assignee:"
-          - textbox "Assignee:" [ref=e117]
-      - generic [ref=e118]:
-        - strong [ref=e120]: "ID:"
-        - generic [ref=e121]:
-          - strong [ref=e122]: "Page:"
+          - textbox "Assignee:" [ref=e118]
+      - generic [ref=e119]:
+        - strong [ref=e121]: "ID:"
+        - generic [ref=e122]:
+          - strong [ref=e123]: "Page:"
           - text: "1"
-        - strong [ref=e124]: "Created by:"
-        - strong [ref=e126]: "Created:"
-    - generic [ref=e128]:
+        - strong [ref=e125]: "Created by:"
+        - strong [ref=e127]: "Created:"
+    - generic [ref=e129]:
       - text: "Notes:"
-      - textbox "Notes:" [ref=e129]
-    - generic [ref=e130]:
-      - generic [ref=e131]:
+      - textbox "Notes:" [ref=e130]
+    - generic [ref=e131]:
+      - generic [ref=e132]:
         - text: "Select Photo:"
-        - button "Select Photo:" [ref=e132]
-      - button "Take Photo" [ref=e133] [cursor=pointer]
-    - generic [ref=e134]:
-      - button "Save" [ref=e135] [cursor=pointer]
-      - button "Cancel" [ref=e136] [cursor=pointer]
+        - button "Select Photo:" [ref=e133]
+      - button "Take Photo" [ref=e134] [cursor=pointer]
+    - generic [ref=e135]:
+      - button "Save" [ref=e136] [cursor=pointer]
+      - button "Cancel" [ref=e137] [cursor=pointer]
 ```

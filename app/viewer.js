@@ -258,6 +258,15 @@ async function showIssueModal(pin){
 
           <div><strong>Created by:</strong> <span id="issueCreatedBy">${pin.created_by||pin.author||''}</span></div>
           <div style="margin-top:6px;"><strong>Created:</strong><div id="issueCreated" style="font-weight:700;margin-top:2px;">&nbsp;</div></div>
+
+          <div id="issuePreview" style="margin-top:8px;">
+            <div style="font-size:13px;margin-bottom:6px;"><strong>Preview</strong></div>
+            <div id="issuePreviewWrap" style="width:220px;border:1px solid rgba(255,255,255,.06);position:relative;overflow:hidden;background:#111;">
+              <canvas id="issuePreviewCanvas" style="display:block;width:100%;height:auto;"></canvas>
+              <div id="issuePreviewOverlay" style="position:absolute;left:0;top:0;right:0;bottom:0;"></div>
+            </div>
+            <div style="font-size:12px;color:var(--muted);margin-top:6px;">Coords: <span id="issueCoords">x:0.00 y:0.00</span></div>
+          </div>
         </div>
       </div>
       <div style="margin-bottom:12px;">
