@@ -340,9 +340,11 @@
           const blob = dataURLToBlob(img);
           const url = URL.createObjectURL(blob);
           const a = document.getElementById('downloadImg'); a.href = url; a.download = `crop_preview_page_${curPage}.jpg`;
-          a.addEventListener('click', ()=>{ setTimeout(()=> URL.revokeObjectURL(url), 2000); });
+          const revokeImgURL = ()=> { try{ URL.revokeObjectURL(url); }catch(e){} };
+          a.addEventListener('click', ()=>{ setTimeout(revokeImgURL, 2000); });
 
-          document.getElementById('downloadPdf').addEventListener('click', async ()=>{
+          const downloadPdfBtn = document.getElementById('downloadPdf');
+          downloadPdfBtn.addEventListener('click', async ()=>{
             try{
               const pdflib = window.PDFLib;
               const newPdf = await pdflib.PDFDocument.create();
@@ -356,9 +358,8 @@
             }catch(e){ alert('Failed to create PDF preview: ' + e.message); console.error(e); }
           });
 
-          document.getElementById('closePreview').addEventListener('click', ()=>{ out.innerHTML = ''; });
+          document.getElementById('closePreview').addEventListener('click', ()=>{ out.innerHTML = ''; revokeImgURL(); });
         }catch(e){ console.warn('Preview helper setup failed', e); }
-        updateDpiInfo();
       }catch(err){ console.error('Preview crop failed:', err); alert('Preview failed: ' + (err && err.message ? err.message : String(err))); }
     };
 
