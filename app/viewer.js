@@ -35,6 +35,8 @@ function ensureWrapAndOverlay(){
     // Long-press (1s) to place an issue pin to avoid accidental taps while navigating
     overlay.addEventListener('pointerdown', (e)=>{
       if(!addIssueMode) return;
+      // don't start long-press if the pointer is on an existing pin (user may want to drag it)
+      if (e.target && e.target.closest && e.target.closest('.pin')) return;
       // only start hold if pointer is within the canvas area
       const canvasRect = canvas.getBoundingClientRect();
       if(e.clientX < canvasRect.left || e.clientX > canvasRect.right || e.clientY < canvasRect.top || e.clientY > canvasRect.bottom) return;
@@ -122,8 +124,27 @@ async function renderPinsForPage(overlay, viewportWidth, viewportHeight){ clearO
     } else {
       el.innerHTML = `<svg viewBox="0 0 64 80" width="56" height="72"><circle cx="32" cy="20" r="16" fill="#e12b2b"/><path d="M32 36 C24 48, 16 60, 32 76 C48 60, 40 48, 32 36 Z" fill="#e12b2b"/><text x="32" y="20" text-anchor="middle" dominant-baseline="central" fill="#000" font-weight="900" font-size="${fontSize}">${labelText}</text></svg>`;
     }
+    // append pin element to overlay
     overlay.appendChild(el);
-    el.addEventListener('click', ()=> showIssueModal(p));
+    // make pin draggable when Add Issue mode is active
+    if (addIssueMode) {
+      (function makeDraggable(elPin, pinObj){
+        elPin.style.touchAction = 'none';
+        elPin.style.cursor = 'grab';
+        let dragging = false, moved = false;
+        async function savePin(){ if(!pinObj || !pinObj.id) return; try{ const issue = { id: pinObj.id, plan_id: getPlanIdFromUrl(), page: pinObj.page, x_norm: pinObj.x_norm, y_norm: pinObj.y_norm }; await apiSaveIssue(issue); localShowToast('Pin saved'); await reloadDbPins(); await renderPage(currentPage); }catch(e){ localShowToast('Pin save failed'); console.warn('Pin save failed', e); } }
+        function onPointerDown(ev){ ev.preventDefault(); ev.stopPropagation(); try{ elPin.setPointerCapture(ev.pointerId); }catch(e){} dragging = true; moved = false; elPin.style.cursor = 'grabbing'; window.addEventListener('pointermove', onPointerMove); window.addEventListener('pointerup', onPointerUp); if(overlay._issueHold && overlay._issueHold.timer){ clearTimeout(overlay._issueHold.timer); overlay._issueHold.timer = null; } }
+        function onPointerMove(ev){ if(!dragging) return; moved = true; const rect = overlay.getBoundingClientRect(); const x = ev.clientX - rect.left; const y = ev.clientY - rect.top; const nx = Math.max(0, Math.min(1, x/viewportWidth)); const ny = Math.max(0, Math.min(1, y/viewportHeight)); pinObj.x_norm = nx; pinObj.y_norm = ny; elPin.style.left = `${nx * viewportWidth}px`; elPin.style.top = `${ny * viewportHeight}px`; }
+        function onPointerUp(ev){ try{ elPin.releasePointerCapture(ev.pointerId); }catch(e){} dragging = false; elPin.style.cursor = 'grab'; window.removeEventListener('pointermove', onPointerMove); window.removeEventListener('pointerup', onPointerUp); setTimeout(()=>{ moved = false; }, 0); // persist change for saved issues
+          if (pinObj && pinObj.id) { savePin(); }
+        }
+        elPin.addEventListener('pointerdown', onPointerDown);
+        // ensure click opens modal only when not dragged
+        elPin.addEventListener('click', (ev)=>{ if(moved) { ev.stopPropagation(); return; } showIssueModal(pinObj); });
+      })(el, p);
+    } else {
+      el.addEventListener('click', ()=> showIssueModal(p));
+    }
   }
   for(const p of tempPins.filter(p=>p.page===currentPage)){
     const el = document.createElement('div');
@@ -149,7 +170,23 @@ async function renderPinsForPage(overlay, viewportWidth, viewportHeight){ clearO
     } else {
       el.innerHTML = `<svg viewBox="0 0 64 80" width="56" height="72"><circle cx="32" cy="20" r="16" fill="#e12b2b"/><path d="M32 36 C24 48, 16 60, 32 76 C48 60, 40 48, 32 36 Z" fill="#e12b2b"/><text x="32" y="20" text-anchor="middle" dominant-baseline="central" fill="#000" font-weight="900" font-size="${fontSize}">${labelText}</text></svg>`;
     }
+    // append pin element to overlay
     overlay.appendChild(el);
+    // make temp pin draggable when Add Issue mode is active
+    if (addIssueMode) {
+      (function makeDraggableTemp(elPin, pinObj){
+        elPin.style.touchAction = 'none';
+        elPin.style.cursor = 'grab';
+        let dragging = false, moved = false;
+        function onPointerDown(ev){ ev.preventDefault(); ev.stopPropagation(); try{ elPin.setPointerCapture(ev.pointerId); }catch(e){} dragging = true; moved = false; elPin.style.cursor = 'grabbing'; window.addEventListener('pointermove', onPointerMove); window.addEventListener('pointerup', onPointerUp); if(overlay._issueHold && overlay._issueHold.timer){ clearTimeout(overlay._issueHold.timer); overlay._issueHold.timer = null; } }
+        function onPointerMove(ev){ if(!dragging) return; moved = true; const rect = overlay.getBoundingClientRect(); const x = ev.clientX - rect.left; const y = ev.clientY - rect.top; const nx = Math.max(0, Math.min(1, x/viewportWidth)); const ny = Math.max(0, Math.min(1, y/viewportHeight)); pinObj.x_norm = nx; pinObj.y_norm = ny; elPin.style.left = `${nx * viewportWidth}px`; elPin.style.top = `${ny * viewportHeight}px`; }
+        function onPointerUp(ev){ try{ elPin.releasePointerCapture(ev.pointerId); }catch(e){} dragging = false; elPin.style.cursor = 'grab'; window.removeEventListener('pointermove', onPointerMove); window.removeEventListener('pointerup', onPointerUp); setTimeout(()=>{ moved = false; }, 0); }
+        elPin.addEventListener('pointerdown', onPointerDown);
+        elPin.addEventListener('click', (ev)=>{ if(moved) { ev.stopPropagation(); return; } showIssueModal(pinObj); });
+      })(el, p);
+    } else {
+      el.addEventListener('click', ()=> showIssueModal(p));
+    }
   }
 }
 
