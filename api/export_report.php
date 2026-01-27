@@ -603,7 +603,7 @@ $pdf->SetFont('Arial','',12);
 
 if ($format === 'csv') {
     // Generate CSV report for issues (no coords) — format dates to UK style
-    $filename = $safe_plan_name . $plan_revision_tag . '_plan_' . ($issue_id ? 'issue_' . $issue_id . '_' : '') . date('d-m-Y') . '.csv';
+    $filename = $safe_plan_name . $plan_revision_tag . '_plan_' . ($issue_id ? 'issue_' . $issue_id . '_' : '') . date('Ymd_His') . '.csv';
     $path = storage_dir('exports/' . $filename);
     $fh = fopen($path, 'w');
     if (!$fh) error_response('Failed to create CSV file', 500);
@@ -699,45 +699,86 @@ if ($fit_a4) {
             $imgInfo = @getimagesize($planThumb['tmp']);
             $w_px = $imgInfo ? $imgInfo[0] : ($planThumb['w'] ?? null);
             $h_px = $imgInfo ? $imgInfo[1] : ($planThumb['h'] ?? null);
+
+            // Generate per-issue pin images (raster) to display in grid (do this before placing the plan so we can cap its height)
+            $gridImgs = [];
+            foreach ($issue_list as $iss) {
+                $pinImg = render_pin_thumbnail($planFile, $iss['page'] ?? 1, $iss['x_norm'] ?? 0.5, $iss['y_norm'] ?? 0.5, 1200, ($iss['id'] ?? null));
+                if ($pinImg && is_array($pinImg) && !empty($pinImg['tmp']) && is_file($pinImg['tmp'])) {
+                    $gridImgs[] = ['tmp'=>$pinImg['tmp'],'w'=>null,'h'=>null,'issue_id'=>$iss['id'] ?? null];
+                    $tempFiles[] = $pinImg['tmp'];
+                } else {
+                    // fallback: try to use any issue photo (first photo) as placeholder
+                    $stmtp2 = $pdo->prepare('SELECT * FROM photos WHERE plan_id=? AND issue_id=? LIMIT 1');
+                    $stmtp2->execute([$plan_id, $iss['id']]); $phs2 = $stmtp2->fetchAll();
+                    if (!empty($phs2)) {
+                        $frel = $phs2[0]['file_path'] ?? $phs2[0]['filename'] ?? null;
+                        if ($frel) {
+                            if (preg_match('#^https?://#i', $frel)) continue; // skip remote for grid
+                            if (strpos($frel, 'photos/')===0) $fpath = storage_dir($frel);
+                            else $fpath = storage_dir('photos/' . basename($frel));
+                            if (is_file($fpath)) { $gridImgs[] = ['tmp'=>$fpath,'w'=>null,'h'=>null,'issue_id'=>$iss['id'] ?? null]; }
+                        }
+                    }
+                }
+            }
+
             if ($w_px && $h_px) {
                 $planWidthMM = $availableW;
                 $planHeightMM = $planWidthMM * ($h_px / $w_px);
+
+                // Compute a minimum required grid height and cap the plan height so the grid will fit on A4
+                $n = count($gridImgs);
+                if ($n > 0) {
+                    $hgap = 4; $vgap = 6; $minThumb = 15; $captionH = 4; // mm
+                    $colsForCalc = min(4, max(1, $n));
+                    $rows = (int)ceil($n / $colsForCalc);
+                    $minGridHeight = $rows * ($minThumb + $captionH) + max(0, ($rows - 1) * $vgap) + 6; // small extra padding
+                    $availableForContent = $pageH - 2 * $margin - $gap;
+                    $planHeightCap = max(30, $availableForContent - $minGridHeight);
+                    if ($planHeightMM > $planHeightCap) {
+                        $planHeightMM = $planHeightCap;
+                        $planWidthMM = $planHeightMM * ($w_px / $h_px);
+                    }
+                }
+
                 // place at top margin
                 $x = $margin; $y = $margin;
                 $pdf->Image($planThumb['tmp'], $x, $y, $planWidthMM, 0);
                 $currentY = $y + $planHeightMM + $gap;
             } else {
-                // fallback fixed height
+                // fallback fixed height (try to shrink if grid needs space)
                 $planWidthMM = $availableW; $planHeightMM = 120;
+                $n = count($gridImgs);
+                if ($n > 0) {
+                    $hgap = 4; $vgap = 6; $minThumb = 15; $captionH = 4;
+                    $colsForCalc = min(4, max(1, $n));
+                    $rows = (int)ceil($n / $colsForCalc);
+                    $minGridHeight = $rows * ($minThumb + $captionH) + max(0, ($rows - 1) * $vgap) + 6;
+                    $availableForContent = $pageH - 2 * $margin - $gap;
+                    $planHeightCap = max(30, $availableForContent - $minGridHeight);
+                    if ($planHeightMM > $planHeightCap) $planHeightMM = $planHeightCap;
+                }
                 $x = $margin; $y = $margin; $pdf->Image($planThumb['tmp'], $x, $y, $planWidthMM, 0);
                 $currentY = $y + $planHeightMM + $gap;
             }
         } else {
             // if plan cannot be rendered, leave some header space
-            $currentY = 30;
-        }
-
-        // Generate per-issue pin images (raster) to display in grid
-        $gridImgs = [];
-        foreach ($issue_list as $iss) {
-            $pinImg = render_pin_thumbnail($planFile, $iss['page'] ?? 1, $iss['x_norm'] ?? 0.5, $iss['y_norm'] ?? 0.5, 1200, ($iss['id'] ?? null));
-            if ($pinImg && is_array($pinImg) && !empty($pinImg['tmp']) && is_file($pinImg['tmp'])) {
-                $gridImgs[] = ['tmp'=>$pinImg['tmp'],'w'=>null,'h'=>null,'issue_id'=>$iss['id'] ?? null];
-                $tempFiles[] = $pinImg['tmp'];
-            } else {
-                // fallback: try to use any issue photo (first photo) as placeholder
+            // still generate grid images so they can be placed
+            $gridImgs = [];
+            foreach ($issue_list as $iss) {
                 $stmtp2 = $pdo->prepare('SELECT * FROM photos WHERE plan_id=? AND issue_id=? LIMIT 1');
                 $stmtp2->execute([$plan_id, $iss['id']]); $phs2 = $stmtp2->fetchAll();
                 if (!empty($phs2)) {
                     $frel = $phs2[0]['file_path'] ?? $phs2[0]['filename'] ?? null;
-                    if ($frel) {
-                        if (preg_match('#^https?://#i', $frel)) continue; // skip remote for grid
+                    if ($frel && !preg_match('#^https?://#i', $frel)) {
                         if (strpos($frel, 'photos/')===0) $fpath = storage_dir($frel);
                         else $fpath = storage_dir('photos/' . basename($frel));
                         if (is_file($fpath)) { $gridImgs[] = ['tmp'=>$fpath,'w'=>null,'h'=>null,'issue_id'=>$iss['id'] ?? null]; }
                     }
                 }
             }
+            $currentY = 30;
         }
 
         // Arrange grid to fit into remaining area on A4
@@ -1245,7 +1286,7 @@ if (!$skip_issue_loop) foreach ($issue_list as $issue) {
 }
 }
 
-$filename = $safe_plan_name . $plan_revision_tag . '_plan_' . ($issue_id ? 'issue_' . $issue_id . '_' : '') . date('d-m-Y') . '.pdf';
+$filename = $safe_plan_name . $plan_revision_tag . '_plan_' . ($issue_id ? 'issue_' . $issue_id . '_' : '') . date('Ymd_His') . '.pdf';
 $path = storage_dir('exports/' . $filename);
 $pdf->Output('F', $path);
 // ensure file was written
