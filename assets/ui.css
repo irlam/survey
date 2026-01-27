@@ -473,7 +473,11 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
 
 /* Site footer shown inside the viewer (neon accent, centered) */
 .siteFooter{
-  position: absolute;
+  position: absolute; 
+}
+
+/* queued photos badge in issue modal */
+.photoQueueBadge{ display:inline-block; min-width:28px; padding:3px 8px; border-radius:999px; background: linear-gradient(90deg,var(--neon2),var(--neon)); color:#061016; font-weight:900; text-align:center; box-shadow: 0 6px 24px rgba(0,0,0,0.5); }
   left: 50%;
   transform: translateX(-50%);
   bottom: 12px;

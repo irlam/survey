@@ -314,6 +314,9 @@ async function showIssueModal(pin){
     let pendingPhotos = [];
     function renderPendingPhotos(){
       const q = modal.querySelector('#photoQueue'); if(!q) return; q.innerHTML='';
+      // header with badge
+      let head = modal.querySelector('#photoQueueHeader'); if(!head){ head = document.createElement('div'); head.id='photoQueueHeader'; head.style.display='flex'; head.style.alignItems='center'; head.style.gap='8px'; head.style.marginBottom='8px'; head.innerHTML = '<strong>Queued Photos</strong> <span id="photoQueueBadge" class="photoQueueBadge">0</span>'; q.parentNode.insertBefore(head, q); }
+      const badge = head.querySelector('#photoQueueBadge'); badge.textContent = String(pendingPhotos.length);
       pendingPhotos.forEach((f, idx)=>{
         const wrap = document.createElement('div'); wrap.style.display='flex'; wrap.style.flexDirection='column'; wrap.style.alignItems='center'; wrap.style.gap='6px'; wrap.style.width='96px';
         const thumb = document.createElement('img'); thumb.style.maxWidth='88px'; thumb.style.maxHeight='88px'; thumb.style.borderRadius='6px'; thumb.style.boxShadow='0 4px 12px rgba(0,0,0,0.6)';
@@ -321,10 +324,8 @@ async function showIssueModal(pin){
         if(!f.previewUrl) f.previewUrl = thumb.src;
         wrap.appendChild(thumb);
         const btnRow = document.createElement('div'); btnRow.style.display='flex'; btnRow.style.gap='6px';
-        const ann = document.createElement('button'); ann.className='btn'; ann.textContent='Annotate'; ann.onclick = ()=>{ openAnnotator(f, async (blob)=>{ try{ const newFile = new File([blob], (f.name||('photo_' + idx + '.jpg')), {type: blob.type}); pendingPhotos[idx] = newFile; // replace
-              if(f.previewUrl) URL.revokeObjectURL(f.previewUrl);
-              newFile.previewUrl = URL.createObjectURL(newFile);
-              renderPendingPhotos(); }catch(e){ console.error('Annotate save failed', e); } }); };
+        const ann = document.createElement('button'); ann.className='btn'; ann.textContent='Annotate'; ann.onclick = ()=>{ openAnnotator(f, async (blob)=>{ try{ const newFile = new File([blob], (f.name||('photo_' + idx + '.jpg')), {type: blob.type}); // preserve preview
+              if(f.previewUrl) URL.revokeObjectURL(f.previewUrl); newFile.previewUrl = URL.createObjectURL(newFile); pendingPhotos[idx] = newFile; renderPendingPhotos(); }catch(e){ console.error('Annotate save failed', e); } }); };
         const rem = document.createElement('button'); rem.className='btn'; rem.textContent='Remove'; rem.onclick = ()=>{ try{ if(f.previewUrl) URL.revokeObjectURL(f.previewUrl); }catch(e){} pendingPhotos.splice(idx,1); renderPendingPhotos(); };
         btnRow.appendChild(ann); btnRow.appendChild(rem);
         wrap.appendChild(btnRow);
@@ -380,30 +381,55 @@ async function showIssueModal(pin){
           controls.appendChild(saveBtn); controls.appendChild(undoBtn); controls.appendChild(clearBtn); controls.appendChild(closeBtn);
           wrap.appendChild(canvas); wrap.appendChild(controls); ann.appendChild(wrap); document.body.appendChild(ann);
 
-          // drawing state
-          let ctx = canvas.getContext('2d'); let drawing=false; let strokes=[]; let current=[];
+          // drawing state with tools, colors and undo stack
+          let ctx = canvas.getContext('2d'); let drawing=false; let strokes=[]; let current=null; let toolMode='free'; let drawColor='rgba(255,80,80,0.95)'; let drawWidth=4;
           function redraw(){ ctx.clearRect(0,0,canvas.width,canvas.height); const img = new Image(); img.src = canvas.dataset.bg || ''; img.onload = ()=>{ ctx.drawImage(img,0,0,canvas.width,canvas.height); // then draw strokes
-              ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle = 'rgba(255,0,0,0.92)'; ctx.lineWidth = 4; for(const s of strokes){ ctx.beginPath(); ctx.moveTo(s[0].x, s[0].y); for(let i=1;i<s.length;i++) ctx.lineTo(s[i].x, s[i].y); ctx.stroke(); }
+              ctx.lineCap='round'; ctx.lineJoin='round';
+              for(const s of strokes){
+                if(s.type === 'free'){
+                  ctx.strokeStyle = s.color; ctx.lineWidth = s.width; ctx.beginPath(); ctx.moveTo(s.points[0].x, s.points[0].y); for(let i=1;i<s.points.length;i++) ctx.lineTo(s.points[i].x, s.points[i].y); ctx.stroke();
+                } else if(s.type === 'arrow'){
+                  ctx.strokeStyle = s.color; ctx.lineWidth = s.width; ctx.beginPath(); ctx.moveTo(s.sx,s.sy); ctx.lineTo(s.ex,s.ey); ctx.stroke(); // draw head
+                  drawArrowHead(ctx, s.sx, s.sy, s.ex, s.ey, s.width, s.color);
+                }
+              }
             };
           }
+          // helper for arrow heads
+          function drawArrowHead(ctx, sx, sy, ex, ey, width, color){ const angle = Math.atan2(ey - sy, ex - sx); const len = Math.max(10, width*4); ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex - len * Math.cos(angle - Math.PI/8), ey - len * Math.sin(angle - Math.PI/8)); ctx.lineTo(ex - len * Math.cos(angle + Math.PI/8), ey - len * Math.sin(angle + Math.PI/8)); ctx.closePath(); ctx.fill(); }
+
+          // controls: add tool selector, color input and width slider
+          const toolSelect = document.createElement('select'); toolSelect.style.marginRight='8px'; const opt1=document.createElement('option'); opt1.value='free'; opt1.textContent='Freehand'; const opt2=document.createElement('option'); opt2.value='arrow'; opt2.textContent='Arrow'; toolSelect.appendChild(opt1); toolSelect.appendChild(opt2); toolSelect.value = toolMode; toolSelect.onchange = ()=>{ toolMode = toolSelect.value; };
+          const colorInput = document.createElement('input'); colorInput.type='color'; colorInput.value = '#ff5050'; colorInput.style.marginRight='8px'; colorInput.onchange = ()=>{ const v = colorInput.value; // convert hex to rgba
+            drawColor = hexToRgba(v, 0.95); };
+          const widthInput = document.createElement('input'); widthInput.type='range'; widthInput.min=1; widthInput.max=24; widthInput.value = drawWidth; widthInput.style.width='120px'; widthInput.oninput = ()=>{ drawWidth = Number(widthInput.value); };
+          // insert controls near buttons
+          controls.insertBefore(toolSelect, saveBtn);
+          controls.insertBefore(colorInput, saveBtn);
+          controls.insertBefore(widthInput, saveBtn);
+
+          function hexToRgba(hex, a){ const bigint = parseInt(hex.replace('#',''), 16); const r = (bigint >> 16) & 255; const g = (bigint >> 8) & 255; const b = bigint & 255; return `rgba(${r},${g},${b},${a})`; }
+
           // pointer handlers
-          canvas.addEventListener('pointerdown', (ev)=>{ ev.preventDefault(); drawing=true; current=[]; const r = canvas.getBoundingClientRect(); current.push({x:(ev.clientX-r.left)*(canvas.width/r.width), y:(ev.clientY-r.top)*(canvas.height/r.height)}); });
-          canvas.addEventListener('pointermove', (ev)=>{ if(!drawing) return; const r = canvas.getBoundingClientRect(); current.push({x:(ev.clientX-r.left)*(canvas.width/r.width), y:(ev.clientY-r.top)*(canvas.height/r.height)}); strokes.push([]); // temporary
-              // more efficient: redraw once per move
-              ctx.beginPath(); ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle = 'rgba(255,0,0,0.92)'; ctx.lineWidth = 4; const s = current; ctx.moveTo(s[0].x, s[0].y); for(let i=1;i<s.length;i++) ctx.lineTo(s[i].x, s[i].y); ctx.stroke(); }
-          );
-          canvas.addEventListener('pointerup', (ev)=>{ if(!drawing) return; drawing=false; strokes.push(current.slice()); current=[]; });
+          canvas.addEventListener('pointerdown', (ev)=>{ ev.preventDefault(); drawing=true; const r = canvas.getBoundingClientRect(); const x = (ev.clientX-r.left)*(canvas.width/r.width); const y = (ev.clientY-r.top)*(canvas.height/r.height); if(toolMode==='free'){ current = [{x,y}]; } else { current = {sx:x, sy:y, ex:x, ey:y}; } });
+          canvas.addEventListener('pointermove', (ev)=>{ if(!drawing || !current) return; const r = canvas.getBoundingClientRect(); const x = (ev.clientX-r.left)*(canvas.width/r.width); const y = (ev.clientY-r.top)*(canvas.height/r.height); if(toolMode==='free'){ current.push({x,y}); } else { current.ex = x; current.ey = y; } // redraw full canvas then overlay current
+            redraw(); // overlay current
+            if(toolMode==='free' && current.length>0){ ctx.strokeStyle = drawColor; ctx.lineWidth = drawWidth; ctx.beginPath(); ctx.moveTo(current[0].x, current[0].y); for(let i=1;i<current.length;i++) ctx.lineTo(current[i].x, current[i].y); ctx.stroke(); }
+            if(toolMode==='arrow' && current){ ctx.strokeStyle = drawColor; ctx.lineWidth = drawWidth; ctx.beginPath(); ctx.moveTo(current.sx,current.sy); ctx.lineTo(current.ex,current.ey); ctx.stroke(); drawArrowHead(ctx, current.sx, current.sy, current.ex, current.ey, drawWidth, drawColor); }
+          });
+          canvas.addEventListener('pointerup', (ev)=>{ if(!drawing || !current) return; drawing=false; if(toolMode==='free'){ if(current.length>1) strokes.push({ type: 'free', points: current.slice(), color: drawColor, width: drawWidth }); } else { strokes.push({ type: 'arrow', sx: current.sx, sy: current.sy, ex: current.ex, ey: current.ey, color: drawColor, width: drawWidth }); } current=null; redraw(); });
 
           undoBtn.onclick = ()=>{ if(strokes.length) strokes.pop(); redraw(); };
           clearBtn.onclick = ()=>{ strokes=[]; redraw(); };
           closeBtn.onclick = ()=>{ ann.style.display='none'; };
           saveBtn.onclick = ()=>{
-            // export canvas to blob (it's already a canvas draw — but ensure bg image + strokes merged)
-            // draw background image first synchronously
+            // export canvas to blob (merge bg + strokes)
             const sav = document.createElement('canvas'); sav.width = canvas.width; sav.height = canvas.height; const sctx = sav.getContext('2d');
             const bg = new Image(); bg.src = canvas.dataset.bg || '';
-            bg.onload = ()=>{ sctx.drawImage(bg,0,0,sav.width,sav.height); sctx.lineCap='round'; sctx.lineJoin='round'; sctx.strokeStyle='rgba(255,0,0,0.92)'; sctx.lineWidth = 4; for(const s of strokes){ sctx.beginPath(); sctx.moveTo(s[0].x, s[0].y); for(let i=1;i<s.length;i++) sctx.lineTo(s[i].x, s[i].y); sctx.stroke(); }
-              sav.toBlob((blob)=>{ if(typeof doneCallback === 'function') doneCallback(blob); ann.style.display='none'; }, 'image/jpeg', 0.9);
+            bg.onload = ()=>{ sctx.drawImage(bg,0,0,sav.width,sav.height);
+              // draw strokes
+              for(const s of strokes){ if(s.type === 'free'){ sctx.strokeStyle = s.color; sctx.lineWidth = s.width; sctx.lineCap='round'; sctx.lineJoin='round'; sctx.beginPath(); sctx.moveTo(s.points[0].x, s.points[0].y); for(let i=1;i<s.points.length;i++) sctx.lineTo(s.points[i].x, s.points[i].y); sctx.stroke(); } else if(s.type === 'arrow'){ sctx.strokeStyle = s.color; sctx.lineWidth = s.width; sctx.beginPath(); sctx.moveTo(s.sx,s.sy); sctx.lineTo(s.ex,s.ey); sctx.stroke(); drawArrowHead(sctx, s.sx, s.sy, s.ex, s.ey, s.width, s.color); } }
+              sav.toBlob((blob)=>{ if(typeof doneCallback === 'function') doneCallback(blob); ann.style.display='none'; }, 'image/jpeg', 0.92);
             };
           };
         }
