@@ -6,6 +6,16 @@ $data = read_json_body();
 $id = safe_int($data['id'] ?? null);
 if (!$id) error_response('Missing or invalid id', 400);
 $pdo = db();
+// ensure expected columns exist (best-effort)
+try {
+    $r = $pdo->query("SHOW COLUMNS FROM exports LIKE 'filename'")->fetch();
+    if (!$r) $pdo->exec("ALTER TABLE exports ADD COLUMN filename VARCHAR(255) NOT NULL DEFAULT '' AFTER plan_id");
+    $r2 = $pdo->query("SHOW COLUMNS FROM exports LIKE 'type'")->fetch();
+    if (!$r2) $pdo->exec("ALTER TABLE exports ADD COLUMN type VARCHAR(32) DEFAULT NULL AFTER filename");
+} catch (Exception $e) {
+    error_log('delete_export: could not ensure exports table columns: ' . $e->getMessage());
+}
+
 $stmt = $pdo->prepare('SELECT * FROM exports WHERE id=?');
 $stmt->execute([$id]);
 $export = $stmt->fetch(PDO::FETCH_ASSOC);

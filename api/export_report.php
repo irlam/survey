@@ -439,6 +439,27 @@ function render_plan_thumbnail($planFile, $page = 1, $thumbWidthPx = 800) {
 // When included from CLI, don't run the endpoint code so tests can include this file
 if (php_sapi_name() === 'cli') return;
 
+// Helper: ensure exports table has expected columns (best-effort).
+function ensure_exports_table_columns(PDO $pdo) {
+    try {
+        $hasFilename = false; $hasType = false;
+        $r = $pdo->query("SHOW COLUMNS FROM exports LIKE 'filename'")->fetch(); if ($r) $hasFilename = true;
+        $r2 = $pdo->query("SHOW COLUMNS FROM exports LIKE 'type'")->fetch(); if ($r2) $hasType = true;
+        if (!$hasFilename) {
+            try { $pdo->exec("ALTER TABLE exports ADD COLUMN filename VARCHAR(255) NOT NULL DEFAULT '' AFTER plan_id"); $hasFilename = true; }
+            catch (Exception $e) { error_log('ensure_exports_table_columns: failed to add filename column: ' . $e->getMessage()); }
+        }
+        if (!$hasType) {
+            try { $pdo->exec("ALTER TABLE exports ADD COLUMN type VARCHAR(32) DEFAULT NULL AFTER filename"); $hasType = true; }
+            catch (Exception $e) { error_log('ensure_exports_table_columns: failed to add type column: ' . $e->getMessage()); }
+        }
+        return ($hasFilename && $hasType);
+    } catch (Exception $ex) {
+        error_log('ensure_exports_table_columns: error checking exports table: ' . $ex->getMessage());
+        return false;
+    }
+}
+
 // Default: PDF (if requested)
 if ($format !== 'pdf') {
     error_response('Unsupported format', 400);
@@ -641,8 +662,9 @@ if ($format === 'csv') {
         fputcsv($fh, $row);
     }
     fclose($fh);
-    // record the CSV export in DB
+    // record the CSV export in DB (best-effort)
     try {
+        ensure_exports_table_columns($pdo);
         $stmtExp = $pdo->prepare('INSERT INTO exports (plan_id, filename, type) VALUES (?, ?, ?)');
         $stmtExp->execute([$plan_id, $filename, 'csv']);
         $expId = (int)$pdo->lastInsertId();
@@ -1311,6 +1333,7 @@ if (!is_file($path) || filesize($path) <= 0) {
 error_log('export_report: wrote ' . $path . ' size:' . filesize($path) . ' plan:' . $plan_id . ' issue:' . ($issue_id ?: 'all'));
 // record the PDF export in DB (best-effort)
 try {
+    ensure_exports_table_columns($pdo);
     $stmtExp = $pdo->prepare('INSERT INTO exports (plan_id, filename, type) VALUES (?, ?, ?)');
     $etype = $issue_id ? 'issue' : 'pdf';
     $stmtExp->execute([$plan_id, $filename, $etype]);
