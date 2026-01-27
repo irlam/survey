@@ -271,13 +271,14 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
 }
 
 .viewerShell{
+  position: relative;
   border:1px solid var(--border);
   border-radius: var(--radius);
   background: rgba(11,18,32,.52);
   box-shadow: var(--shadow);
   padding:12px;
   min-height: calc(100vh - 120px);
-}
+} 
 
 .viewerHeader{
   display:flex; align-items:center; justify-content:space-between; gap:10px;
@@ -470,21 +471,23 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
   .pdfStage{height: calc(100vh - 210px);} 
 }
 
-/* Site footer shown on main page (neon, centered at bottom) */
+/* Site footer shown inside the viewer (neon accent, centered) */
 .siteFooter{
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 14px;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 12px;
   display:flex;
   align-items:center;
   justify-content:center;
   gap:10px;
-  z-index: 60;
+  z-index: 20;
   pointer-events: none; /* non-interactive */
-  color: var(--neon);
+  color: var(--neon2);
   font-weight: 900;
-  text-shadow: 0 0 10px rgba(0,255,231,.6), 0 0 28px rgba(0,255,231,.12);
+  text-shadow: 0 0 10px rgba(57,255,20,.45), 0 0 24px rgba(57,255,20,.08);
+  background: linear-gradient(180deg, rgba(0,0,0,0.36), rgba(0,0,0,0.14));
+  padding:6px 12px; border-radius:10px;
   font-size: 13px;
   letter-spacing: .2px;
 }
@@ -493,4 +496,4 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
 @media (max-width: 520px){
   .siteFooter{ font-size:12px; bottom:10px; }
   .siteFooterIcon{ width:18px; height:18px; }
-}
+} 
