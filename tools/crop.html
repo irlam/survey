@@ -323,7 +323,41 @@
         tctx.drawImage(canvas, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h);
         const img = tmp.toDataURL('image/jpeg', 0.9);
         const out = document.getElementById('previewOut');
-        out.innerHTML = `<div style="margin-top:8px"><img src="${img}" style="max-width:100%"></div>`;
+        // show preview inside a small form with download buttons
+        out.innerHTML = `
+          <form id="previewForm" style="margin-top:8px;display:flex;flex-direction:column;gap:8px;">
+            <img id="previewImg" src="${img}" style="max-width:100%;border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,0.6)">
+            <div style="display:flex;gap:8px;">
+              <a id="downloadImg" class="btn" href="#">Download JPG</a>
+              <button type="button" id="downloadPdf" class="btn">Download PDF</button>
+              <button type="button" id="closePreview" class="btn" style="background:rgba(255,255,255,0.04);color:var(--neon);">Close</button>
+            </div>
+          </form>
+        `;
+        // helper to convert dataURL to blob
+        function dataURLToBlob(dataURL){ const parts = dataURL.split(','); const meta = parts[0]; const bstr = atob(parts[1]); let n = bstr.length; const u8 = new Uint8Array(n); while(n--) u8[n] = bstr.charCodeAt(n); const mime = meta.match(/:(.*?);/)[1]; return new Blob([u8], {type:mime}); }
+        try{
+          const blob = dataURLToBlob(img);
+          const url = URL.createObjectURL(blob);
+          const a = document.getElementById('downloadImg'); a.href = url; a.download = `crop_preview_page_${curPage}.jpg`;
+          a.addEventListener('click', ()=>{ setTimeout(()=> URL.revokeObjectURL(url), 2000); });
+
+          document.getElementById('downloadPdf').addEventListener('click', async ()=>{
+            try{
+              const pdflib = window.PDFLib;
+              const newPdf = await pdflib.PDFDocument.create();
+              const imgEmbed = await newPdf.embedJpg(await blob.arrayBuffer());
+              const pageNew = newPdf.addPage([imgEmbed.width, imgEmbed.height]);
+              pageNew.drawImage(imgEmbed, { x:0, y:0, width: imgEmbed.width, height: imgEmbed.height });
+              const pdfBytesOut = await newPdf.save();
+              const blobOut = new Blob([pdfBytesOut], {type:'application/pdf'});
+              const urlPdf = URL.createObjectURL(blobOut);
+              const aa = document.createElement('a'); aa.href = urlPdf; aa.download = `crop_preview_page_${curPage}.pdf`; document.body.appendChild(aa); aa.click(); aa.remove(); setTimeout(()=> URL.revokeObjectURL(urlPdf), 3000);
+            }catch(e){ alert('Failed to create PDF preview: ' + e.message); console.error(e); }
+          });
+
+          document.getElementById('closePreview').addEventListener('click', ()=>{ out.innerHTML = ''; });
+        }catch(e){ console.warn('Preview helper setup failed', e); }
         updateDpiInfo();
       }catch(err){ console.error('Preview crop failed:', err); alert('Preview failed: ' + (err && err.message ? err.message : String(err))); }
     };
