@@ -827,8 +827,13 @@ if (!$skip_issue_loop) foreach ($issue_list as $issue) {
     $notes = $issue['notes'] ?? '';
     $pdf->MultiCell(0,6, $notes ?: '(No description)');
 
-    // pin thumbnail preview (inserted before photos)
-    if (!empty($include_pin) && !empty($plan['file_path'])) {
+    // fetch photos for this issue early so we can avoid inserting the plan thumbnail twice
+    $stmtp = $pdo->prepare('SELECT * FROM photos WHERE plan_id=? AND issue_id=?');
+    $stmtp->execute([$plan_id, $issue['id']]);
+    $ips = $stmtp->fetchAll();
+
+    // pin thumbnail preview (inserted before photos) — only show when there are no issue photos
+    if (empty($ips) && !empty($include_pin) && !empty($plan['file_path'])) {
         $planFile = null; $fileRel = $plan['file_path'] ?? null;
         if ($fileRel) {
             $cand1 = realpath(__DIR__ . '/../' . ltrim($fileRel, '/'));
@@ -920,9 +925,6 @@ if (!$skip_issue_loop) foreach ($issue_list as $issue) {
     }
 
     // include photos for this issue right after description
-    $stmtp = $pdo->prepare('SELECT * FROM photos WHERE plan_id=? AND issue_id=?');
-    $stmtp->execute([$plan_id, $issue['id']]);
-    $ips = $stmtp->fetchAll();
     if ($ips) {
         // nicer photos block header
         $pdf->Ln(3);
