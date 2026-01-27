@@ -118,9 +118,20 @@ async function renderPinsForPage(overlay, viewportWidth, viewportHeight){ clearO
         if(!moved) return; // treat as click if not moved
         const x = e2.clientX - rect.left; const y = e2.clientY - rect.top; const w = rect.width; const h = rect.height; if(w<=0||h<=0) return;
         const x_norm = Math.max(0, Math.min(1, x / w)); const y_norm = Math.max(0, Math.min(1, y / h));
-        // prepare issue payload — include title/status so server validation passes
+        // prepare issue payload — ensure a non-empty title (fetch server copy if needed), include status/priority
         const planId = getPlanIdFromUrl();
-        const issuePayload = { plan_id: planId, id: p.id, page: p.page, x_norm, y_norm, title: p.title || ('Issue ' + (p.id || '')) };
+        let titleVal = p.title;
+        if (!titleVal || String(titleVal).trim() === '') {
+          try {
+            const fetched = await fetchIssueDetails(p.id);
+            if (fetched && fetched.title && String(fetched.title).trim() !== '') titleVal = fetched.title;
+          } catch (e) {
+            // ignore fetch errors and fall back to placeholder
+          }
+        }
+        if (!titleVal || String(titleVal).trim() === '') titleVal = 'Issue ' + (p.id || '');
+
+        const issuePayload = { plan_id: planId, id: p.id, page: p.page, x_norm, y_norm, title: titleVal };
         if(p.status) issuePayload.status = p.status;
         if(p.priority) issuePayload.priority = p.priority;
         try{
@@ -128,7 +139,15 @@ async function renderPinsForPage(overlay, viewportWidth, viewportHeight){ clearO
           localShowToast('Pin moved — saved. ✅');
         }catch(err){
           console.warn('Failed to save moved pin', err);
-          localShowToast('Failed to save pin position');
+          // If server reports missing title, open the issue modal so user can enter a title and save
+          const msg = (err && err.message) ? String(err.message) : '';
+          if (msg.indexOf('Title is required') !== -1) {
+            localShowToast('Please add a Title to save the pin.');
+            // show modal with updated coords so the user can enter a title and save
+            try{ await showIssueModal(Object.assign({}, p, { x_norm, y_norm, page: p.page })); }catch(e){ console.warn('Failed to open issue modal after save error', e); }
+          } else {
+            localShowToast('Failed to save pin position');
+          }
         }
         // prevent immediate click handler from opening modal after a drag
         el.__recentlyMoved = true; setTimeout(()=>{ try{ el.__recentlyMoved = false; }catch(e){} }, 350);
