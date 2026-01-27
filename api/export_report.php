@@ -670,7 +670,119 @@ $includedPins = [];
 $allSkippedPins = [];
 $render_debug = [];
 $pins_included_count = 0;
-foreach ($issue_list as $issue) {
+
+// Optional single-A4 layout: place main plan image at the top and a grid of issue images below
+$fit_a4 = false;
+if (isset($_POST['fit_a4']) || isset($_GET['fit_a4'])) {
+    $val = strtolower(trim((string)($_POST['fit_a4'] ?? $_GET['fit_a4'] ?? '')));
+    $fit_a4 = !in_array($val, ['0','false','']);
+}
+$skip_issue_loop = false;
+if ($fit_a4) {
+    // Resolve plan file once
+    $planFile = null; $fileRel = $plan['file_path'] ?? null;
+    if ($fileRel) {
+        $cand1 = realpath(__DIR__ . '/../' . ltrim($fileRel, '/'));
+        if ($cand1 && is_file($cand1)) $planFile = $cand1;
+        if (!$planFile) { $cand2 = storage_dir($fileRel); if (is_file($cand2)) $planFile = $cand2; }
+        if (!$planFile) { $cand3 = storage_dir('plans/' . basename($fileRel)); if (is_file($cand3)) $planFile = $cand3; }
+    }
+    if ($planFile && is_file($planFile)) {
+        // Render a large plan thumbnail to fit page width
+        $pageW = $pdf->GetPageWidth(); $pageH = $pdf->GetPageHeight();
+        $margin = 12; $gap = 6; // mm
+        $availableW = $pageW - ($margin * 2);
+        $planPage = (!empty($issue_list) && isset($issue_list[0]['page'])) ? $issue_list[0]['page'] : 1;
+            $planThumb = render_plan_thumbnail($planFile, $planPage, 2000);
+        if ($planThumb && isset($planThumb['tmp'])) {
+            $tempFiles[] = $planThumb['tmp'];
+            $imgInfo = @getimagesize($planThumb['tmp']);
+            $w_px = $imgInfo ? $imgInfo[0] : ($planThumb['w'] ?? null);
+            $h_px = $imgInfo ? $imgInfo[1] : ($planThumb['h'] ?? null);
+            if ($w_px && $h_px) {
+                $planWidthMM = $availableW;
+                $planHeightMM = $planWidthMM * ($h_px / $w_px);
+                // place at top margin
+                $x = $margin; $y = $margin;
+                $pdf->Image($planThumb['tmp'], $x, $y, $planWidthMM, 0);
+                $currentY = $y + $planHeightMM + $gap;
+            } else {
+                // fallback fixed height
+                $planWidthMM = $availableW; $planHeightMM = 120;
+                $x = $margin; $y = $margin; $pdf->Image($planThumb['tmp'], $x, $y, $planWidthMM, 0);
+                $currentY = $y + $planHeightMM + $gap;
+            }
+        } else {
+            // if plan cannot be rendered, leave some header space
+            $currentY = 30;
+        }
+
+        // Generate per-issue pin images (raster) to display in grid
+        $gridImgs = [];
+        foreach ($issue_list as $iss) {
+            $pinImg = render_pin_thumbnail($planFile, $iss['page'] ?? 1, $iss['x_norm'] ?? 0.5, $iss['y_norm'] ?? 0.5, 1200, ($iss['id'] ?? null));
+            if ($pinImg && is_array($pinImg) && !empty($pinImg['tmp']) && is_file($pinImg['tmp'])) {
+                $gridImgs[] = ['tmp'=>$pinImg['tmp'],'w'=>null,'h'=>null,'issue_id'=>$iss['id'] ?? null];
+                $tempFiles[] = $pinImg['tmp'];
+            } else {
+                // fallback: try to use any issue photo (first photo) as placeholder
+                $stmtp2 = $pdo->prepare('SELECT * FROM photos WHERE plan_id=? AND issue_id=? LIMIT 1');
+                $stmtp2->execute([$plan_id, $iss['id']]); $phs2 = $stmtp2->fetchAll();
+                if (!empty($phs2)) {
+                    $frel = $phs2[0]['file_path'] ?? $phs2[0]['filename'] ?? null;
+                    if ($frel) {
+                        if (preg_match('#^https?://#i', $frel)) continue; // skip remote for grid
+                        if (strpos($frel, 'photos/')===0) $fpath = storage_dir($frel);
+                        else $fpath = storage_dir('photos/' . basename($frel));
+                        if (is_file($fpath)) { $gridImgs[] = ['tmp'=>$fpath,'w'=>null,'h'=>null,'issue_id'=>$iss['id'] ?? null]; }
+                    }
+                }
+            }
+        }
+
+        // Arrange grid to fit into remaining area on A4
+        $left = $margin; $right = $pageW - $margin; $bottomY = $pageH - $margin;
+        $availH = $bottomY - $currentY;
+        $n = count($gridImgs);
+        if ($n > 0 && $availH > 10) {
+            // try columns from 4 down to 1 to fit thumbnails at reasonable size
+            $hgap = 4; $vgap = 6; $minThumb = 15; // mm
+            $chosen = null;
+            for ($cols = 4; $cols >= 1; $cols--) {
+                $thumbW = floor((($pageW - 2*$margin) - ($cols-1)*$hgap) / $cols);
+                $rows = ceil($n / $cols);
+                $thumbH = floor(($availH - ($rows-1)*$vgap) / $rows);
+                $sq = min($thumbW, $thumbH);
+                if ($sq >= $minThumb) { $chosen = ['cols'=>$cols,'thumb'=>$sq,'rows'=>$rows]; break; }
+            }
+            if (!$chosen) {
+                // force smallest layout (1 column) scaled to availH
+                $cols = 1; $rows = $n; $thumb = max(8, floor(($availH - ($rows-1)*$vgap) / $rows)); $chosen = ['cols'=>$cols,'thumb'=>$thumb,'rows'=>$rows];
+            }
+            $cols = $chosen['cols']; $thumbSize = $chosen['thumb'];
+            $x = $left; $y = $currentY; $col = 0;
+            foreach ($gridImgs as $gi) {
+                if ($y + $thumbSize > $bottomY) break; // safety
+                $pdf->Image($gi['tmp'], $x, $y, $thumbSize, 0);
+                // caption below with issue id
+                $pdf->SetFont('Arial','',8);
+                $pdf->SetXY($x, $y + $thumbSize + 1);
+                $txt = 'Issue ' . ($gi['issue_id'] ?? '');
+                $pdf->Cell($thumbSize, 4, $txt, 0, 0, 'C');
+                $col++;
+                if ($col >= $cols) {
+                    $col = 0; $x = $left; $y += $thumbSize + $vgap + 6;
+                } else {
+                    $x += $thumbSize + $hgap;
+                }
+            }
+        }
+    }
+    // mark to skip per-issue detailed loop below
+    $skip_issue_loop = true;
+}
+
+if (!$skip_issue_loop) foreach ($issue_list as $issue) {
     $skippedPhotos = []; // per-issue debug info about skipped photos
     $skippedPins = []; // per-issue debug info about skipped pin thumbnails
     $render_debug[$issue['id'] ?? ''] = ['plan_file_used'=>null,'http_fetch_ok'=>false,'render_method'=>null,'pin_tmp'=>null,'embedded'=>false,'skip_reason'=>null];
