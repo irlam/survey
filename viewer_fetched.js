@@ -378,27 +378,40 @@ async function showIssueModal(pin){
   // helper used by both file inputs -- will resize/compress client-side then upload
   let pendingPhotos = [];
   function renderPendingBadge(){ try{ const badge = modal.querySelector('#photoQueueBadge'); if(badge) badge.textContent = String(pendingPhotos.length); }catch(e){} }
-  async function uploadProcessedFile(blobOrFile, targetIssueId){
-    const planId = getPlanIdFromUrl(); const issueId = targetIssueId || pin.id;
-    if(!planId || !issueId){ // queue for upload after issue save
-      try{ // store a File-like object (ensure name and type)
-        const f = (blobOrFile instanceof File) ? blobOrFile : new File([blobOrFile], (blobOrFile.name||'photo.jpg'), {type: blobOrFile.type||'image/jpeg'});
-        pendingPhotos.push(f);
-        localShowToast('Photo queued — it will upload after saving the issue');
-        renderPendingBadge();
-        return;
-      }catch(e){ localShowToast('Failed to queue photo'); return; }
-    }
-    const fd = new FormData(); fd.append('file', blobOrFile, (blobOrFile.name||'photo.jpg'));
-    fd.append('plan_id', planId); fd.append('issue_id', issueId);
-    try{
-      const res = await fetch('/api/upload_photo.php',{method:'POST',body:fd,credentials:'same-origin'});
-      const txt = await res.text(); let data; try{ data = JSON.parse(txt); }catch{ throw new Error('Invalid photo upload response'); }
-      if(!res.ok || !data.ok) throw new Error(data.error||'Photo upload failed');
-      await loadPhotoThumbs();
-      try{ document.dispatchEvent(new CustomEvent('photosUpdated', { detail: { issueId } })); }catch(e){}
-      localShowToast('Photo uploaded');
-    }catch(err){ localShowToast('Photo upload error: '+err.message); }
+
+  function renderPendingPhotos(){
+    const q = modal.querySelector('#photoQueue'); if(!q) return; q.innerHTML='';
+    let head = modal.querySelector('#photoQueueHeader'); if(!head){ head = modal.querySelector('#photoQueueHeader'); }
+    const badge = modal.querySelector('#photoQueueBadge'); if(badge) badge.textContent = String(pendingPhotos.length);
+    pendingPhotos.forEach((f, idx)=>{
+      const wrap = document.createElement('div'); wrap.style.display='flex'; wrap.style.flexDirection='column'; wrap.style.alignItems='center'; wrap.style.gap='6px'; wrap.style.width='120px';
+      const thumb = document.createElement('img'); thumb.style.maxWidth='96px'; thumb.style.maxHeight='96px'; thumb.style.borderRadius='6px'; thumb.style.boxShadow='0 4px 12px rgba(0,0,0,0.6)';
+      thumb.src = f.previewUrl || URL.createObjectURL(f); if(!f.previewUrl) f.previewUrl = thumb.src;
+      wrap.appendChild(thumb);
+      const progWrap = document.createElement('div'); progWrap.style.width='100%'; progWrap.style.background='rgba(255,255,255,0.03)'; progWrap.style.borderRadius='6px'; progWrap.style.height='8px'; progWrap.style.marginTop='6px';
+      const progBar = document.createElement('div'); progBar.style.height='100%'; progBar.style.width = (f.uploadProgress ? Math.round(f.uploadProgress*100) : 0) + '%'; progBar.style.background = 'linear-gradient(90deg, var(--neon2), var(--neon))'; progBar.style.borderRadius='6px'; progBar.style.transition='width .12s ease'; progWrap.appendChild(progBar); wrap.appendChild(progWrap);
+      const btnRow = document.createElement('div'); btnRow.style.display='flex'; btnRow.style.gap='6px'; btnRow.style.marginTop='6px';
+      const ann = document.createElement('button'); ann.className='btn'; ann.textContent='Annotate'; ann.onclick = ()=>{ openAnnotator(f, async (blob)=>{ try{ const newFile = new File([blob], (f.name||('photo_' + idx + '.jpg')), {type: blob.type}); if(f.previewUrl) URL.revokeObjectURL(f.previewUrl); newFile.previewUrl = URL.createObjectURL(newFile); pendingPhotos[idx] = newFile; renderPendingPhotos(); }catch(e){ console.error('Annotate save failed', e); } }); };
+      const rem = document.createElement('button'); rem.className='btn'; rem.textContent='Remove'; rem.onclick = ()=>{ try{ if(f.previewUrl) URL.revokeObjectURL(f.previewUrl); }catch(e){} pendingPhotos.splice(idx,1); renderPendingPhotos(); };
+      btnRow.appendChild(ann); btnRow.appendChild(rem);
+      wrap.appendChild(btnRow);
+      q.appendChild(wrap);
+    });
+  }
+
+  function uploadProcessedFile(blobOrFile, targetIssueId, onProgress){
+    return new Promise((resolve, reject)=>{
+      const planId = getPlanIdFromUrl(); const issueId = targetIssueId || pin.id;
+      if(!planId || !issueId){ try{ const f = (blobOrFile instanceof File) ? blobOrFile : new File([blobOrFile], (blobOrFile.name||'photo.jpg'), {type: blobOrFile.type||'image/jpeg'}); pendingPhotos.push(f); renderPendingPhotos(); renderPendingBadge(); localShowToast('Photo queued — it will upload after saving the issue'); resolve({ queued:true }); return; }catch(e){ reject(new Error('Failed to queue photo: ' + e.message)); return; } }
+      const fd = new FormData(); fd.append('file', blobOrFile, (blobOrFile.name||'photo.jpg'));
+      fd.append('plan_id', planId); fd.append('issue_id', issueId);
+      try{
+        const xhr = new XMLHttpRequest(); xhr.open('POST', '/api/upload_photo.php', true); xhr.withCredentials = true; xhr.upload.onprogress = (ev)=>{ if(ev.lengthComputable && typeof onProgress === 'function'){ onProgress(ev.loaded / ev.total); } };
+        xhr.onload = async ()=>{ if(xhr.status >= 200 && xhr.status < 300){ try{ const data = JSON.parse(xhr.responseText || '{}'); if(!data.ok) throw new Error(data.error || 'Photo upload failed'); await loadPhotoThumbs(); try{ document.dispatchEvent(new CustomEvent('photosUpdated', { detail: { issueId } })); }catch(e){} localShowToast('Photo uploaded'); resolve(data); }catch(err){ reject(err); } }else{ reject(new Error('HTTP ' + xhr.status)); } };
+        xhr.onerror = ()=> reject(new Error('Network error'));
+        xhr.send(fd);
+      }catch(e){ reject(e); }
+    });
   }
 
   function handleSelectedFile(file){ if(!file) return; const previewWrap = modal.querySelector('#photoPreview'); const imgEl = modal.querySelector('#photoPreviewImg'); const infoEl = modal.querySelector('#photoPreviewInfo'); previewWrap.style.display='flex'; const url = URL.createObjectURL(file); imgEl.src = url; infoEl.textContent = `${Math.round(file.size/1024)} KB — ${file.type}`;

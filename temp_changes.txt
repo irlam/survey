@@ -1,0 +1,9 @@
+Change plan:
+- add upload progress via XHR in uploadProcessedFile
+- add progress UI in renderPendingPhotos
+- annotate text input & undo/redo already implemented
+
+Files to update:
+- app/viewer.js
+- viewer_fetched.js
+- assets/ui.css
