@@ -476,7 +476,10 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
   left: 0;
   right: 0;
   bottom: 14px;
-  text-align: center;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
   z-index: 60;
   pointer-events: none; /* non-interactive */
   color: var(--neon);
@@ -485,7 +488,9 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
   font-size: 13px;
   letter-spacing: .2px;
 }
+.siteFooterIcon{ width:20px; height:20px; border-radius:4px; box-shadow: 0 6px 18px rgba(0,0,0,0.6), 0 0 16px rgba(255,255,255,0.02) inset; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.6)); }
 
 @media (max-width: 520px){
   .siteFooter{ font-size:12px; bottom:10px; }
+  .siteFooterIcon{ width:18px; height:18px; }
 }
