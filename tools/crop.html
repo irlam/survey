@@ -305,7 +305,28 @@
       })();
     }
 
-    document.getElementById('btnCropPreview').onclick = ()=>{ if(!rect){ alert('Draw a rectangle on the page to crop'); return; } const r = {x: Math.min(rect.x, rect.x+rect.w), y: Math.min(rect.y, rect.y+rect.h), w: Math.abs(rect.w), h: Math.abs(rect.h)}; const tmp = document.createElement('canvas'); tmp.width = r.w; tmp.height = r.h; const tctx = tmp.getContext('2d'); tctx.drawImage(canvas, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h); const img = tmp.toDataURL('image/jpeg', 0.9); const out = document.getElementById('previewOut'); out.innerHTML = `<div style="margin-top:8px"><img src="${img}" style="max-width:100%"></div>`; updateDpiInfo(); };
+    document.getElementById('btnCropPreview').onclick = ()=>{
+      try{
+        if(!rect){ alert('Draw a rectangle on the page to crop'); return; }
+        // normalize and validate rect
+        const r = {x: Math.max(0, Math.min(rect.x, rect.x+rect.w)), y: Math.max(0, Math.min(rect.y, rect.y+rect.h)), w: Math.round(Math.abs(rect.w)), h: Math.round(Math.abs(rect.h))};
+        console.debug('Preview crop rect:', r);
+        if (r.w <= 0 || r.h <= 0){ alert('Selected area is too small. Draw a larger rectangle.'); return; }
+        // clamp to canvas bounds
+        if (r.x < 0) r.x = 0; if (r.y < 0) r.y = 0;
+        if (r.x + r.w > canvas.width) r.w = canvas.width - r.x;
+        if (r.y + r.h > canvas.height) r.h = canvas.height - r.y;
+        if (r.w <= 0 || r.h <= 0){ alert('Selected area is out of bounds. Please redraw.'); return; }
+
+        const tmp = document.createElement('canvas'); tmp.width = r.w; tmp.height = r.h;
+        const tctx = tmp.getContext('2d');
+        tctx.drawImage(canvas, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h);
+        const img = tmp.toDataURL('image/jpeg', 0.9);
+        const out = document.getElementById('previewOut');
+        out.innerHTML = `<div style="margin-top:8px"><img src="${img}" style="max-width:100%"></div>`;
+        updateDpiInfo();
+      }catch(err){ console.error('Preview crop failed:', err); alert('Preview failed: ' + (err && err.message ? err.message : String(err))); }
+    };
 
     document.getElementById('btnExportPdf').onclick = async ()=>{
       if(!rect) { alert('Draw a rectangle on the page to crop'); return; }
