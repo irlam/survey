@@ -15,51 +15,83 @@
     </div>
   </header>
   <main>
-    <ul id="exportsList"></ul>
+    <div style="padding:12px;">
+      <div id="exportsGrid" class="export-grid">Loading…</div>
+    </div>
   </main>
+  <style>
+    /* Local styles to make the exports list pop on mobile */
+    .export-grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap:12px; }
+    .export-card{ border-radius:12px; padding:12px; background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.06)); border:1px solid rgba(0,255,231,0.06); box-shadow: 0 10px 30px rgba(0,0,0,0.6); display:flex; gap:12px; align-items:center; justify-content:space-between; transition: transform .12s ease, box-shadow .12s ease; }
+    .export-card:hover{ transform: translateY(-6px); box-shadow: 0 18px 44px rgba(0,255,231,0.12); }
+    .export-meta{ min-width:0; overflow:hidden }
+    .export-name{ font-weight:900; color:var(--neon); font-size:0.95rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+    .export-sub{ color:var(--muted); font-size:12px; margin-top:6px }
+    .export-actions{ display:flex; gap:8px; align-items:center }
+    .iconBtnSmall{ min-width:36px; min-height:36px; border-radius:10px; border:1px solid rgba(255,255,255,0.06); background: rgba(0,0,0,0.36); color:var(--neon); box-shadow: none; cursor:pointer }
+    .btnDanger{ background: linear-gradient(90deg, #ff6b6b, #ff3b3b); color:#041013; border:none; padding:8px 12px; border-radius:10px; font-weight:800 }
+    @media (max-width:520px){ .export-grid{ grid-template-columns: 1fr; } .export-card{ padding:14px } .export-name{ font-size:1rem } }
+  </style>
+
   <script>
+    function formatDate(ts){ if(!ts) return ''; try{ const d = new Date(ts); return d.toLocaleString(); }catch(e){ return ts; } }
+
     async function deleteExport(id) {
-      if (!confirm('Delete this export file? This will remove the file and the DB record.')) return;
+      if (!confirm('Delete this export file? This will move it to trash and remove the DB record.')) return;
       const res = await fetch('/api/delete_export.php', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ id }) });
-      if (!res.ok) { alert('Delete failed'); return; }
       const data = await res.json();
-      if (!data.ok) { alert('Delete failed: ' + (data.error||'unknown')); return; }
+      if (!res.ok || !data.ok) { alert('Delete failed: ' + (data.error||'unknown')); return; }
       loadExports();
     }
 
     async function scanImports() {
       if (!confirm('Scan storage/exports and import missing files into the DB?')) return;
       const btn = document.getElementById('scanBtn'); btn.disabled = true; btn.textContent = 'Scanning...';
-      const res = await fetch('/api/import_exports.php', { method: 'POST', headers:{'Content-Type':'application/json'} });
-      const j = await res.json();
+      try{
+        const res = await fetch('/api/import_exports.php', { method: 'POST', headers:{'Content-Type':'application/json'} });
+        const j = await res.json();
+        if (j && j.count) localShowToast('Imported ' + j.count + ' file(s)');
+      }catch(e){ localShowToast('Scan failed'); }
       btn.disabled = false; btn.textContent = 'Scan & Import';
-      if (j && j.count) alert('Imported ' + j.count + ' file(s)');
       await loadExports();
     }
 
     async function loadExports() {
-      const ul = document.getElementById('exportsList');
-      ul.innerHTML = '<li>Loading...</li>';
-      const res = await fetch('/api/list_exports.php');
-      if (!res.ok) { ul.innerHTML = '<li>Failed to load</li>'; return; }
-      const data = await res.json();
-      ul.innerHTML = '';
-      if (!data.exports || data.exports.length === 0) {
-        ul.innerHTML = '<li>No exports found — try "Scan & Import" to import files found on disk.</li>';
-        return;
-      }
-      for (const exp of data.exports) {
-        const li = document.createElement('li');
-        li.innerHTML = `<a href="/storage/exports/${exp.filename}" target="_blank">${exp.filename}</a> <span>${exp.type}</span> <span>${exp.created_at}</span> <button data-id="${exp.id}" class="delBtn">Delete</button>`;
-        li.style.minHeight = '44px';
-        ul.appendChild(li);
-      }
-      Array.from(document.querySelectorAll('.delBtn')).forEach(b=> b.onclick = (e)=>{ const id = Number(e.target.dataset.id); deleteExport(id); });
+      const wrap = document.getElementById('exportsGrid');
+      wrap.innerHTML = '<div class="card">Loading…</div>';
+      try{
+        const res = await fetch('/api/list_exports.php');
+        if (!res.ok) { wrap.innerHTML = '<div class="card">Failed to load</div>'; return; }
+        const data = await res.json();
+        if (!data.exports || data.exports.length === 0) {
+          wrap.innerHTML = '<div class="card"><div style="display:flex;flex-direction:column;gap:6px"><div style="font-weight:800">No exports found</div><div style="color:var(--muted)">Try "Scan & Import" to add files found on disk.</div></div></div>';
+          return;
+        }
+        wrap.innerHTML = '';
+        for (const exp of data.exports) {
+          const card = document.createElement('div'); card.className = 'export-card card';
+          const meta = document.createElement('div'); meta.className = 'export-meta';
+          const name = document.createElement('div'); name.className = 'export-name'; name.textContent = exp.filename;
+          const sub = document.createElement('div'); sub.className = 'export-sub'; sub.textContent = (exp.type ? exp.type.toUpperCase() + ' • ' : '') + formatDate(exp.created_at);
+          meta.appendChild(name); meta.appendChild(sub);
+          const actions = document.createElement('div'); actions.className = 'export-actions';
+
+          const linkBtn = document.createElement('a'); linkBtn.className = 'iconBtnSmall'; linkBtn.href = '/storage/exports/' + encodeURIComponent(exp.filename);
+          linkBtn.title = 'Open file'; linkBtn.target = '_blank'; linkBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14 3h7v7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 14L21 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+          const dl = document.createElement('a'); dl.className = 'iconBtnSmall'; dl.href = '/storage/exports/' + encodeURIComponent(exp.filename); dl.download = exp.filename; dl.title = 'Download'; dl.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3v13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 11l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+          const del = document.createElement('button'); del.className = 'btnDanger'; del.textContent = 'Delete'; del.onclick = ()=> deleteExport(Number(exp.id));
+          actions.appendChild(linkBtn); actions.appendChild(dl); actions.appendChild(del);
+
+          card.appendChild(meta); card.appendChild(actions);
+          wrap.appendChild(card);
+        }
+      }catch(e){ wrap.innerHTML = '<div class="card">Load error</div>'; }
     }
+
     loadExports();
-    document.getElementById('menuBtn').onclick = () => {
-      alert('Menu coming soon');
-    };
+    document.getElementById('menuBtn').onclick = () => { alert('Menu coming soon'); };
   </script>
 </body>
 </html>
