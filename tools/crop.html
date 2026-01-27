@@ -35,7 +35,10 @@
       <div class="toolsRow">
         <label style="flex:1">
           Select plan:
-          <select id="planSelect" class="neonSelect" style="width:100%; min-width:320px;"></select>
+          <div id="planSelect" class="customSelect neonSelect" style="width:100%; min-width:320px;">
+            <button type="button" class="selectButton" aria-haspopup="listbox" aria-expanded="false">-- choose plan --</button>
+            <ul class="selectList" role="listbox"></ul>
+          </div>
         </label>
         <label style="width:230px">Or upload PDF: <input id="fileUploader" type="file" accept="application/pdf" style="min-width:44px;min-height:44px;"></label>
         <label style="width:220px">DPI: <select id="dpiSelect" class="neonSelect small"><option value="150">150</option><option value="300" selected>300</option><option value="600">600</option><option value="1200">1200</option></select></label>
@@ -251,6 +254,65 @@
         const a = document.createElement('a'); a.href = url; a.download = `crop_page_${curPage}.pdf`; a.textContent = 'Download cropped PDF'; a.style.display='inline-block'; a.style.marginTop='8px'; document.getElementById('previewOut').appendChild(a);
       }catch(e){ document.getElementById('previewOut').textContent = 'Export failed: ' + e.message; console.error(e); }
     };
+
+    // init
+    // init custom select helper (used for plan picker)
+    function selectCustomOption(el, value, label) {
+      if (typeof el === 'string') el = document.getElementById(el);
+      if (!el) return;
+      el.value = value;
+      const btn = el.querySelector('.selectButton'); if (btn) btn.textContent = label;
+      const items = el.querySelectorAll('li'); items.forEach(li=> li.removeAttribute('aria-selected'));
+      const sel = el.querySelector('li[data-value="'+String(value).replace(/"/g,'\"')+'"]'); if (sel) sel.setAttribute('aria-selected','true');
+      // fire change event
+      el.dispatchEvent(new Event('change'));
+    }
+    function initCustomSelect(elId){
+      const el = document.getElementById(elId); if(!el) return;
+      const btn = el.querySelector('.selectButton'); const list = el.querySelector('.selectList');
+      const options = list.querySelectorAll('li');
+      const first = options[0]; if(first){ el.value = first.dataset.value; btn.textContent = first.textContent; first.setAttribute('aria-selected','true'); }
+      btn.addEventListener('click', (e)=>{ e.stopPropagation(); const open = list.classList.toggle('open'); btn.setAttribute('aria-expanded', open? 'true':'false'); });
+      list.querySelectorAll('li').forEach(li=> li.addEventListener('click', (e)=>{ e.stopPropagation(); selectCustomOption(el, li.dataset.value, li.textContent); list.classList.remove('open'); btn.setAttribute('aria-expanded','false'); }));
+      document.addEventListener('click', (e)=>{ if(!el.contains(e.target)){ list.classList.remove('open'); btn.setAttribute('aria-expanded','false'); } });
+    }
+
+    // load plan list and populate custom select
+    async function loadPlansList(){
+      try{
+        const r = await fetch('/api/list_plans.php');
+        const j = await r.json();
+        const wrapper = document.getElementById('planSelect');
+        const list = wrapper.querySelector('.selectList'); list.innerHTML = '';
+        // include an empty default option
+        const defaultLi = document.createElement('li'); defaultLi.setAttribute('role','option'); defaultLi.dataset.value = ''; defaultLi.textContent = '-- choose plan --'; defaultLi.setAttribute('aria-selected','true'); list.appendChild(defaultLi);
+        if (j.ok && Array.isArray(j.plans)){
+          for(const p of j.plans){ const li = document.createElement('li'); li.setAttribute('role','option'); li.dataset.value = p.id; li.textContent = `${p.name || 'Plan #' + p.id} (#${p.id})`; li.dataset.file = p.file_path || ''; list.appendChild(li); }
+        }
+        // re-init event handlers (in case called after DOM ready)
+        initCustomSelect('planSelect');
+        // handle selection change
+        wrapper.addEventListener('change', async ()=>{
+          const val = wrapper.value;
+          if (!val) return;
+          const sel = wrapper.querySelector(`li[data-value="${val}"]`);
+          if (!sel) return;
+          const planId = val;
+          // emulate prior onchange behaviour
+          const loader = document.createElement('span'); loader.className='loader'; loader.id='cropLoader'; loader.style.marginLeft='8px'; document.querySelector('.toolsRow').appendChild(loader);
+          try{
+            const res = await fetch('/api/get_plan.php?plan_id=' + encodeURIComponent(planId));
+            const txt = await res.text(); let j2; try{ j2 = JSON.parse(txt); }catch{ throw new Error('Invalid JSON from get_plan'); }
+            if(!res.ok || !j2.ok) throw new Error(j2.error || 'Failed to fetch plan info');
+            const pdfUrl = j2.pdf_url || (j2.plan && (j2.plan.file_path ? ('/storage/' + j2.plan.file_path) : null));
+            if(!pdfUrl) throw new Error('No PDF URL for plan');
+            const r2 = await fetch(pdfUrl);
+            if(!r2.ok) throw new Error('Failed to fetch PDF: HTTP ' + r2.status);
+            const ab = await r2.arrayBuffer(); pdfBytes = ab; await openPdfFromBytes(ab);
+          }catch(e){ alert('Failed to fetch plan PDF: '+e.message); document.getElementById('previewOut').textContent = 'Load failed: ' + e.message; console.error(e); } finally { const l = document.getElementById('cropLoader'); if(l) l.remove(); }
+        });
+      }catch(e){ console.warn('Failed to load plans', e); }
+    }
 
     // init
     loadPlansList();
