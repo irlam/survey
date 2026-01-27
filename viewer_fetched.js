@@ -93,7 +93,53 @@ async function renderPinsForPage(overlay, viewportWidth, viewportHeight){ clearO
       </svg>
     `;
     overlay.appendChild(el);
-    el.addEventListener('click', ()=> showIssueModal(p));
+    // allow dragging DB pins while in Add Issue mode to reposition & persist
+    el.addEventListener('pointerdown', (ev)=>{
+      if(!addIssueMode) return; // only reposition in add-issue mode
+      ev.preventDefault(); ev.stopPropagation();
+      const rect = overlay.getBoundingClientRect();
+      const startX = ev.clientX; const startY = ev.clientY;
+      let moved = false;
+      const pid = ev.pointerId;
+      try{ el.setPointerCapture(pid); }catch(e){}
+      const onMove = (e2)=>{
+        const dx = e2.clientX - startX; const dy = e2.clientY - startY;
+        if(!moved && (Math.abs(dx) > 4 || Math.abs(dy) > 4)) moved = true;
+        const x = e2.clientX - rect.left; const y = e2.clientY - rect.top; const w = rect.width; const h = rect.height; if(w<=0||h<=0) return;
+        const x_norm = Math.max(0, Math.min(1, x / w)); const y_norm = Math.max(0, Math.min(1, y / h));
+        el.style.left = `${x_norm * viewportWidth}px`;
+        el.style.top = `${y_norm * viewportHeight}px`;
+      };
+      const onUp = async (e2)=>{
+        try{ el.releasePointerCapture(e2.pointerId); }catch(e){}
+        overlay.removeEventListener('pointermove', onMove);
+        overlay.removeEventListener('pointerup', onUp);
+        overlay.removeEventListener('pointercancel', onUp);
+        if(!moved) return; // treat as click if not moved
+        const x = e2.clientX - rect.left; const y = e2.clientY - rect.top; const w = rect.width; const h = rect.height; if(w<=0||h<=0) return;
+        const x_norm = Math.max(0, Math.min(1, x / w)); const y_norm = Math.max(0, Math.min(1, y / h));
+        // prepare issue payload — include title/status so server validation passes
+        const planId = getPlanIdFromUrl();
+        const issuePayload = { plan_id: planId, id: p.id, page: p.page, x_norm, y_norm, title: p.title || ('Issue ' + (p.id || '')) };
+        if(p.status) issuePayload.status = p.status;
+        if(p.priority) issuePayload.priority = p.priority;
+        try{
+          await apiSaveIssue(issuePayload);
+          localShowToast('Pin moved — saved. ✅');
+        }catch(err){
+          console.warn('Failed to save moved pin', err);
+          localShowToast('Failed to save pin position');
+        }
+        // prevent immediate click handler from opening modal after a drag
+        el.__recentlyMoved = true; setTimeout(()=>{ try{ el.__recentlyMoved = false; }catch(e){} }, 350);
+        await reloadDbPins(); await renderPage(currentPage);
+      };
+      overlay.addEventListener('pointermove', onMove);
+      overlay.addEventListener('pointerup', onUp);
+      overlay.addEventListener('pointercancel', onUp);
+    }, {passive:false});
+
+    el.addEventListener('click', (ev)=>{ if(el.__recentlyMoved) { ev.stopPropagation(); ev.preventDefault(); return; } showIssueModal(p); });
   }
   for(const p of tempPins.filter(p=>p.page===currentPage)){
     const el = document.createElement('div');
