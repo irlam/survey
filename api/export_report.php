@@ -641,7 +641,16 @@ if ($format === 'csv') {
         fputcsv($fh, $row);
     }
     fclose($fh);
-    json_response(['ok'=>true, 'filename'=>$filename, 'format'=>'csv']);
+    // record the CSV export in DB
+    try {
+        $stmtExp = $pdo->prepare('INSERT INTO exports (plan_id, filename, type) VALUES (?, ?, ?)');
+        $stmtExp->execute([$plan_id, $filename, 'csv']);
+        $expId = (int)$pdo->lastInsertId();
+    } catch (Exception $e) {
+        error_log('export_report: failed to record CSV export: ' . $e->getMessage());
+        $expId = null;
+    }
+    json_response(['ok'=>true, 'filename'=>$filename, 'format'=>'csv', 'export_id'=>$expId]);
 }
 
 // Build issue list to include in PDF
@@ -1300,7 +1309,17 @@ if (!is_file($path) || filesize($path) <= 0) {
     error_response($msg, 500, $extra);
 }
 error_log('export_report: wrote ' . $path . ' size:' . filesize($path) . ' plan:' . $plan_id . ' issue:' . ($issue_id ?: 'all'));
-$extra = $debug ? ['exports'=>get_exports_listing()] : [];
+// record the PDF export in DB (best-effort)
+try {
+    $stmtExp = $pdo->prepare('INSERT INTO exports (plan_id, filename, type) VALUES (?, ?, ?)');
+    $etype = $issue_id ? 'issue' : 'pdf';
+    $stmtExp->execute([$plan_id, $filename, $etype]);
+    $expId = (int)$pdo->lastInsertId();
+    $extra = $debug ? array_merge(['exports'=>get_exports_listing()], ['export_id'=>$expId]) : ['export_id'=>$expId];
+} catch (Exception $e) {
+    error_log('export_report: failed to record export: ' . $e->getMessage());
+    $extra = $debug ? ['exports'=>get_exports_listing()] : [];
+}
 // Always report how many pin thumbnails were included (0 if none)
 $extra['pins_included'] = $pins_included_count;
 // attach any skipped photo info (if collected)

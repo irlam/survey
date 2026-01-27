@@ -10,6 +10,9 @@
   <header class="toolbar">
     <button id="menuBtn">☰</button>
     <h1>Exports Manager</h1>
+    <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+      <button id="scanBtn" class="btn">Scan & Import</button>
+    </div>
   </header>
   <main>
     <ul id="exportsList"></ul>
@@ -24,6 +27,16 @@
       loadExports();
     }
 
+    async function scanImports() {
+      if (!confirm('Scan storage/exports and import missing files into the DB?')) return;
+      const btn = document.getElementById('scanBtn'); btn.disabled = true; btn.textContent = 'Scanning...';
+      const res = await fetch('/api/import_exports.php', { method: 'POST', headers:{'Content-Type':'application/json'} });
+      const j = await res.json();
+      btn.disabled = false; btn.textContent = 'Scan & Import';
+      if (j && j.count) alert('Imported ' + j.count + ' file(s)');
+      await loadExports();
+    }
+
     async function loadExports() {
       const ul = document.getElementById('exportsList');
       ul.innerHTML = '<li>Loading...</li>';
@@ -31,6 +44,10 @@
       if (!res.ok) { ul.innerHTML = '<li>Failed to load</li>'; return; }
       const data = await res.json();
       ul.innerHTML = '';
+      if (!data.exports || data.exports.length === 0) {
+        ul.innerHTML = '<li>No exports found — try "Scan & Import" to import files found on disk.</li>';
+        return;
+      }
       for (const exp of data.exports) {
         const li = document.createElement('li');
         li.innerHTML = `<a href="/storage/exports/${exp.filename}" target="_blank">${exp.filename}</a> <span>${exp.type}</span> <span>${exp.created_at}</span> <button data-id="${exp.id}" class="delBtn">Delete</button>`;
