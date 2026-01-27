@@ -261,6 +261,10 @@ async function showIssueModal(pin){
         </label>
       </div>
       <div id="photoThumbs" style="margin-bottom:12px;display:flex;flex-wrap:wrap;"></div>
+      <div id="photoQueueHeader" style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+        <strong>Queued Photos</strong>
+        <span id="photoQueueBadge" class="photoQueueBadge">0</span>
+      </div>
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
         <label style="flex:1">Select Photo:<br>
           <input id="issuePhotoInput" type="file" accept="image/*" style="width:100%;" />
@@ -372,9 +376,19 @@ async function showIssueModal(pin){
   })();
 
   // helper used by both file inputs -- will resize/compress client-side then upload
-  async function uploadProcessedFile(blobOrFile){
-    const planId = getPlanIdFromUrl(); const issueId = pin.id;
-    if(!planId || !issueId){ localShowToast('Save the issue first before uploading photos.'); return; }
+  let pendingPhotos = [];
+  function renderPendingBadge(){ try{ const badge = modal.querySelector('#photoQueueBadge'); if(badge) badge.textContent = String(pendingPhotos.length); }catch(e){} }
+  async function uploadProcessedFile(blobOrFile, targetIssueId){
+    const planId = getPlanIdFromUrl(); const issueId = targetIssueId || pin.id;
+    if(!planId || !issueId){ // queue for upload after issue save
+      try{ // store a File-like object (ensure name and type)
+        const f = (blobOrFile instanceof File) ? blobOrFile : new File([blobOrFile], (blobOrFile.name||'photo.jpg'), {type: blobOrFile.type||'image/jpeg'});
+        pendingPhotos.push(f);
+        localShowToast('Photo queued — it will upload after saving the issue');
+        renderPendingBadge();
+        return;
+      }catch(e){ localShowToast('Failed to queue photo'); return; }
+    }
     const fd = new FormData(); fd.append('file', blobOrFile, (blobOrFile.name||'photo.jpg'));
     fd.append('plan_id', planId); fd.append('issue_id', issueId);
     try{
@@ -397,7 +411,9 @@ async function showIssueModal(pin){
   if(!camInput){ camInput = document.createElement('input'); camInput.type='file'; camInput.accept='image/*'; camInput.capture='environment'; camInput.id='issueCameraInput'; camInput.style.display='none'; camInput.onchange = (e)=>{ const f = e.target.files && e.target.files[0]; if(f) handleSelectedFile(f); }; modal.appendChild(camInput); }
   const camBtn = modal.querySelector('#issueTakePhotoBtn'); if(camBtn){ camBtn.onclick = ()=>{ camInput.click(); }; }
 
-  modal.querySelector('#issueSaveBtn').onclick = async ()=>{ const planId = getPlanIdFromUrl(); const title = modal.querySelector('#issueTitle').value.trim(); const notes = modal.querySelector('#issueNotes').value.trim(); const status = modal.querySelector('#issueStatusSelect') ? modal.querySelector('#issueStatusSelect').value : (pin.status||'open'); const priority = modal.querySelector('#issuePrioritySelect') ? modal.querySelector('#issuePrioritySelect').value : (pin.priority||null); const assignee = modal.querySelector('#issueAssignee') ? modal.querySelector('#issueAssignee').value.trim() : (pin.assignee||null); if(!title){ alert('Title is required'); return; } const issue = { plan_id: planId, page: pin.page, x_norm: pin.x_norm, y_norm: pin.y_norm, title, notes, status, priority, assignee }; if(pin.id) issue.id = pin.id; try{ const saved = await apiSaveIssue(issue); modal.style.display='none'; await reloadDbPins(); await renderPage(currentPage); if(!pin.id && saved.id){ pin.id = saved.id; await showIssueModal(pin); } }catch(e){ alert('Error saving issue: '+e.message); } };
+  modal.querySelector('#issueSaveBtn').onclick = async ()=>{ const planId = getPlanIdFromUrl(); const title = modal.querySelector('#issueTitle').value.trim(); const notes = modal.querySelector('#issueNotes').value.trim(); const status = modal.querySelector('#issueStatusSelect') ? modal.querySelector('#issueStatusSelect').value : (pin.status||'open'); const priority = modal.querySelector('#issuePrioritySelect') ? modal.querySelector('#issuePrioritySelect').value : (pin.priority||null); const assignee = modal.querySelector('#issueAssignee') ? modal.querySelector('#issueAssignee').value.trim() : (pin.assignee||null); if(!title){ alert('Title is required'); return; } const issue = { plan_id: planId, page: pin.page, x_norm: pin.x_norm, y_norm: pin.y_norm, title, notes, status, priority, assignee }; if(pin.id) issue.id = pin.id; try{ const saved = await apiSaveIssue(issue); // after save, upload any queued photos
+      if(pendingPhotos && pendingPhotos.length){ pin.id = saved.id || pin.id; for(const pf of pendingPhotos){ try{ await uploadProcessedFile(pf, pin.id); }catch(e){ console.error('Queued photo upload failed', e); } } pendingPhotos = []; renderPendingBadge(); }
+      modal.style.display='none'; await reloadDbPins(); await renderPage(currentPage); if(!pin.id && saved.id){ pin.id = saved.id; await showIssueModal(pin); } }catch(e){ alert('Error saving issue: '+e.message); } };
   modal.querySelector('#issueSaveBtn').onclick = async ()=>{ const planId = getPlanIdFromUrl(); const title = modal.querySelector('#issueTitle').value.trim(); const notes = modal.querySelector('#issueNotes').value.trim(); const status = modal.querySelector('#issueStatusSelect') ? modal.querySelector('#issueStatusSelect').value : (pin.status||'open'); const priority = modal.querySelector('#issuePrioritySelect') ? modal.querySelector('#issuePrioritySelect').value : (pin.priority||null); const assignee = modal.querySelector('#issueAssignee') ? modal.querySelector('#issueAssignee').value.trim() : (pin.assignee||null); if(!title){ localShowToast('Title is required'); return; } const issue = { plan_id: planId, page: pin.page, x_norm: pin.x_norm, y_norm: pin.y_norm, title, notes, status, priority, assignee }; if(pin.id) issue.id = pin.id; try{ const saved = await apiSaveIssue(issue); modal.style.display='none'; await reloadDbPins(); await renderPage(currentPage); if(!pin.id && saved.id){ pin.id = saved.id; await showIssueModal(pin); } localShowToast('Saved'); }catch(e){ localShowToast('Error saving issue: '+e.message); } };
 
 
