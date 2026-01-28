@@ -42,6 +42,7 @@
       for(const iss of data.issues){
         (async ()=>{
           const phWrap = document.getElementById('ph-' + iss.id);
+          if(!phWrap){ console.warn('Missing photo element for issue', iss.id); return; }
           try{
             const r = await fetch(`/api/list_photos.php?plan_id=${encodeURIComponent(iss.plan_id)}&issue_id=${encodeURIComponent(iss.id)}`);
             const j = await r.json();
@@ -52,22 +53,25 @@
         })();
       }
 
-      Array.from(document.querySelectorAll('.delIssue')).forEach(b=> b.onclick = async (ev)=>{
-        const id = Number(ev.target.dataset.id); const plan = Number(ev.target.dataset.plan);
-        if (!confirm('Delete issue ' + id + ' and all associated photos?')) return;
-        try{
-          const resp = await fetch('/api/delete_issue_with_photos.php', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id, plan_id: plan })});
-          const resj = await resp.json();
-          if (!resp.ok || !resj.ok) { alert('Delete failed: ' + (resj.error||'unknown')); return; }
-          // show snackbar with undo
-          showUndoSnack('Issue deleted', 'Undo', async ()=>{
-            const trash = resj.trash; if(!trash) throw new Error('No trash info');
-            const r = await fetch('/api/restore_trash.php',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ trash }) });
-            const jr = await r.json(); if(!r.ok || !jr.ok) throw new Error(jr.error||'restore failed');
+      Array.from(document.querySelectorAll('.delIssue')).forEach(b=> {
+        if(!b){ console.warn('.delIssue element null'); return; }
+        b.addEventListener('click', async (ev)=>{
+          const id = Number(ev.target.dataset.id); const plan = Number(ev.target.dataset.plan);
+          if (!confirm('Delete issue ' + id + ' and all associated photos?')) return;
+          try{
+            const resp = await fetch('/api/delete_issue_with_photos.php', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id, plan_id: plan })});
+            const resj = await resp.json();
+            if (!resp.ok || !resj.ok) { alert('Delete failed: ' + (resj.error||'unknown')); return; }
+            // show snackbar with undo
+            showUndoSnack('Issue deleted', 'Undo', async ()=>{
+              const trash = resj.trash; if(!trash) throw new Error('No trash info');
+              const r = await fetch('/api/restore_trash.php',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ trash }) });
+              const jr = await r.json(); if(!r.ok || !jr.ok) throw new Error(jr.error||'restore failed');
+              loadIssues();
+            });
             loadIssues();
-          });
-          loadIssues();
-        }catch(e){ alert('Delete failed: '+e.message); }
+          }catch(e){ alert('Delete failed: '+e.message); }
+        });
       });
     }
 
@@ -91,9 +95,9 @@
     // Guard wiring in case the host page doesn't include a #menuBtn (e.g. tools pages)
     const menuBtn = document.getElementById('menuBtn');
     if (menuBtn) menuBtn.onclick = ()=>{ off.style.left='0'; };
-    const menuClose = document.getElementById('menuClose');
+    const menuClose = off.querySelector('#menuClose');
     if (menuClose) menuClose.onclick = ()=>{ off.style.left='-280px'; };
-    loadIssues();
+    loadIssues().catch(e => { console.error('loadIssues failed', e); });
   </script>
 </body>
 </html>
