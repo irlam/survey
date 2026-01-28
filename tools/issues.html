@@ -20,59 +20,87 @@
   </main>
 
   <script>
+    function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
     async function loadIssues(){
       const wrap = document.getElementById('issuesList');
       wrap.innerHTML = 'Loading…';
-      const res = await fetch('/api/list_issues.php');
-      if (!res.ok) { wrap.innerHTML = 'Failed to load'; return; }
-      const data = await res.json();
-      if (!data.ok) { wrap.innerHTML = 'Failed: ' + (data.error || 'unknown'); return; }
-      if (!Array.isArray(data.issues) || data.issues.length === 0) { wrap.innerHTML = '<div>No issues found</div>'; return; }
-      const table = document.createElement('table'); table.style.width='100%'; table.style.borderCollapse='collapse';
-      table.innerHTML = `<thead><tr><th>ID</th><th>Plan</th><th>Page</th><th>Title</th><th>Coords</th><th>Photos</th><th>Actions</th></tr></thead>`;
-      const tbody = document.createElement('tbody');
-      for(const iss of data.issues){
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${iss.id||''}</td><td>${iss.plan_name||iss.plan_id||''}</td><td>${iss.page||''}</td><td>${iss.title||''}</td><td>${iss.x_norm!==null && iss.y_norm!==null? (Number(iss.x_norm).toFixed(2)+', '+Number(iss.y_norm).toFixed(2)) : ''}</td><td id="ph-${iss.id}">Loading…</td><td><button data-id="${iss.id}" data-plan="${iss.plan_id}" class="delIssue">Delete</button></td>`;
-        tbody.appendChild(tr);
-      }
-      table.appendChild(tbody); wrap.innerHTML = ''; wrap.appendChild(table);
+      try {
+        const res = await fetch('/api/list_issues.php');
+        if (!res.ok) {
+          let txt = '';
+          try { txt = await res.text(); } catch(e){}
+          wrap.innerHTML = 'Failed to load: HTTP ' + res.status + (txt ? (' — ' + escapeHtml(txt)) : '');
+          return;
+        }
 
-      // fetch photo counts per issue
-      for(const iss of data.issues){
-        (async ()=>{
-          const phWrap = document.getElementById('ph-' + iss.id);
-          if(!phWrap){ console.warn('Missing photo element for issue', iss.id); return; }
-          try{
-            const r = await fetch(`/api/list_photos.php?plan_id=${encodeURIComponent(iss.plan_id)}&issue_id=${encodeURIComponent(iss.id)}`);
-            const j = await r.json();
-            if (j && j.ok && Array.isArray(j.photos)) {
-              phWrap.textContent = j.photos.length + ' photo(s)';
-            } else phWrap.textContent = '0';
-          }catch(e){ phWrap.textContent = '0'; }
-        })();
-      }
+        // read as text first so we can show raw output for debugging if parsing fails
+        const txt = await res.text();
+        let data;
+        try {
+          data = JSON.parse(txt);
+        } catch (e) {
+          console.error('list_issues invalid JSON', txt);
+          wrap.innerHTML = 'Invalid JSON from server. Check console for details.';
+          return;
+        }
 
-      Array.from(document.querySelectorAll('.delIssue')).forEach(b=> {
-        if(!b){ console.warn('.delIssue element null'); return; }
-        b.addEventListener('click', async (ev)=>{
-          const id = Number(ev.target.dataset.id); const plan = Number(ev.target.dataset.plan);
-          if (!confirm('Delete issue ' + id + ' and all associated photos?')) return;
-          try{
-            const resp = await fetch('/api/delete_issue_with_photos.php', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id, plan_id: plan })});
-            const resj = await resp.json();
-            if (!resp.ok || !resj.ok) { alert('Delete failed: ' + (resj.error||'unknown')); return; }
-            // show snackbar with undo
-            showUndoSnack('Issue deleted', 'Undo', async ()=>{
-              const trash = resj.trash; if(!trash) throw new Error('No trash info');
-              const r = await fetch('/api/restore_trash.php',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ trash }) });
-              const jr = await r.json(); if(!r.ok || !jr.ok) throw new Error(jr.error||'restore failed');
+        if (!data.ok) {
+          const err = data.error || 'unknown';
+          const raw = data._raw_output ? ('<br/><small>' + escapeHtml(data._raw_output) + '</small>') : '';
+          wrap.innerHTML = 'Failed: ' + escapeHtml(err) + raw;
+          return;
+        }
+
+        if (!Array.isArray(data.issues) || data.issues.length === 0) { wrap.innerHTML = '<div>No issues found</div>'; return; }
+        const table = document.createElement('table'); table.style.width='100%'; table.style.borderCollapse='collapse';
+        table.innerHTML = `<thead><tr><th>ID</th><th>Plan</th><th>Page</th><th>Title</th><th>Coords</th><th>Photos</th><th>Actions</th></tr></thead>`;
+        const tbody = document.createElement('tbody');
+        for(const iss of data.issues){
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${iss.id||''}</td><td>${iss.plan_name||iss.plan_id||''}</td><td>${iss.page||''}</td><td>${iss.title||''}</td><td>${iss.x_norm!==null && iss.y_norm!==null? (Number(iss.x_norm).toFixed(2)+', '+Number(iss.y_norm).toFixed(2)) : ''}</td><td id="ph-${iss.id}">Loading…</td><td><button data-id="${iss.id}" data-plan="${iss.plan_id}" class="delIssue">Delete</button></td>`;
+          tbody.appendChild(tr);
+        }
+        table.appendChild(tbody); wrap.innerHTML = ''; wrap.appendChild(table);
+
+        // fetch photo counts per issue
+        for(const iss of data.issues){
+          (async ()=>{
+            const phWrap = document.getElementById('ph-' + iss.id);
+            if(!phWrap){ console.warn('Missing photo element for issue', iss.id); return; }
+            try{
+              const r = await fetch(`/api/list_photos.php?plan_id=${encodeURIComponent(iss.plan_id)}&issue_id=${encodeURIComponent(iss.id)}`);
+              const j = await r.json();
+              if (j && j.ok && Array.isArray(j.photos)) {
+                phWrap.textContent = j.photos.length + ' photo(s)';
+              } else phWrap.textContent = '0';
+            }catch(e){ phWrap.textContent = '0'; }
+          })();
+        }
+
+        Array.from(document.querySelectorAll('.delIssue')).forEach(b=> {
+          if(!b){ console.warn('.delIssue element null'); return; }
+          b.addEventListener('click', async (ev)=>{
+            const id = Number(ev.target.dataset.id); const plan = Number(ev.target.dataset.plan);
+            if (!confirm('Delete issue ' + id + ' and all associated photos?')) return;
+            try{
+              const resp = await fetch('/api/delete_issue_with_photos.php', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id, plan_id: plan })});
+              const resj = await resp.json();
+              if (!resp.ok || !resj.ok) { alert('Delete failed: ' + (resj.error||'unknown')); return; }
+              // show snackbar with undo
+              showUndoSnack('Issue deleted', 'Undo', async ()=>{
+                const trash = resj.trash; if(!trash) throw new Error('No trash info');
+                const r = await fetch('/api/restore_trash.php',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ trash }) });
+                const jr = await r.json(); if(!r.ok || !jr.ok) throw new Error(jr.error||'restore failed');
+                loadIssues();
+              });
               loadIssues();
-            });
-            loadIssues();
-          }catch(e){ alert('Delete failed: '+e.message); }
+            }catch(e){ alert('Delete failed: '+e.message); }
+          });
         });
-      });
+      } catch (e) {
+        console.error('loadIssues failed', e);
+        wrap.innerHTML = 'Error: ' + escapeHtml(e.message || String(e));
+      }
     }
 
     /* Snackbar & Menu helpers */
