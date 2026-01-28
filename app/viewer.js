@@ -288,6 +288,7 @@ async function showIssueModal(pin){
           <div class="photoActions" style="display:flex;gap:8px;flex-wrap:wrap;">
             <button id="issueUploadConfirmBtn" class="btnPrimary">Upload Photo</button>
             <button id="issueUploadCancelBtn" class="btn">Cancel</button>
+            <button id="issueClearAnnotBtn" class="btn">Clear Annotations</button>
           </div>
         </div>
       </div>
@@ -299,6 +300,29 @@ async function showIssueModal(pin){
     document.body.appendChild(modal);
   }
     modal.style.display = 'block';
+
+    // --- Annotation canvas: enable touch/pointer drawing on the preview area ---
+    function ensureAnnotCanvas(){
+      const wrap = modal.querySelector('#issuePreviewWrap'); if(!wrap) return;
+      const dpr = window.devicePixelRatio || 1;
+      let c = modal.querySelector('#issueAnnotCanvas');
+      if(!c){ c = document.createElement('canvas'); c.id = 'issueAnnotCanvas'; c.style.position = 'absolute'; c.style.left = '0'; c.style.top = '0'; c.style.width = '100%'; c.style.height = '100%'; c.style.touchAction = 'none'; c.style.zIndex = 5; wrap.appendChild(c); }
+      const ctx2 = c.getContext('2d');
+      function resizeAnnot(){ const rect = wrap.getBoundingClientRect(); c.width = Math.floor(rect.width * dpr); c.height = Math.floor(rect.height * dpr); c.style.width = rect.width + 'px'; c.style.height = rect.height + 'px'; ctx2.setTransform(dpr,0,0,dpr,0,0); }
+      resizeAnnot();
+      modal._annotCanvas = c; modal._annotCtx = ctx2; modal._annotIsDrawing = false;
+      modal._clearAnnotations = ()=>{ modal._annotCtx && modal._annotCtx.clearRect(0,0,modal._annotCanvas.width, modal._annotCanvas.height); };
+      modal._annotHasContent = ()=>{ if(!modal._annotCtx) return false; const data = modal._annotCtx.getImageData(0,0,modal._annotCanvas.width, modal._annotCanvas.height).data; for(let i=3;i<data.length;i+=4) if(data[i]!==0) return true; return false; };
+      c.addEventListener('pointerdown', function(e){ if(e.button!==0) return; e.preventDefault(); modal._annotIsDrawing = true; try{ c.setPointerCapture(e.pointerId); }catch(ignore){} const rect = c.getBoundingClientRect(); const x = (e.clientX - rect.left); const y = (e.clientY - rect.top); modal._annotCtx.beginPath(); modal._annotCtx.lineWidth = 3; modal._annotCtx.lineCap='round'; modal._annotCtx.strokeStyle = '#ff0000'; modal._annotCtx.moveTo(x,y); });
+      c.addEventListener('pointermove', function(e){ if(!modal._annotIsDrawing) return; e.preventDefault(); const rect = c.getBoundingClientRect(); const x = (e.clientX - rect.left); const y = (e.clientY - rect.top); modal._annotCtx.lineTo(x,y); modal._annotCtx.stroke(); });
+      c.addEventListener('pointerup', function(e){ if(!modal._annotIsDrawing) return; e.preventDefault(); modal._annotIsDrawing=false; try{ c.releasePointerCapture(e.pointerId); }catch(ignore){} });
+      c.addEventListener('pointercancel', function(e){ if(!modal._annotIsDrawing) return; modal._annotIsDrawing=false; try{ c.releasePointerCapture(e.pointerId); }catch(ignore){} });
+      window.addEventListener('resize', resizeAnnot);
+      // wire Clear button
+      const clearBtn = modal.querySelector('#issueClearAnnotBtn'); if(clearBtn) clearBtn.onclick = ()=>{ modal._clearAnnotations(); };
+    }
+    ensureAnnotCanvas();
+
     modal.querySelector('#issueTitle').value = pin.title||'';
     modal.querySelector('#issueNotes').value = pin.notes||'';
     // show created time if available
@@ -383,9 +407,27 @@ async function showIssueModal(pin){
             return;
           }
         }
-        const blob = await resizeImageFile(file);
-        const out = new File([blob], (file.name||'photo.jpg'), {type: blob.type}); await uploadProcessedFile(out); previewWrap.style.display='none'; URL.revokeObjectURL(url);
+        // If there are annotations drawn on the preview, merge them onto the image and upload the merged image
+        const annotCanvas = modal._annotCanvas;
+        if(annotCanvas && modal._annotHasContent && modal._annotHasContent()){
+          // create combined canvas at the annot canvas pixel resolution
+          const comb = document.createElement('canvas'); comb.width = annotCanvas.width; comb.height = annotCanvas.height; const cctx = comb.getContext('2d');
+          await new Promise((res, rej)=>{
+            const im = new Image(); im.onload = ()=>{
+              cctx.drawImage(im,0,0,comb.width,comb.height); cctx.drawImage(annotCanvas,0,0,comb.width,comb.height);
+              comb.toBlob((b)=>{ if(!b) rej(new Error('Merge failed')); else { uploadProcessedFile(b).then(()=>res()).catch(rej); } }, 'image/jpeg', 0.95);
+            };
+            im.onerror = ()=>{ rej(new Error('Image load failed for merge')); };
+            im.src = url;
+          });
+        } else {
+          const blob = await resizeImageFile(file);
+          const out = new File([blob], (file.name||'photo.jpg'), {type: blob.type}); await uploadProcessedFile(out);
+        }
+        previewWrap.style.display='none'; URL.revokeObjectURL(url);
       }catch(err){ localShowToast('Image processing failed: '+err.message); confirmBtn.disabled=false; } };
+      // ensure Cancel clears preview and annotations as well
+      cancelBtn.onclick = ()=>{ previewWrap.style.display='none'; imgEl.src=''; infoEl.textContent = ''; URL.revokeObjectURL(url); if(modal._clearAnnotations) modal._clearAnnotations(); };
       cancelBtn.onclick = ()=>{ previewWrap.style.display='none'; imgEl.src=''; infoEl.textContent=''; URL.revokeObjectURL(url); };
     }
 
@@ -449,7 +491,7 @@ async function showIssueModal(pin){
   };
 
   // Cancel handler and close modal
-  const cancelBtn = modal.querySelector('#issueCancelBtn'); if(cancelBtn) cancelBtn.onclick = ()=>{ modal.style.display='none'; };
+  const cancelBtn = modal.querySelector('#issueCancelBtn'); if(cancelBtn) cancelBtn.onclick = ()=>{ modal.style.display='none'; if(modal._clearAnnotations) modal._clearAnnotations(); };
 
   // Refresh viewer when an issue is deleted elsewhere
   const issueDeletedHandler = (ev)=>{ try{ reloadDbPins(); renderPage(currentPage); }catch(e){} };
