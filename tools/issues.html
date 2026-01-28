@@ -8,8 +8,11 @@
 </head>
 <body>
   <header class="topbar">
-    <button onclick="history.back()" class="iconBtn">←</button>
+    <button onclick="history.back()" class="iconBtn" type="button">←</button>
     <div class="brand">Issue Manager</div>
+
+    <!-- Add this so the menu code doesn't crash -->
+    <button id="menuBtn" class="iconBtn" type="button" aria-label="Menu">☰</button>
   </header>
 
   <main style="padding:16px;">
@@ -20,73 +23,271 @@
   </main>
 
   <script>
+    // Small helper for safe text
+    function txt(v){ return (v === null || v === undefined) ? '' : String(v); }
+
     async function loadIssues(){
       const wrap = document.getElementById('issuesList');
-      wrap.innerHTML = 'Loading…';
-      const res = await fetch('/api/list_issues.php');
-      if (!res.ok) { wrap.innerHTML = 'Failed to load'; return; }
-      const data = await res.json();
-      if (!data.ok) { wrap.innerHTML = 'Failed: ' + (data.error || 'unknown'); return; }
-      if (!Array.isArray(data.issues) || data.issues.length === 0) { wrap.innerHTML = '<div>No issues found</div>'; return; }
-      const table = document.createElement('table'); table.style.width='100%'; table.style.borderCollapse='collapse';
-      table.innerHTML = `<thead><tr><th>ID</th><th>Plan</th><th>Page</th><th>Title</th><th>Coords</th><th>Photos</th><th>Actions</th></tr></thead>`;
-      const tbody = document.createElement('tbody');
-      for(const iss of data.issues){
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${iss.id||''}</td><td>${iss.plan_name||iss.plan_id||''}</td><td>${iss.page||''}</td><td>${iss.title||''}</td><td>${iss.x_norm!==null && iss.y_norm!==null? (Number(iss.x_norm).toFixed(2)+', '+Number(iss.y_norm).toFixed(2)) : ''}</td><td id="ph-${iss.id}">Loading…</td><td><button data-id="${iss.id}" data-plan="${iss.plan_id}" class="delIssue">Delete</button></td>`;
-        tbody.appendChild(tr);
-      }
-      table.appendChild(tbody); wrap.innerHTML = ''; wrap.appendChild(table);
+      wrap.textContent = 'Loading…';
 
-      // fetch photo counts per issue
-      for(const iss of data.issues){
-        (async ()=>{
-          const phWrap = document.getElementById('ph-' + iss.id);
-          try{
-            const r = await fetch(`/api/list_photos.php?plan_id=${encodeURIComponent(iss.plan_id)}&issue_id=${encodeURIComponent(iss.id)}`);
-            const j = await r.json();
-            if (j && j.ok && Array.isArray(j.photos)) {
-              phWrap.textContent = j.photos.length + ' photo(s)';
-            } else phWrap.textContent = '0';
-          }catch(e){ phWrap.textContent = '0'; }
-        })();
-      }
+      try{
+        const res = await fetch('/api/list_issues.php', {
+          headers: { 'Accept': 'application/json' },
+          cache: 'no-store'
+        });
 
-      Array.from(document.querySelectorAll('.delIssue')).forEach(b=> b.onclick = async (ev)=>{
-        const id = Number(ev.target.dataset.id); const plan = Number(ev.target.dataset.plan);
-        if (!confirm('Delete issue ' + id + ' and all associated photos?')) return;
-        try{
-          const resp = await fetch('/api/delete_issue_with_photos.php', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id, plan_id: plan })});
-          const resj = await resp.json();
-          if (!resp.ok || !resj.ok) { alert('Delete failed: ' + (resj.error||'unknown')); return; }
-          // show snackbar with undo
-          showUndoSnack('Issue deleted', 'Undo', async ()=>{
-            const trash = resj.trash; if(!trash) throw new Error('No trash info');
-            const r = await fetch('/api/restore_trash.php',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ trash }) });
-            const jr = await r.json(); if(!r.ok || !jr.ok) throw new Error(jr.error||'restore failed');
-            loadIssues();
-          });
-          loadIssues();
-        }catch(e){ alert('Delete failed: '+e.message); }
-      });
+        const raw = await res.text();
+        let data;
+        try { data = JSON.parse(raw); }
+        catch {
+          throw new Error('API did not return JSON. First chars: ' + raw.slice(0,120));
+        }
+
+        if (!res.ok) throw new Error('HTTP ' + res.status + (data && data.error ? (': ' + data.error) : ''));
+        if (!data.ok) throw new Error(data.error || 'unknown');
+
+        if (!Array.isArray(data.issues) || data.issues.length === 0) {
+          wrap.innerHTML = '<div>No issues found</div>';
+          return;
+        }
+
+        // Build table safely (no innerHTML with user content)
+        const table = document.createElement('table');
+        table.style.width = '100%';
+        table.style.borderCollapse = 'collapse';
+
+        const thead = document.createElement('thead');
+        const hr = document.createElement('tr');
+        ['ID','Plan','Page','Title','Coords','Photos','Actions'].forEach(h=>{
+          const th = document.createElement('th');
+          th.textContent = h;
+          hr.appendChild(th);
+        });
+        thead.appendChild(hr);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+
+        for (const iss of data.issues) {
+          const tr = document.createElement('tr');
+
+          const tdId = document.createElement('td');
+          tdId.textContent = txt(iss.id);
+          tr.appendChild(tdId);
+
+          const tdPlan = document.createElement('td');
+          tdPlan.textContent = txt(iss.plan_name || iss.plan_id);
+          tr.appendChild(tdPlan);
+
+          const tdPage = document.createElement('td');
+          tdPage.textContent = txt(iss.page);
+          tr.appendChild(tdPage);
+
+          const tdTitle = document.createElement('td');
+          tdTitle.textContent = txt(iss.title);
+          tr.appendChild(tdTitle);
+
+          const tdCoords = document.createElement('td');
+          if (iss.x_norm !== null && iss.y_norm !== null && iss.x_norm !== undefined && iss.y_norm !== undefined) {
+            const x = Number(iss.x_norm);
+            const y = Number(iss.y_norm);
+            tdCoords.textContent = (Number.isFinite(x) && Number.isFinite(y)) ? (x.toFixed(2) + ', ' + y.toFixed(2)) : '';
+          } else {
+            tdCoords.textContent = '';
+          }
+          tr.appendChild(tdCoords);
+
+          const tdPhotos = document.createElement('td');
+          tdPhotos.id = 'ph-' + txt(iss.id);
+          tdPhotos.textContent = 'Loading…';
+          tr.appendChild(tdPhotos);
+
+          const tdActions = document.createElement('td');
+          const delBtn = document.createElement('button');
+          delBtn.className = 'delIssue';
+          delBtn.type = 'button';
+          delBtn.textContent = 'Delete';
+          delBtn.dataset.id = txt(iss.id);
+          delBtn.dataset.plan = txt(iss.plan_id);
+          tdActions.appendChild(delBtn);
+          tr.appendChild(tdActions);
+
+          tbody.appendChild(tr);
+        }
+
+        table.appendChild(tbody);
+        wrap.innerHTML = '';
+        wrap.appendChild(table);
+
+        // Fetch photo counts per issue (safe against reloads)
+        for (const iss of data.issues) {
+          (async ()=>{
+            const phWrap = document.getElementById('ph-' + txt(iss.id));
+            if (!phWrap) return;
+
+            try{
+              const r = await fetch(`/api/list_photos.php?plan_id=${encodeURIComponent(iss.plan_id)}&issue_id=${encodeURIComponent(iss.id)}`, {
+                headers: { 'Accept':'application/json' },
+                cache: 'no-store'
+              });
+              const raw2 = await r.text();
+              let j;
+              try { j = JSON.parse(raw2); } catch { j = null; }
+
+              if (j && j.ok && Array.isArray(j.photos)) {
+                phWrap.textContent = j.photos.length + ' photo(s)';
+              } else {
+                phWrap.textContent = '0';
+              }
+            } catch(e) {
+              phWrap.textContent = '0';
+            }
+          })();
+        }
+
+      } catch(e) {
+        wrap.textContent = 'Failed to load: ' + e.message;
+        console.error(e);
+      }
     }
 
-    /* Snackbar & Menu helpers */
+    // Event delegation for delete buttons (works after reload)
+    document.addEventListener('click', async (ev) => {
+      const btn = ev.target && ev.target.closest ? ev.target.closest('.delIssue') : null;
+      if (!btn) return;
+
+      const id = parseInt(btn.dataset.id, 10);
+      const plan = parseInt(btn.dataset.plan, 10);
+      if (!Number.isFinite(id) || !Number.isFinite(plan)) return alert('Bad issue id / plan id');
+
+      if (!confirm('Delete issue ' + id + ' and all associated photos?')) return;
+
+      btn.disabled = true;
+      const oldTxt = btn.textContent;
+      btn.textContent = 'Deleting…';
+
+      try{
+        const resp = await fetch('/api/delete_issue_with_photos.php', {
+          method: 'POST',
+          headers: { 'Content-Type':'application/json', 'Accept':'application/json' },
+          body: JSON.stringify({ id, plan_id: plan })
+        });
+
+        const raw = await resp.text();
+        let resj;
+        try { resj = JSON.parse(raw); } catch { resj = null; }
+
+        if (!resp.ok || !resj || !resj.ok) {
+          throw new Error((resj && resj.error) ? resj.error : ('HTTP ' + resp.status));
+        }
+
+        // show snackbar with undo
+        showUndoSnack('Issue deleted', 'Undo', async ()=>{
+          const trash = resj.trash;
+          if(!trash) throw new Error('No trash info returned');
+
+          const r = await fetch('/api/restore_trash.php', {
+            method:'POST',
+            headers:{ 'Content-Type':'application/json', 'Accept':'application/json' },
+            body: JSON.stringify({ trash })
+          });
+
+          const raw2 = await r.text();
+          let jr;
+          try { jr = JSON.parse(raw2); } catch { jr = null; }
+
+          if(!r.ok || !jr || !jr.ok) throw new Error((jr && jr.error) ? jr.error : ('HTTP ' + r.status));
+          await loadIssues();
+        });
+
+        await loadIssues();
+      } catch(e) {
+        alert('Delete failed: ' + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = oldTxt;
+      }
+    });
+
+    /* Snackbar */
     function showUndoSnack(message, undoLabel, undoCb) {
       let sb = document.getElementById('snackbar');
       if (!sb) {
-        sb = document.createElement('div'); sb.id = 'snackbar'; sb.style.position='fixed'; sb.style.left='50%'; sb.style.transform='translateX(-50%)'; sb.style.bottom='20px'; sb.style.zIndex=99999; sb.style.background='linear-gradient(90deg, rgba(6,56,56,0.95), rgba(0,255,160,0.06))'; sb.style.color='#fff'; sb.style.padding='12px 16px'; sb.style.borderRadius='10px'; sb.style.boxShadow='0 12px 30px rgba(0,0,0,.5)'; sb.style.display='flex'; sb.style.gap='12px'; sb.style.alignItems='center'; document.body.appendChild(sb);
+        sb = document.createElement('div');
+        sb.id = 'snackbar';
+        sb.style.position = 'fixed';
+        sb.style.left = '50%';
+        sb.style.transform = 'translateX(-50%)';
+        sb.style.bottom = '20px';
+        sb.style.zIndex = 99999;
+        sb.style.background = 'linear-gradient(90deg, rgba(6,56,56,0.95), rgba(0,255,160,0.06))';
+        sb.style.color = '#fff';
+        sb.style.padding = '12px 16px';
+        sb.style.borderRadius = '10px';
+        sb.style.boxShadow = '0 12px 30px rgba(0,0,0,.5)';
+        sb.style.display = 'flex';
+        sb.style.gap = '12px';
+        sb.style.alignItems = 'center';
+        document.body.appendChild(sb);
       }
+
       sb.innerHTML = '';
-      const txt = document.createElement('div'); txt.textContent = message; sb.appendChild(txt);
+      const t = document.createElement('div');
+      t.textContent = message;
+      sb.appendChild(t);
+
       if (undoCb) {
-        const undo = document.createElement('button'); undo.className = 'btnPrimary'; undo.textContent = undoLabel||'Undo'; undo.onclick = async ()=>{ try{ await undoCb(); }catch(e){ alert('Undo failed'); } sb.style.display='none'; };
+        const undo = document.createElement('button');
+        undo.className = 'btnPrimary';
+        undo.type = 'button';
+        undo.textContent = undoLabel || 'Undo';
+        undo.onclick = async ()=>{
+          try { await undoCb(); }
+          catch(e){ alert('Undo failed: ' + (e.message || 'unknown')); }
+          sb.style.display = 'none';
+        };
         sb.appendChild(undo);
       }
-      sb.style.display = 'flex'; clearTimeout(sb._timeout); sb._timeout = setTimeout(()=>{ sb.style.display='none'; }, 8000);
+
+      sb.style.display = 'flex';
+      clearTimeout(sb._timeout);
+      sb._timeout = setTimeout(()=>{ sb.style.display='none'; }, 8000);
     }
 
-    const off = document.createElement('nav'); off.id='offcanvasMenu'; off.style.position='fixed'; off.style.left='-280px'; off.style.top='0'; off.style.bottom='0'; off.style.width='260px'; off.style.background='rgba(2,6,10,.95)'; off.style.padding='18px'; off.style.zIndex='99999'; off.style.boxShadow='6px 0 30px rgba(0,0,0,.6)'; off.style.transition='left .22s ease'; off.innerHTML = `<button id="menuClose" class="iconBtn">×</button><div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;"><a href="/" style="color:var(--text);text-decoration:none">Home</a><a href="/tools/index.html" style="color:var(--text);text-decoration:none">Tools</a><a href="/exports.html" style="color:var(--text);text-decoration:none">Exports</a></div>`; document.body.appendChild(off); document.getElementById('menuBtn').onclick = ()=>{ off.style.left='0'; }; document.getElementById('menuClose').onclick = ()=>{ off.style.left='-280px'; };
+    /* Offcanvas menu (won't crash if menuBtn missing) */
+    (function initMenu(){
+      const off = document.createElement('nav');
+      off.id = 'offcanvasMenu';
+      off.style.position = 'fixed';
+      off.style.left = '-280px';
+      off.style.top = '0';
+      off.style.bottom = '0';
+      off.style.width = '260px';
+      off.style.background = 'rgba(2,6,10,.95)';
+      off.style.padding = '18px';
+      off.style.zIndex = '99999';
+      off.style.boxShadow = '6px 0 30px rgba(0,0,0,.6)';
+      off.style.transition = 'left .22s ease';
+
+      off.innerHTML = `
+        <button id="menuClose" class="iconBtn" type="button">×</button>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
+          <a href="/" style="color:var(--text);text-decoration:none">Home</a>
+          <a href="/tools/index.html" style="color:var(--text);text-decoration:none">Tools</a>
+          <a href="/exports.html" style="color:var(--text);text-decoration:none">Exports</a>
+        </div>
+      `;
+
+      document.body.appendChild(off);
+
+      const menuBtn = document.getElementById('menuBtn');
+      if (menuBtn) menuBtn.onclick = ()=>{ off.style.left = '0'; };
+
+      const closeBtn = document.getElementById('menuClose');
+      if (closeBtn) closeBtn.onclick = ()=>{ off.style.left = '-280px'; };
+    })();
+
+    // Start
     loadIssues();
   </script>
 </body>
