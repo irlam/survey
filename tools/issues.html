@@ -121,10 +121,15 @@
     const off = document.createElement('nav'); off.id='offcanvasMenu'; off.style.position='fixed'; off.style.left='-280px'; off.style.top='0'; off.style.bottom='0'; off.style.width='260px'; off.style.background='rgba(2,6,10,.95)'; off.style.padding='18px'; off.style.zIndex='99999'; off.style.boxShadow='6px 0 30px rgba(0,0,0,.6)'; off.style.transition='left .22s ease'; off.innerHTML = `<button id="menuClose" class="iconBtn">×</button><div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;"><a href="/" style="color:var(--text);text-decoration:none">Home</a><a href="/tools/index.html" style="color:var(--text);text-decoration:none">Tools</a><a href="/exports.html" style="color:var(--text);text-decoration:none">Exports</a></div>`;
     document.body.appendChild(off);
     // Guard wiring in case the host page doesn't include a #menuBtn (e.g. tools pages)
-    const menuBtn = document.getElementById('menuBtn');
-    if (menuBtn) menuBtn.onclick = ()=>{ off.style.left='0'; };
-    const menuClose = off.querySelector('#menuClose');
-    if (menuClose) menuClose.onclick = ()=>{ off.style.left='-280px'; };
+    try {
+      const menuBtn = document.getElementById('menuBtn');
+      if (menuBtn) menuBtn.addEventListener('click', ()=>{ off.style.left='0'; });
+      const menuClose = off.querySelector('#menuClose');
+      if (menuClose) menuClose.addEventListener('click', ()=>{ off.style.left='-280px'; });
+    } catch (e) {
+      // Non-fatal: if the host environment does something odd with DOM APIs, keep going
+      console.warn('Menu wiring failed (non-critical):', e);
+    }
     loadIssues().catch(e => { console.error('loadIssues failed', e); });
   </script>
 </body>
