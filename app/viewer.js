@@ -539,25 +539,6 @@ async function showIssueModal(pin){
 
     // show preview and wire confirm/cancel
     function handleSelectedFile(file){ if(!file) return; const previewWrap = modal.querySelector('#photoPreview'); const imgEl = modal.querySelector('#photoPreviewImg'); const infoEl = modal.querySelector('#photoPreviewInfo'); previewWrap.style.display='flex'; const url = URL.createObjectURL(file); imgEl.src = url; infoEl.textContent = `${Math.round(file.size/1024)} KB — ${file.type}`;
-<<<<<<< HEAD
-      // set confirm handler to either queue (if issue unsaved) or upload immediately
-      const confirmBtn = modal.querySelector('#issueUploadConfirmBtn'); const cancelBtn = modal.querySelector('#issueUploadCancelBtn'); confirmBtn.disabled = false; confirmBtn.onclick = async ()=>{ confirmBtn.disabled = true; try{
-        // process the file (resize) into a blob first
-        const blob = await resizeImageFile(file);
-        const procFile = new File([blob], (file.name||'photo.jpg'), {type: blob.type});
-        if(!pin.id){
-          // queue the processed file for upload after issue is saved
-          procFile.previewUrl = URL.createObjectURL(procFile);
-          pendingPhotos.push(procFile);
-          renderPendingPhotos();
-          previewWrap.style.display='none'; URL.revokeObjectURL(url);
-          localShowToast('Photo added to queue — it will upload after you save the issue');
-        } else {
-          // upload immediately
-          await uploadProcessedFile(procFile);
-          previewWrap.style.display='none'; URL.revokeObjectURL(url);
-        }
-=======
       // set confirm handler to resize then upload
       const confirmBtn = modal.querySelector('#issueUploadConfirmBtn'); const cancelBtn = modal.querySelector('#issueUploadCancelBtn'); confirmBtn.disabled = false; confirmBtn.onclick = async ()=>{ confirmBtn.disabled = true; try{ 
         if(!pin.id){
@@ -597,8 +578,7 @@ async function showIssueModal(pin){
           const out = new File([blob], (file.name||'photo.jpg'), {type: blob.type}); await uploadProcessedFile(out);
         }
         previewWrap.style.display='none'; URL.revokeObjectURL(url);
->>>>>>> feat/pin-drag-persistence-test
-      }catch(err){ localShowToast('Image processing failed: '+err.message); confirmBtn.disabled=false; } };
+  }catch(err){ localShowToast('Image processing failed: '+err.message); confirmBtn.disabled=false; } };
       // ensure Cancel clears preview and annotations as well
       cancelBtn.onclick = ()=>{ previewWrap.style.display='none'; imgEl.src=''; infoEl.textContent = ''; URL.revokeObjectURL(url); if(modal._clearAnnotations) modal._clearAnnotations(); };
       cancelBtn.onclick = ()=>{ previewWrap.style.display='none'; imgEl.src=''; infoEl.textContent=''; URL.revokeObjectURL(url); };
