@@ -21,6 +21,7 @@
 
   <script>
     function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+    try {
     async function loadIssues(){
       const wrap = document.getElementById('issuesList');
       wrap.innerHTML = 'Loading…';
@@ -131,6 +132,10 @@
       console.warn('Menu wiring failed (non-critical):', e);
     }
     loadIssues().catch(e => { console.error('loadIssues failed', e); });
+  } catch (e) {
+    console.error('tools/issues init failed', e);
+    const wrap = document.getElementById('issuesList'); if (wrap) wrap.innerHTML = 'Init error: ' + escapeHtml(e.message || String(e));
+  }
   </script>
 </body>
 </html>
