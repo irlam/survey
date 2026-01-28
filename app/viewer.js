@@ -268,7 +268,7 @@ function bindUiOnce(){ if(window.__viewerBound) return; window.__viewerBound = t
 
 // Issue modal with photo upload
 async function showIssueModal(pin){
-  try{ console.debug('[DEBUG] showIssueModal pin:', pin); }catch(e){}
+  try{ console.log('[DEBUG] showIssueModal pin:', JSON.stringify(pin)); }catch(e){}
   let modal = document.getElementById('issueModal');
   if(!modal){
     modal = document.createElement('div');
@@ -687,7 +687,7 @@ async function showIssueModal(pin){
         // instantiate PinDraggable on the preview
         let pd = null;
         try{
-          console.debug('[DEBUG] PinDraggable init pin.x_norm,y_norm =', pin.x_norm, pin.y_norm);
+          console.log('[DEBUG] PinDraggable init pin.x_norm,y_norm =', pin.x_norm, pin.y_norm);
           const PD = window.PinDraggable && window.PinDraggable.PinDraggable ? window.PinDraggable.PinDraggable : window.PinDraggable;
           pd = new PD({
             container: previewWrap,
