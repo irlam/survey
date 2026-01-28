@@ -5,7 +5,7 @@ const ASSETS = [
   '/assets/ui.css?v=20260124_1',
   '/app/app.js?v=20260121_2',
   '/app/router.js',
-  '/app/viewer.js?v=20260121_2',
+  '/app/viewer.js?v=20260128_2',
   '/app/ui.js?v=20260121_2',
   '/app/idb.js',
   '/app/sync.js',
