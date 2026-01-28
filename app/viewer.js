@@ -44,14 +44,19 @@ function ensureWrapAndOverlay(){
       overlay._issueHold = overlay._issueHold || {};
       overlay._issueHold.startX = e.clientX;
       overlay._issueHold.startY = e.clientY;
+      // track current pointer (updated by pointermove to support snapping to crosshair)
+      overlay._issueHold.currentX = overlay._issueHold.currentX || e.clientX;
+      overlay._issueHold.currentY = overlay._issueHold.currentY || e.clientY;
       // clear any previous timer
       if(overlay._issueHold.timer) { clearTimeout(overlay._issueHold.timer); overlay._issueHold.timer = null; }
       // set timer for 1 second
       overlay._issueHold.timer = setTimeout(()=>{
         // when timer fires, compute normalized coords and open modal
         const overlayRect = overlay.getBoundingClientRect();
-        const x = overlay._issueHold.startX - overlayRect.left;
-        const y = overlay._issueHold.startY - overlayRect.top;
+        const cx = (overlay._issueHold.currentX !== undefined) ? overlay._issueHold.currentX : overlay._issueHold.startX;
+        const cy = (overlay._issueHold.currentY !== undefined) ? overlay._issueHold.currentY : overlay._issueHold.startY;
+        const x = cx - overlayRect.left;
+        const y = cy - overlayRect.top;
         const w = overlayRect.width; const h = overlayRect.height; if(w<=0||h<=0) return;
         const x_norm = Math.max(0, Math.min(1, x/w));
         const y_norm = Math.max(0, Math.min(1, y/h));
@@ -90,6 +95,36 @@ function resizeImageFile(file, maxWidth=1600, maxHeight=1600, quality=0.8){ retu
   }; img.onerror = (e)=>reject(new Error('Image load error')); img.src = fr.result; }; fr.onerror = ()=>reject(new Error('File read error')); fr.readAsDataURL(file); }); }
 
 function clearOverlay(overlay){ overlay.innerHTML = ''; }
+
+// Crosshair / reticle helper
+function initCrosshair(){
+  const allowFeature = () => { try{ const u = new URL(window.location.href); if (u.searchParams.get('f') === 'crosshair') return true; }catch(e){} return (window.innerWidth || 0) < 700; };
+  if (!allowFeature()) return;
+  const ch = document.createElement('div'); ch.className = 'crosshair'; ch.innerHTML = '<div class="ring"></div><div class="dot"></div>';
+  document.body.appendChild(ch);
+
+  function showAt(clientX, clientY){ ch.style.left = clientX + 'px'; ch.style.top = clientY + 'px'; ch.classList.add('visible'); }
+  function hide(){ ch.classList.remove('visible'); }
+
+  document.addEventListener('pointermove', (e)=>{
+    // if not in add mode, hide
+    if (!addIssueMode){ hide(); return; }
+    // ensure overlay exists and pointer over it
+    const overlay = document.querySelector('#pdfContainer .pdfOverlay');
+    if (!overlay) { hide(); return; }
+    const rect = overlay.getBoundingClientRect();
+    if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom){ hide(); return; }
+    // update overlay hold coords if set
+    if (overlay._issueHold){ overlay._issueHold.currentX = e.clientX; overlay._issueHold.currentY = e.clientY; }
+    showAt(e.clientX, e.clientY);
+  }, { passive:true });
+
+  // hide crosshair when leaving add mode
+  const obs = new MutationObserver(()=>{ if (!addIssueMode) hide(); });
+  obs.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+
+  window.__crosshair = { showAt, hide, element: ch };
+}
 
 // Pin SVG loader (fetch once and cache)
 let _pinSvgText = null;
@@ -225,6 +260,10 @@ function bindUiOnce(){ if(window.__viewerBound) return; window.__viewerBound = t
 
   if(closeBtn){ closeBtn.onclick = ()=>{ const u = new URL(window.location.href); u.searchParams.delete('plan_id'); history.pushState({},'',u.pathname); setTitle('Select a plan'); setStatus(''); const c = qs('#pdfContainer'); if(c) c.innerHTML = ''; pdfDoc = null; totalPages = 0; currentPage = 1; userZoom = 1.0; addIssueMode = false; setModeBadge(); setBadges(); document.body.classList.remove('has-viewer'); }; }
   window.addEventListener('resize', ()=>{ if(pdfDoc) renderPage(currentPage); });
+
+  // initialize crosshair helper (mobile-gated)
+  try{ initCrosshair(); }catch(e){}
+
 }
 
 // Issue modal with photo upload
