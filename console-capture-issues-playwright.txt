@@ -1,0 +1,5 @@
+[response 200] https://survey.defecttracker.uk/tools/issues.html
+[response 200] https://survey.defecttracker.uk/assets/ui.css?v=20260124_1
+[pageerror] TypeError: Cannot set properties of null (setting 'onclick')
+TypeError: Cannot set properties of null (setting 'onclick')
+    at https://survey.defecttracker.uk/tools/issues.html:89:827

@@ -112,6 +112,25 @@ Edge cases
 - Integration test: full export flow verifying PDF includes vector pin overlay at the new coordinates.
 - E2E tests: Puppeteer/Playwright script to open the UI, drag a pin, assert the coordinates saved and visible in viewer, and export contains pin.
 
+> Running the E2E test locally/dev deploys
+>
+>- The E2E test is skipped by default. To run it against a deployed/dev site set the environment variable and optional site URL, then run the test:
+>
+>- Linux/macOS (bash):
+>
+>```bash
+>RUN_PIN_DRAG_E2E=1 PIN_DRAG_E2E_URL=https://your-dev-site.example npx playwright test tests/pin-draggable.e2e.test.js --headed
+>```
+>
+>- Windows (PowerShell):
+>
+>```powershell
+>$env:RUN_PIN_DRAG_E2E = '1'; $env:PIN_DRAG_E2E_URL = 'https://your-dev-site.example'; npx playwright test tests/pin-draggable.e2e.test.js --headed
+>```
+>
+>- The test will fail early with a clear diagnostic message if the deployed site does not include the preview markup (`#issuePreviewWrap` / `#issuePreviewCanvas`) and PinDraggable initialization.
+
+
 Smoke test additions
 - Extend `tools/run_smoke_http.js` to include a pin-move test:
   1. POST to `save_issue.php` updating issue 21 with x_norm=0.6,y_norm=0.3

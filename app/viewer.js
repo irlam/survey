@@ -198,14 +198,31 @@ async function goToPage(n){ if(!pdfDoc) return; const pageNo = Math.max(1, Math.
 window.viewerGoToPage = async function(n){ try{ if(typeof goToPage==='function') await goToPage(n); }catch(e){ console.warn('viewerGoToPage failed', e); } };
 
 function bindUiOnce(){ if(window.__viewerBound) return; window.__viewerBound = true;
-  const prevBtn = qs('#btnPrev'); const nextBtn = qs('#btnNext'); const goBtn = qs('#btnGo'); const pageInput = qs('#pageInput'); const zoomOut = qs('#btnZoomOut'); const zoomIn = qs('#btnZoomIn'); const fitBtn = qs('#btnFit'); const closeBtn = qs('#btnCloseViewer'); const addBtn = qs('#btnAddIssueMode');
+  const prevBtn = qs('#btnPrev'); const nextBtn = qs('#btnNext'); const goBtn = qs('#btnGo'); const pageInput = qs('#pageInput'); const zoomOut = qs('#btnZoomOut'); const zoomIn = qs('#btnZoomIn'); const fitBtn = qs('#btnFit'); const closeBtn = qs('#btnCloseViewer'); const addBtn = qs('#btnAddIssueMode'); const fab = qs('#fabAddIssue');
   if(prevBtn) prevBtn.onclick = ()=> goToPage(currentPage-1); if(nextBtn) nextBtn.onclick = ()=> goToPage(currentPage+1);
   if(goBtn){ goBtn.onclick = ()=>{ const v = parseInt(pageInput? pageInput.value:'1',10); goToPage(Number.isFinite(v)?v:1); }; }
   if(pageInput){ pageInput.addEventListener('keydown',(e)=>{ if(e.key==='Enter'){ const v = parseInt(pageInput.value||'1',10); goToPage(Number.isFinite(v)?v:1); } }); }
   if(zoomOut) zoomOut.onclick = async ()=>{ userZoom = Math.max(0.25, userZoom-0.25); await renderPage(currentPage); };
   if(zoomIn) zoomIn.onclick = async ()=>{ userZoom = Math.min(5.0, userZoom+0.25); await renderPage(currentPage); };
   if(fitBtn) fitBtn.onclick = async ()=>{ fitMode = true; userZoom = 1.0; await renderPage(currentPage); };
-  if(addBtn){ addBtn.onclick = async ()=>{ addIssueMode = !addIssueMode; addBtn.textContent = addIssueMode ? 'Done' : 'Add Issue'; setModeBadge(); if(pdfDoc) await renderPage(currentPage); }; }
+
+  // Keep add-mode visuals consistent between desktop Add button and mobile FAB
+  function setAddModeVisuals(){
+    if(addBtn) addBtn.textContent = addIssueMode ? 'Done' : 'Add Issue';
+    if(fab) fab.setAttribute('data-active', addIssueMode ? 'true' : 'false');
+    setModeBadge();
+  }
+
+  if(addBtn){ addBtn.addEventListener('click', async ()=>{ addIssueMode = !addIssueMode; setAddModeVisuals(); if(pdfDoc) await renderPage(currentPage); }); }
+  if(fab){ fab.addEventListener('click', async ()=>{ // mobile: toggle add mode (mirror desktop behaviour)
+    if (addBtn) {
+      // reuse existing handler to avoid duplication
+      addBtn.click();
+    } else {
+      addIssueMode = !addIssueMode; setAddModeVisuals(); if(pdfDoc) await renderPage(currentPage);
+    }
+  }); }
+
   if(closeBtn){ closeBtn.onclick = ()=>{ const u = new URL(window.location.href); u.searchParams.delete('plan_id'); history.pushState({},'',u.pathname); setTitle('Select a plan'); setStatus(''); const c = qs('#pdfContainer'); if(c) c.innerHTML = ''; pdfDoc = null; totalPages = 0; currentPage = 1; userZoom = 1.0; addIssueMode = false; setModeBadge(); setBadges(); document.body.classList.remove('has-viewer'); }; }
   window.addEventListener('resize', ()=>{ if(pdfDoc) renderPage(currentPage); });
 }
@@ -258,6 +275,15 @@ async function showIssueModal(pin){
 
           <div><strong>Created by:</strong> <span id="issueCreatedBy">${pin.created_by||pin.author||''}</span></div>
           <div style="margin-top:6px;"><strong>Created:</strong><div id="issueCreated" style="font-weight:700;margin-top:2px;">&nbsp;</div></div>
+
+          <div id="issuePreview" style="margin-top:8px;">
+            <div style="font-size:13px;margin-bottom:6px;"><strong>Preview</strong></div>
+            <div id="issuePreviewWrap" style="width:220px;border:1px solid rgba(255,255,255,.06);position:relative;overflow:hidden;background:#111;">
+              <canvas id="issuePreviewCanvas" style="display:block;width:100%;height:auto;"></canvas>
+              <div id="issuePreviewOverlay" style="position:absolute;left:0;top:0;right:0;bottom:0;"></div>
+            </div>
+            <div style="font-size:12px;color:var(--muted);margin-top:6px;">Coords: <span id="issueCoords">x:0.00 y:0.00</span></div>
+          </div>
         </div>
       </div>
       <div style="margin-bottom:12px;">
@@ -281,6 +307,7 @@ async function showIssueModal(pin){
           <div class="photoActions" style="display:flex;gap:8px;flex-wrap:wrap;">
             <button id="issueUploadConfirmBtn" class="btnPrimary">Add to Queue</button>
             <button id="issueUploadCancelBtn" class="btn">Cancel</button>
+            <button id="issueClearAnnotBtn" class="btn">Clear Annotations</button>
           </div>
         </div>
       </div>
@@ -292,6 +319,29 @@ async function showIssueModal(pin){
     document.body.appendChild(modal);
   }
     modal.style.display = 'block';
+
+    // --- Annotation canvas: enable touch/pointer drawing on the preview area ---
+    function ensureAnnotCanvas(){
+      const wrap = modal.querySelector('#issuePreviewWrap'); if(!wrap) return;
+      const dpr = window.devicePixelRatio || 1;
+      let c = modal.querySelector('#issueAnnotCanvas');
+      if(!c){ c = document.createElement('canvas'); c.id = 'issueAnnotCanvas'; c.style.position = 'absolute'; c.style.left = '0'; c.style.top = '0'; c.style.width = '100%'; c.style.height = '100%'; c.style.touchAction = 'none'; c.style.zIndex = 5; wrap.appendChild(c); }
+      const ctx2 = c.getContext('2d');
+      function resizeAnnot(){ const rect = wrap.getBoundingClientRect(); c.width = Math.floor(rect.width * dpr); c.height = Math.floor(rect.height * dpr); c.style.width = rect.width + 'px'; c.style.height = rect.height + 'px'; ctx2.setTransform(dpr,0,0,dpr,0,0); }
+      resizeAnnot();
+      modal._annotCanvas = c; modal._annotCtx = ctx2; modal._annotIsDrawing = false;
+      modal._clearAnnotations = ()=>{ modal._annotCtx && modal._annotCtx.clearRect(0,0,modal._annotCanvas.width, modal._annotCanvas.height); };
+      modal._annotHasContent = ()=>{ if(!modal._annotCtx) return false; const data = modal._annotCtx.getImageData(0,0,modal._annotCanvas.width, modal._annotCanvas.height).data; for(let i=3;i<data.length;i+=4) if(data[i]!==0) return true; return false; };
+      c.addEventListener('pointerdown', function(e){ if(e.button!==0) return; e.preventDefault(); modal._annotIsDrawing = true; try{ c.setPointerCapture(e.pointerId); }catch(ignore){} const rect = c.getBoundingClientRect(); const x = (e.clientX - rect.left); const y = (e.clientY - rect.top); modal._annotCtx.beginPath(); modal._annotCtx.lineWidth = 3; modal._annotCtx.lineCap='round'; modal._annotCtx.strokeStyle = '#ff0000'; modal._annotCtx.moveTo(x,y); });
+      c.addEventListener('pointermove', function(e){ if(!modal._annotIsDrawing) return; e.preventDefault(); const rect = c.getBoundingClientRect(); const x = (e.clientX - rect.left); const y = (e.clientY - rect.top); modal._annotCtx.lineTo(x,y); modal._annotCtx.stroke(); });
+      c.addEventListener('pointerup', function(e){ if(!modal._annotIsDrawing) return; e.preventDefault(); modal._annotIsDrawing=false; try{ c.releasePointerCapture(e.pointerId); }catch(ignore){} });
+      c.addEventListener('pointercancel', function(e){ if(!modal._annotIsDrawing) return; modal._annotIsDrawing=false; try{ c.releasePointerCapture(e.pointerId); }catch(ignore){} });
+      window.addEventListener('resize', resizeAnnot);
+      // wire Clear button
+      const clearBtn = modal.querySelector('#issueClearAnnotBtn'); if(clearBtn) clearBtn.onclick = ()=>{ modal._clearAnnotations(); };
+    }
+    ensureAnnotCanvas();
+
     modal.querySelector('#issueTitle').value = pin.title||'';
     modal.querySelector('#issueNotes').value = pin.notes||'';
     // show created time if available
@@ -489,6 +539,7 @@ async function showIssueModal(pin){
 
     // show preview and wire confirm/cancel
     function handleSelectedFile(file){ if(!file) return; const previewWrap = modal.querySelector('#photoPreview'); const imgEl = modal.querySelector('#photoPreviewImg'); const infoEl = modal.querySelector('#photoPreviewInfo'); previewWrap.style.display='flex'; const url = URL.createObjectURL(file); imgEl.src = url; infoEl.textContent = `${Math.round(file.size/1024)} KB — ${file.type}`;
+<<<<<<< HEAD
       // set confirm handler to either queue (if issue unsaved) or upload immediately
       const confirmBtn = modal.querySelector('#issueUploadConfirmBtn'); const cancelBtn = modal.querySelector('#issueUploadCancelBtn'); confirmBtn.disabled = false; confirmBtn.onclick = async ()=>{ confirmBtn.disabled = true; try{
         // process the file (resize) into a blob first
@@ -506,7 +557,50 @@ async function showIssueModal(pin){
           await uploadProcessedFile(procFile);
           previewWrap.style.display='none'; URL.revokeObjectURL(url);
         }
+=======
+      // set confirm handler to resize then upload
+      const confirmBtn = modal.querySelector('#issueUploadConfirmBtn'); const cancelBtn = modal.querySelector('#issueUploadCancelBtn'); confirmBtn.disabled = false; confirmBtn.onclick = async ()=>{ confirmBtn.disabled = true; try{ 
+        if(!pin.id){
+          const title = modal.querySelector('#issueTitle').value.trim();
+          const notes = modal.querySelector('#issueNotes').value.trim();
+          const status = modal.querySelector('#issueStatusSelect').value;
+          const priority = modal.querySelector('#issuePrioritySelect').value;
+          const assignee = modal.querySelector('#issueAssignee').value.trim();
+          if(!title){ localShowToast('Title is required to upload photos.'); confirmBtn.disabled=false; return; }
+          const issue = { plan_id: planId, page: pin.page, x_norm: pin.x_norm, y_norm: pin.y_norm, title, notes, status, priority, assignee };
+          try{
+            const saved = await apiSaveIssue(issue);
+            pin.id = saved.id;
+            await reloadDbPins();
+            await renderPage(currentPage);
+          }catch(e){
+            localShowToast('Error saving issue: '+e.message);
+            confirmBtn.disabled=false;
+            return;
+          }
+        }
+        // If there are annotations drawn on the preview, merge them onto the image and upload the merged image
+        const annotCanvas = modal._annotCanvas;
+        if(annotCanvas && modal._annotHasContent && modal._annotHasContent()){
+          // create combined canvas at the annot canvas pixel resolution
+          const comb = document.createElement('canvas'); comb.width = annotCanvas.width; comb.height = annotCanvas.height; const cctx = comb.getContext('2d');
+          await new Promise((res, rej)=>{
+            const im = new Image(); im.onload = ()=>{
+              cctx.drawImage(im,0,0,comb.width,comb.height); cctx.drawImage(annotCanvas,0,0,comb.width,comb.height);
+              comb.toBlob((b)=>{ if(!b) rej(new Error('Merge failed')); else { uploadProcessedFile(b).then(()=>res()).catch(rej); } }, 'image/jpeg', 0.95);
+            };
+            im.onerror = ()=>{ rej(new Error('Image load failed for merge')); };
+            im.src = url;
+          });
+        } else {
+          const blob = await resizeImageFile(file);
+          const out = new File([blob], (file.name||'photo.jpg'), {type: blob.type}); await uploadProcessedFile(out);
+        }
+        previewWrap.style.display='none'; URL.revokeObjectURL(url);
+>>>>>>> feat/pin-drag-persistence-test
       }catch(err){ localShowToast('Image processing failed: '+err.message); confirmBtn.disabled=false; } };
+      // ensure Cancel clears preview and annotations as well
+      cancelBtn.onclick = ()=>{ previewWrap.style.display='none'; imgEl.src=''; infoEl.textContent = ''; URL.revokeObjectURL(url); if(modal._clearAnnotations) modal._clearAnnotations(); };
       cancelBtn.onclick = ()=>{ previewWrap.style.display='none'; imgEl.src=''; infoEl.textContent=''; URL.revokeObjectURL(url); };
     }
 
@@ -581,7 +675,7 @@ async function showIssueModal(pin){
   };
 
   // Cancel handler and close modal
-  const cancelBtn = modal.querySelector('#issueCancelBtn'); if(cancelBtn) cancelBtn.onclick = ()=>{ modal.style.display='none'; };
+  const cancelBtn = modal.querySelector('#issueCancelBtn'); if(cancelBtn) cancelBtn.onclick = ()=>{ modal.style.display='none'; if(modal._clearAnnotations) modal._clearAnnotations(); };
 
   // Refresh viewer when an issue is deleted elsewhere
   const issueDeletedHandler = (ev)=>{ try{ reloadDbPins(); renderPage(currentPage); }catch(e){} };

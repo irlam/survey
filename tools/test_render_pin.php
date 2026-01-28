@@ -32,7 +32,7 @@ $tests = [
 $results = [];
 foreach ($tests as $t) {
     list($x, $y) = $t;
-    $res = render_pin_thumbnail($tempPng, 1, $x, $y, 800, 'T');
+    $res = render_pin_thumbnail($tempPng, 1, $x, $y, 400);
     $ok = false; $info = null;
     if (is_array($res) && isset($res['tmp']) && is_file($res['tmp'])) {
         $ok = true;
