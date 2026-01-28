@@ -198,14 +198,31 @@ async function goToPage(n){ if(!pdfDoc) return; const pageNo = Math.max(1, Math.
 window.viewerGoToPage = async function(n){ try{ if(typeof goToPage==='function') await goToPage(n); }catch(e){ console.warn('viewerGoToPage failed', e); } };
 
 function bindUiOnce(){ if(window.__viewerBound) return; window.__viewerBound = true;
-  const prevBtn = qs('#btnPrev'); const nextBtn = qs('#btnNext'); const goBtn = qs('#btnGo'); const pageInput = qs('#pageInput'); const zoomOut = qs('#btnZoomOut'); const zoomIn = qs('#btnZoomIn'); const fitBtn = qs('#btnFit'); const closeBtn = qs('#btnCloseViewer'); const addBtn = qs('#btnAddIssueMode');
+  const prevBtn = qs('#btnPrev'); const nextBtn = qs('#btnNext'); const goBtn = qs('#btnGo'); const pageInput = qs('#pageInput'); const zoomOut = qs('#btnZoomOut'); const zoomIn = qs('#btnZoomIn'); const fitBtn = qs('#btnFit'); const closeBtn = qs('#btnCloseViewer'); const addBtn = qs('#btnAddIssueMode'); const fab = qs('#fabAddIssue');
   if(prevBtn) prevBtn.onclick = ()=> goToPage(currentPage-1); if(nextBtn) nextBtn.onclick = ()=> goToPage(currentPage+1);
   if(goBtn){ goBtn.onclick = ()=>{ const v = parseInt(pageInput? pageInput.value:'1',10); goToPage(Number.isFinite(v)?v:1); }; }
   if(pageInput){ pageInput.addEventListener('keydown',(e)=>{ if(e.key==='Enter'){ const v = parseInt(pageInput.value||'1',10); goToPage(Number.isFinite(v)?v:1); } }); }
   if(zoomOut) zoomOut.onclick = async ()=>{ userZoom = Math.max(0.25, userZoom-0.25); await renderPage(currentPage); };
   if(zoomIn) zoomIn.onclick = async ()=>{ userZoom = Math.min(5.0, userZoom+0.25); await renderPage(currentPage); };
   if(fitBtn) fitBtn.onclick = async ()=>{ fitMode = true; userZoom = 1.0; await renderPage(currentPage); };
-  if(addBtn){ addBtn.onclick = async ()=>{ addIssueMode = !addIssueMode; addBtn.textContent = addIssueMode ? 'Done' : 'Add Issue'; setModeBadge(); if(pdfDoc) await renderPage(currentPage); }; }
+
+  // Keep add-mode visuals consistent between desktop Add button and mobile FAB
+  function setAddModeVisuals(){
+    if(addBtn) addBtn.textContent = addIssueMode ? 'Done' : 'Add Issue';
+    if(fab) fab.setAttribute('data-active', addIssueMode ? 'true' : 'false');
+    setModeBadge();
+  }
+
+  if(addBtn){ addBtn.addEventListener('click', async ()=>{ addIssueMode = !addIssueMode; setAddModeVisuals(); if(pdfDoc) await renderPage(currentPage); }); }
+  if(fab){ fab.addEventListener('click', async ()=>{ // mobile: toggle add mode (mirror desktop behaviour)
+    if (addBtn) {
+      // reuse existing handler to avoid duplication
+      addBtn.click();
+    } else {
+      addIssueMode = !addIssueMode; setAddModeVisuals(); if(pdfDoc) await renderPage(currentPage);
+    }
+  }); }
+
   if(closeBtn){ closeBtn.onclick = ()=>{ const u = new URL(window.location.href); u.searchParams.delete('plan_id'); history.pushState({},'',u.pathname); setTitle('Select a plan'); setStatus(''); const c = qs('#pdfContainer'); if(c) c.innerHTML = ''; pdfDoc = null; totalPages = 0; currentPage = 1; userZoom = 1.0; addIssueMode = false; setModeBadge(); setBadges(); document.body.classList.remove('has-viewer'); }; }
   window.addEventListener('resize', ()=>{ if(pdfDoc) renderPage(currentPage); });
 }
