@@ -1,0 +1,43 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - banner [ref=e2]:
+    - button "Menu" [ref=e3] [cursor=pointer]: ☰
+    - generic [ref=e4]: Survey PDF Editor
+    - generic "Online" [ref=e5]
+  - generic [ref=e6]:
+    - complementary [ref=e7]:
+      - generic [ref=e8]: Plans
+      - generic [ref=e9]:
+        - button "Upload Plan" [ref=e10] [cursor=pointer]
+        - link "Tools" [ref=e11] [cursor=pointer]:
+          - /url: /tools/index.html
+        - button "Trash" [ref=e12] [cursor=pointer]
+      - generic [ref=e15]: "Failed to load plans: DB config missing (api/config.php)"
+    - main [ref=e16]:
+      - generic [ref=e17]:
+        - generic [ref=e18]:
+          - generic [ref=e19]:
+            - generic [ref=e20]: Select a plan
+            - generic [ref=e21]: Page - / -
+            - generic [ref=e22]: ● Add Issue Mode
+          - button "Close" [ref=e23] [cursor=pointer]
+        - generic [ref=e24]:
+          - button "◀" [ref=e25] [cursor=pointer]
+          - button "▶" [ref=e26] [cursor=pointer]
+          - generic [ref=e27]: Page
+          - spinbutton [ref=e28]: "1"
+          - button "Go" [ref=e29] [cursor=pointer]
+          - button "−" [ref=e30] [cursor=pointer]
+          - generic [ref=e31]: 100%
+          - button "+" [ref=e32] [cursor=pointer]
+          - button "Fit" [ref=e33] [cursor=pointer]
+          - button "Done" [ref=e34] [cursor=pointer]
+          - button "View Issues" [ref=e35] [cursor=pointer]
+        - generic [ref=e36]: DB config missing (api/config.php)
+        - generic [ref=e40]:
+          - img "Survey" [ref=e41]
+          - text: Built for real sites, by real people. Developed And Maintained By Chris Irlam
+        - button "Add Issue" [active] [ref=e42] [cursor=pointer]: ＋
+```

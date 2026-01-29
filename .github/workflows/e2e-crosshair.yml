@@ -1,0 +1,29 @@
+name: Run crosshair E2E (dispatch)
+
+on:
+  workflow_dispatch:
+    inputs:
+      site_url:
+        description: 'Full site URL to run E2E against (e.g., https://survey.defecttracker.uk/)'
+        required: true
+        default: ''
+
+jobs:
+  crosshair-e2e:
+    name: Crosshair E2E
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+      - name: Run crosshair test
+        env:
+          RUN_PIN_DRAG_E2E: '1'
+          PIN_DRAG_E2E_URL: ${{ github.event.inputs.site_url }}
+        run: npx playwright test tests/pin-draggable.crosshair.e2e.test.js --reporter=list

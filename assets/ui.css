@@ -337,13 +337,11 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
 }
 .pdfStage.dragging{cursor: grabbing}
 
-/* Mobile FAB for quick Add Issue entry (visible only on small screens)
-   TEMPORARY: force-visible on all viewports to validate deployment. Remove this override after verification. */
-.fab{ /* force visible for testing */ display:flex !important; position: fixed; right: 18px; bottom: 18px; width:56px; height:56px; border-radius: 50%; font-size:28px; line-height:1; border:none; background: linear-gradient(90deg, var(--neon), var(--neon2)); color:#041013; box-shadow: 0 12px 36px rgba(0,255,231,.16); align-items:center; justify-content:center; z-index:3000; cursor:pointer; }
+/* Mobile FAB for quick Add Issue entry (visible only on small screens) */
+.fab{ display:none; position: fixed; right: 18px; bottom: 18px; width:56px; height:56px; border-radius: 50%; font-size:28px; line-height:1; border:none; background: linear-gradient(90deg, var(--neon), var(--neon2)); color:#041013; box-shadow: 0 12px 36px rgba(0,255,231,.16); align-items:center; justify-content:center; z-index:3000; cursor:pointer; }
 .fab:active{ transform: translateY(1px); }
 .fab:focus{ outline:none; box-shadow: 0 0 0 6px rgba(0,255,231,.12); }
 .fab[data-active='true']{ background: linear-gradient(90deg, var(--neon2), var(--neon)); }
-/* Keep the mobile rule for later (no-op while override present) */
 @media (max-width: 700px){ .fab{ display:flex; } }
 
 /* Crosshair / reticle (mobile placement aid) */
