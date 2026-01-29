@@ -355,8 +355,8 @@ async function showIssueModal(pin){
           <div style="margin-top:6px;"><strong>Created:</strong><div id="issueCreated" style="font-weight:700;margin-top:2px;">&nbsp;</div></div>
 
           <div id="issuePreview" style="margin-top:8px;">
-            <div style="font-size:13px;margin-bottom:6px;"><strong>Preview</strong></div>
-            <div id="issuePreviewWrap" style="width:220px;border:1px solid rgba(255,255,255,.06);position:relative;overflow:hidden;background:#111;">
+            <div style="font-size:13px;margin-bottom:6px;display:flex;align-items:center;gap:8px;"><strong>Preview</strong><button id="issueAnnotToggleBtn" class="btn" style="padding:4px 8px;font-size:12px;">Annotate</button></div>
+            <div id="issuePreviewWrap" style="width:320px;border:1px solid rgba(255,255,255,.06);position:relative;overflow:hidden;background:#111;">
               <canvas id="issuePreviewCanvas" style="display:block;width:100%;height:auto;"></canvas>
               <div id="issuePreviewOverlay" style="position:absolute;left:0;top:0;right:0;bottom:0;"></div>
             </div>
@@ -414,20 +414,22 @@ async function showIssueModal(pin){
       const wrap = modal.querySelector('#issuePreviewWrap'); if(!wrap) return;
       const dpr = window.devicePixelRatio || 1;
       let c = modal.querySelector('#issueAnnotCanvas');
-      if(!c){ c = document.createElement('canvas'); c.id = 'issueAnnotCanvas'; c.style.position = 'absolute'; c.style.left = '0'; c.style.top = '0'; c.style.width = '100%'; c.style.height = '100%'; c.style.touchAction = 'none'; c.style.zIndex = 5; wrap.appendChild(c); }
+      if(!c){ c = document.createElement('canvas'); c.id = 'issueAnnotCanvas'; c.style.position = 'absolute'; c.style.left = '0'; c.style.top = '0'; c.style.width = '100%'; c.style.height = '100%'; c.style.touchAction = 'none'; c.style.zIndex = 5; c.style.pointerEvents = 'none'; wrap.appendChild(c); }
       const ctx2 = c.getContext('2d');
       function resizeAnnot(){ const rect = wrap.getBoundingClientRect(); c.width = Math.floor(rect.width * dpr); c.height = Math.floor(rect.height * dpr); c.style.width = rect.width + 'px'; c.style.height = rect.height + 'px'; ctx2.setTransform(dpr,0,0,dpr,0,0); }
       resizeAnnot();
-      modal._annotCanvas = c; modal._annotCtx = ctx2; modal._annotIsDrawing = false;
+      modal._annotCanvas = c; modal._annotCtx = ctx2; modal._annotIsDrawing = false; modal._annotEnabled = false;
       modal._clearAnnotations = ()=>{ modal._annotCtx && modal._annotCtx.clearRect(0,0,modal._annotCanvas.width, modal._annotCanvas.height); };
       modal._annotHasContent = ()=>{ if(!modal._annotCtx) return false; const data = modal._annotCtx.getImageData(0,0,modal._annotCanvas.width, modal._annotCanvas.height).data; for(let i=3;i<data.length;i+=4) if(data[i]!==0) return true; return false; };
-      c.addEventListener('pointerdown', function(e){ if(e.button!==0) return; e.preventDefault(); modal._annotIsDrawing = true; try{ c.setPointerCapture(e.pointerId); }catch(ignore){} const rect = c.getBoundingClientRect(); const x = (e.clientX - rect.left); const y = (e.clientY - rect.top); modal._annotCtx.beginPath(); modal._annotCtx.lineWidth = 3; modal._annotCtx.lineCap='round'; modal._annotCtx.strokeStyle = '#ff0000'; modal._annotCtx.moveTo(x,y); });
-      c.addEventListener('pointermove', function(e){ if(!modal._annotIsDrawing) return; e.preventDefault(); const rect = c.getBoundingClientRect(); const x = (e.clientX - rect.left); const y = (e.clientY - rect.top); modal._annotCtx.lineTo(x,y); modal._annotCtx.stroke(); });
-      c.addEventListener('pointerup', function(e){ if(!modal._annotIsDrawing) return; e.preventDefault(); modal._annotIsDrawing=false; try{ c.releasePointerCapture(e.pointerId); }catch(ignore){} });
-      c.addEventListener('pointercancel', function(e){ if(!modal._annotIsDrawing) return; modal._annotIsDrawing=false; try{ c.releasePointerCapture(e.pointerId); }catch(ignore){} });
+      c.addEventListener('pointerdown', function(e){ if(!modal._annotEnabled) return; if(e.button!==0) return; e.preventDefault(); modal._annotIsDrawing = true; try{ c.setPointerCapture(e.pointerId); }catch(ignore){} const rect = c.getBoundingClientRect(); const x = (e.clientX - rect.left); const y = (e.clientY - rect.top); modal._annotCtx.beginPath(); modal._annotCtx.lineWidth = 3; modal._annotCtx.lineCap='round'; modal._annotCtx.strokeStyle = '#ff0000'; modal._annotCtx.moveTo(x,y); });
+      c.addEventListener('pointermove', function(e){ if(!modal._annotEnabled || !modal._annotIsDrawing) return; e.preventDefault(); const rect = c.getBoundingClientRect(); const x = (e.clientX - rect.left); const y = (e.clientY - rect.top); modal._annotCtx.lineTo(x,y); modal._annotCtx.stroke(); });
+      c.addEventListener('pointerup', function(e){ if(!modal._annotEnabled || !modal._annotIsDrawing) return; e.preventDefault(); modal._annotIsDrawing=false; try{ c.releasePointerCapture(e.pointerId); }catch(ignore){} });
+      c.addEventListener('pointercancel', function(e){ if(!modal._annotEnabled || !modal._annotIsDrawing) return; modal._annotIsDrawing=false; try{ c.releasePointerCapture(e.pointerId); }catch(ignore){} });
       window.addEventListener('resize', resizeAnnot);
       // wire Clear button
       const clearBtn = modal.querySelector('#issueClearAnnotBtn'); if(clearBtn) clearBtn.onclick = ()=>{ modal._clearAnnotations(); };
+      // wire Annotate toggle
+      const toggle = modal.querySelector('#issueAnnotToggleBtn'); if(toggle){ toggle.onclick = ()=>{ modal._annotEnabled = !modal._annotEnabled; modal._annotCanvas.style.pointerEvents = modal._annotEnabled ? 'auto' : 'none'; toggle.textContent = modal._annotEnabled ? 'Stop' : 'Annotate'; toggle.setAttribute('aria-pressed', modal._annotEnabled ? 'true' : 'false'); if(modal._annotEnabled){ modal._annotCanvas.focus && modal._annotCanvas.focus(); } }; }
     }
     ensureAnnotCanvas();
 
@@ -779,14 +781,14 @@ async function showIssueModal(pin){
           if (mw < 20 && attemptsLeft > 0) { setTimeout(()=> ensurePreview(attemptsLeft - 1), 200); return; }
           if (mw < 20) {
             // placeholder when preview can't be rendered
-            const ctx = previewCanvas.getContext('2d'); const pw = 220; const ph = 140;
+            const ctx = previewCanvas.getContext('2d'); const pw = 320; const ph = 200;
             previewCanvas.width = pw; previewCanvas.height = ph;
             ctx.fillStyle = '#0b1416'; ctx.fillRect(0,0,pw,ph);
             ctx.fillStyle = '#6b7c80'; ctx.font = '12px sans-serif'; ctx.fillText('Preview unavailable', 10, 20);
             previewWrap.style.width = pw + 'px'; previewWrap.style.height = ph + 'px';
             return;
           }
-          const previewWidth = Math.min(220, mainCanvas.clientWidth);
+          const previewWidth = Math.min(320, mainCanvas.clientWidth);
           const scale = previewWidth / mainCanvas.clientWidth;
           const newW = Math.floor(mainCanvas.width * scale);
           const newH = Math.floor(mainCanvas.height * scale);

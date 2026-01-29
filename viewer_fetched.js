@@ -246,8 +246,8 @@ async function showIssueModal(pin){
           <div style="margin-top:6px;"><strong>Created:</strong><div id="issueCreated" style="font-weight:700;margin-top:2px;">&nbsp;</div></div>
 
           <div id="issuePreview" style="margin-top:8px;">
-            <div style="font-size:13px;margin-bottom:6px;"><strong>Preview</strong></div>
-            <div id="issuePreviewWrap" style="width:220px;border:1px solid rgba(255,255,255,.06);position:relative;overflow:hidden;background:#111;">
+            <div style="font-size:13px;margin-bottom:6px;display:flex;align-items:center;gap:8px;"><strong>Preview</strong><button id="issueAnnotToggleBtn" class="btn" style="padding:4px 8px;font-size:12px;">Annotate</button></div>
+            <div id="issuePreviewWrap" style="width:320px;border:1px solid rgba(255,255,255,.06);position:relative;overflow:hidden;background:#111;">
               <canvas id="issuePreviewCanvas" style="display:block;width:100%;height:auto;"></canvas>
               <div id="issuePreviewOverlay" style="position:absolute;left:0;top:0;right:0;bottom:0;"></div>
             </div>
@@ -343,12 +343,19 @@ async function showIssueModal(pin){
         const previewWrap = modal.querySelector('#issuePreviewWrap'); const previewCanvas = modal.querySelector('#issuePreviewCanvas'); const previewOverlay = modal.querySelector('#issuePreviewOverlay'); if(!previewWrap || !previewCanvas) return;
         // render a scaled snapshot of the current viewer canvas into previewCanvas
         const mainCanvas = document.getElementById('pdfCanvas'); if(!mainCanvas) return;
-        const previewWidth = Math.min(220, mainCanvas.clientWidth);
+        const previewWidth = Math.min(320, mainCanvas.clientWidth);
         const scale = previewWidth / mainCanvas.clientWidth;
         previewCanvas.width = Math.floor(mainCanvas.width * scale);
         previewCanvas.height = Math.floor(mainCanvas.height * scale);
         previewCanvas.getContext('2d').drawImage(mainCanvas, 0, 0, previewCanvas.width, previewCanvas.height);
         previewWrap.style.width = previewWidth + 'px'; previewWrap.style.height = Math.round(mainCanvas.clientHeight * scale) + 'px';
+
+        // ensure annotation canvas exists (disabled by default) and wire annotate toggle
+        try{
+          let ac = modal.querySelector('#issueAnnotCanvas');
+          if(!ac){ ac = document.createElement('canvas'); ac.id='issueAnnotCanvas'; ac.style.position='absolute'; ac.style.left='0'; ac.style.top='0'; ac.style.width='100%'; ac.style.height='100%'; ac.style.touchAction='none'; ac.style.zIndex=5; ac.style.pointerEvents='none'; previewWrap.appendChild(ac); }
+          const toggle = modal.querySelector('#issueAnnotToggleBtn'); if(toggle){ toggle.onclick = ()=>{ const enabled = (ac.style.pointerEvents !== 'auto'); ac.style.pointerEvents = enabled ? 'auto' : 'none'; toggle.textContent = enabled ? 'Stop' : 'Annotate'; toggle.setAttribute('aria-pressed', enabled ? 'true' : 'false'); if(enabled) ac.focus && ac.focus(); }; }
+        }catch(e){}
 
         // instantiate PinDraggable on the preview
         let pd = null;
