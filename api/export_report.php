@@ -9,18 +9,46 @@ set_error_handler(function($severity, $message, $file, $line) {
 });
 set_exception_handler(function($e) {
     error_log('export_report: uncaught exception: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
-    $extra = (isset($GLOBALS['debug']) && $GLOBALS['debug']) ? ['exception'=>['message'=>$e->getMessage(),'file'=>$e->getFile(),'line'=>$e->getLine()]] : [];
+    // Respect explicit debug flag in POST/GET even if global $debug not yet initialised
+    $is_debug = !empty($_POST['debug']) || !empty($_GET['debug']);
+    $extra = [];
+    if ($is_debug) {
+        $traceLines = explode("\n", $e->getTraceAsString());
+        $extra['exception'] = [
+            'message' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'code' => $e->getCode(),
+            'trace' => array_slice($traceLines, 0, 50),
+        ];
+        $extra['memory'] = ['usage'=>memory_get_usage(true), 'peak'=>memory_get_peak_usage(true)];
+        $extra['php'] = ['version'=>PHP_VERSION, 'sapi'=>php_sapi_name()];
+        $included = get_included_files();
+        $extra['included_files_count'] = count($included);
+        $extra['included_files'] = array_slice($included, 0, 50);
+    }
     error_response('Internal server error', 500, $extra);
 });
 register_shutdown_function(function() {
     $err = error_get_last();
     if ($err && in_array($err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
         error_log('export_report: shutdown due to fatal: ' . print_r($err, true));
-        // Attempt to send JSON error if possible
+        // Attempt to send JSON error if possible. Include detailed debug info when requested via POST/GET.
         if (!headers_sent()) {
             http_response_code(500);
             header('Content-Type: application/json; charset=utf-8');
-            echo json_encode(['ok'=>false,'error'=>'Internal server error','_fatal'=>$err], JSON_UNESCAPED_SLASHES);
+            $payload = ['ok'=>false,'error'=>'Internal server error','_fatal'=>$err];
+            $is_debug = !empty($_POST['debug']) || !empty($_GET['debug']);
+            if ($is_debug) {
+                $payload['_fatal_debug'] = [
+                    'memory'=>['usage'=>memory_get_usage(true),'peak'=>memory_get_peak_usage(true)],
+                    'php'=>['version'=>PHP_VERSION,'sapi'=>php_sapi_name()],
+                    'included_files_count'=>count(get_included_files()),
+                    'included_files'=>array_slice(get_included_files(),0,50),
+                    'server'=>array_intersect_key($_SERVER,['REQUEST_METHOD'=>1,'REQUEST_URI'=>1,'HTTP_HOST'=>1,'REMOTE_ADDR'=>1])
+                ];
+            }
+            echo json_encode($payload, JSON_UNESCAPED_SLASHES);
         }
     }
 });
@@ -980,6 +1008,17 @@ try {
     $extra['render_debug_path'] = $dbgF;
 } catch (Exception $e) {
     // ignore file write errors
+}
+// Include richer debug summary when requested
+if (!empty($debug)) {
+    $extra['debug_info'] = [
+        'memory_usage' => memory_get_usage(true),
+        'memory_peak' => memory_get_peak_usage(true),
+        'php_version' => PHP_VERSION,
+        'sapi' => php_sapi_name(),
+        'included_files_count' => count(get_included_files()),
+        'included_files_sample' => array_slice(get_included_files(), 0, 30),
+    ];
 }
 
 // cleanup any temporary files we created when fetching remote images
