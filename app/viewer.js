@@ -820,7 +820,6 @@ async function showIssueModal(pin){
           // set initial coords display
           const elc = modal.querySelector('#issueCoords'); if(elc) elc.textContent = `x:${(pin.x_norm||0.5).toFixed(2)} y:${(pin.y_norm||0.5).toFixed(2)}`;
           console.debug('[DEBUG] PinDraggable created, display coords set to', elc && elc.textContent);
-        }catch(e){ console.warn('PinDraggable init failed', e); }
 
         // cleanup when modal is closed or cancelled
         const cleanup = ()=>{ try{ if(pd && typeof pd.destroy === 'function') pd.destroy(); }catch(e){} };
