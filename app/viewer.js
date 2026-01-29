@@ -346,19 +346,13 @@ async function showIssueModal(pin){
           <label style="display:block;margin-top:8px;">Assignee:<br>
             <input id="issueAssignee" type="text" style="width:100%;font-size:14px;" value="${pin.assignee||''}" />
           </label>
-        </div>
-        <div style="width:320px;border-left:1px solid rgba(255,255,255,.04);padding-left:12px;font-size:13px;">
-          <div><strong>ID:</strong> <span id="issueId">${pin.id||''}</span></div>
-          <div><strong>Page:</strong> <span id="issuePage">${pin.page||''}</span></div>
 
-          <div><strong>Created by:</strong> <span id="issueCreatedBy">${pin.created_by||pin.author||''}</span></div>
-          <div style="margin-top:6px;"><strong>Created:</strong><div id="issueCreated" style="font-weight:700;margin-top:2px;">&nbsp;</div></div>
-
+          <!-- Moved: Preview block now under Assignee; enlarged and annotated -->
           <div id="issuePreview" style="margin-top:8px;">
             <div style="font-size:13px;margin-bottom:6px;display:flex;align-items:center;gap:8px;"><strong>Preview</strong><button id="issueAnnotToggleBtn" class="btn" style="padding:4px 8px;font-size:12px;">Annotate</button></div>
-            <div id="issuePreviewWrap" style="width:320px;border:1px solid rgba(255,255,255,.06);position:relative;overflow:hidden;background:#111;">
-              <canvas id="issuePreviewCanvas" style="display:block;width:100%;height:auto;"></canvas>
-              <div id="issuePreviewOverlay" style="position:absolute;left:0;top:0;right:0;bottom:0;"></div>
+            <div id="issuePreviewWrap" style="width:420px;border:1px solid rgba(255,255,255,.06);position:relative;overflow:hidden;background:#111;">
+              <canvas id="issuePreviewCanvas" style="display:block;width:100%;height:auto;background:#0b1416;"></canvas>
+              <div id="issuePreviewOverlay" style="position:absolute;left:0;top:0;right:0;bottom:0;background:transparent;pointer-events:none;"></div>
             </div>
             <div style="font-size:12px;color:var(--muted);margin-top:6px;">Coords: <span id="issueCoords">x:0.00 y:0.00</span></div>
             <div style="margin-top:8px;">
@@ -371,8 +365,17 @@ async function showIssueModal(pin){
                 </div>
                 <label style="font-size:12px;">Step:&nbsp;<input id="nudgeStep" type="number" min="0.001" step="0.001" value="0.005" style="width:70px" /></label>
               </div>
-            </div> 
+            </div>
           </div>
+        </div>
+        <div style="width:320px;border-left:1px solid rgba(255,255,255,.04);padding-left:12px;font-size:13px;">
+          <div><strong>ID:</strong> <span id="issueId">${pin.id||''}</span></div>
+          <div><strong>Page:</strong> <span id="issuePage">${pin.page||''}</span></div>
+
+          <div><strong>Created by:</strong> <span id="issueCreatedBy">${pin.created_by||pin.author||''}</span></div>
+          <div style="margin-top:6px;"><strong>Created:</strong><div id="issueCreated" style="font-weight:700;margin-top:2px;">&nbsp;</div></div>
+
+
         </div>
       </div>
       <div style="margin-bottom:12px;">
@@ -781,14 +784,14 @@ async function showIssueModal(pin){
           if (mw < 20 && attemptsLeft > 0) { setTimeout(()=> ensurePreview(attemptsLeft - 1), 200); return; }
           if (mw < 20) {
             // placeholder when preview can't be rendered
-            const ctx = previewCanvas.getContext('2d'); const pw = 320; const ph = 200;
+            const ctx = previewCanvas.getContext('2d'); const pw = 420; const ph = 260;
             previewCanvas.width = pw; previewCanvas.height = ph;
             ctx.fillStyle = '#0b1416'; ctx.fillRect(0,0,pw,ph);
             ctx.fillStyle = '#6b7c80'; ctx.font = '12px sans-serif'; ctx.fillText('Preview unavailable', 10, 20);
             previewWrap.style.width = pw + 'px'; previewWrap.style.height = ph + 'px';
             return;
           }
-          const previewWidth = Math.min(320, mainCanvas.clientWidth);
+          const previewWidth = Math.min(420, mainCanvas.clientWidth);
           const scale = previewWidth / mainCanvas.clientWidth;
           const newW = Math.floor(mainCanvas.width * scale);
           const newH = Math.floor(mainCanvas.height * scale);
