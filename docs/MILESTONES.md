@@ -42,10 +42,10 @@ push to the main no branches
    - Est: 2–3 hours
 
 6) Analytics & feature flag / A/B rollout 📊
-   - Status: **Partially Done** ✅ (client instrumentation added)
-   - What: Client-side analytics instrumentation added (events: `pin_drag_start`, `pin_drag_move`, `pin_drag_end`, `pin_nudge`, `pin_save_success`, `pin_save_failure`, `pin_create_cancel`). Events are queued and sent via `sendBeacon` when available. Server-side collection endpoint (`/api/track_event.php`) is used on a best-effort basis and may require backend wiring or verification.
-   - Acceptance: Events emit from client; backend ingestion and dashboards remain a follow-up item.
-   - Est: 1–2 hours (additional backend wiring as follow-up)
+   - Status: **Done** ✅ (client instrumentation + server ingestion implemented)
+   - What: Client-side analytics instrumentation added (events: `pin_drag_start`, `pin_drag_move`, `pin_drag_end`, `pin_nudge`, `pin_save_success`, `pin_save_failure`, `pin_create_cancel`). Events are queued and sent via `sendBeacon` when available. Server-side collection endpoint (`/api/track_event.php`) is implemented and writes to `analytics_events` (or falls back to a server log).
+   - Acceptance: Events emit from client and the server accepts and records events (SQL migration `sql/008_analytics_events.sql` added). E2E smoke-test `tests/track-event.e2e.test.js` verifies the endpoint responds successfully.
+   - Est: 1–2 hours (dashboards/long-term retention and privacy audits remain follow-ups)
 
 ---
 
