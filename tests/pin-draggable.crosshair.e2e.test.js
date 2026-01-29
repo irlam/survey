@@ -8,7 +8,10 @@ const SITE_URL = process.env.PIN_DRAG_E2E_URL || 'https://survey.defecttracker.u
 test('Crosshair follows pointer and placement snaps to it', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   page.on('console', msg => { try{ console.log('PAGE LOG:', msg.text()); }catch(e){} });
-  await page.goto(SITE_URL + '?plan_id=19&f=crosshair', { waitUntil: 'networkidle' });
+  // Allow PIN_DRAG_E2E_URL to be a fully-qualified URL (including query params). If it contains a '?', use as-is; otherwise append the default query.
+  const target = SITE_URL.indexOf('?') !== -1 ? SITE_URL : (SITE_URL + '?plan_id=19&f=crosshair');
+  console.log('Navigating to', target);
+  await page.goto(target, { waitUntil: 'networkidle' });
 
   // enable Add Issue mode via FAB
   const fab = page.locator('#fabAddIssue');
