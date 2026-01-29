@@ -53,8 +53,17 @@ function ensureWrapAndOverlay(){
       overlay._issueHold.timer = setTimeout(()=>{
         // when timer fires, compute normalized coords and open modal
         const overlayRect = overlay.getBoundingClientRect();
-        const cx = (overlay._issueHold.currentX !== undefined) ? overlay._issueHold.currentX : overlay._issueHold.startX;
-        const cy = (overlay._issueHold.currentY !== undefined) ? overlay._issueHold.currentY : overlay._issueHold.startY;
+        // prefer the crosshair's visual center if it's present & visible (snap-to-reticle)
+        let cx = (overlay._issueHold.currentX !== undefined) ? overlay._issueHold.currentX : overlay._issueHold.startX;
+        let cy = (overlay._issueHold.currentY !== undefined) ? overlay._issueHold.currentY : overlay._issueHold.startY;
+        try{
+          const ch = window && window.__crosshair && window.__crosshair.element;
+          if (ch && ch.classList && ch.classList.contains('visible')){
+            const r = ch.getBoundingClientRect();
+            cx = r.left + (r.width/2);
+            cy = r.top + (r.height/2);
+          }
+        }catch(e){ /* ignore */ }
         const x = cx - overlayRect.left;
         const y = cy - overlayRect.top;
         const w = overlayRect.width; const h = overlayRect.height; if(w<=0||h<=0) return;

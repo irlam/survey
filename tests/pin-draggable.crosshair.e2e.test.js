@@ -51,13 +51,19 @@ test('Crosshair follows pointer and placement snaps to it', async ({ page }) => 
 
   // Debug: capture overlay hold and rect info
   const debug = await page.evaluate(()=>{ const overlay = document.querySelector('#pdfContainer .pdfOverlay'); const hold = overlay && overlay._issueHold ? { startX: overlay._issueHold.startX, startY: overlay._issueHold.startY, currentX: overlay._issueHold.currentX, currentY: overlay._issueHold.currentY } : null; const rect = overlay ? { left: overlay.getBoundingClientRect().left, top: overlay.getBoundingClientRect().top, width: overlay.getBoundingClientRect().width, height: overlay.getBoundingClientRect().height } : null; return { hold, rect }; });
+
+  // ensure crosshair is visible and used for snapping
+  const crossVisible = await page.evaluate(()=>{ const el = window.__crosshair && window.__crosshair.element; return !!(el && el.classList && el.classList.contains('visible')); });
+  console.log('DEBUG: crosshair visible =>', crossVisible);
+  expect(crossVisible).toBe(true);
+
   const coords = await page.locator('#issueCoords').textContent();
   console.log('DEBUG: overlay hold/rect =>', JSON.stringify(debug));
   console.log('DEBUG: issue coords =>', coords);
   const match = coords.match(/x:(\d\.\d{2})\s+y:(\d\.\d{2})/);
   expect(match).not.toBeNull();
   const x = parseFloat(match[1]); const y = parseFloat(match[2]);
-  // allow wider tolerance initially while debugging
-  expect(Math.abs(x - 0.50)).toBeLessThan(0.30);
-  expect(Math.abs(y - 0.50)).toBeLessThan(0.30);
+  // tighter acceptance tolerance: within ~2.5% (~0.025)
+  expect(Math.abs(x - 0.50)).toBeLessThan(0.025);
+  expect(Math.abs(y - 0.50)).toBeLessThan(0.025);
 });
