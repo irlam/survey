@@ -15,12 +15,12 @@ push to the main no branches
    - Notes: Temporarily forced FAB visible on all viewports for verification and later will be reverted. Deployed and smoke-checked.
 
 2) Crosshair/reticle with snap-to-center while placing 🎯
-   - Status: **In progress**
+   - Status: **In progress** (tests added; needs review)
    - What: show crosshair that follows pointer; snap pin to reticle; optional precision mode.
    - Acceptance: Crosshair follows pointer; saved coords match visual pin within 1–2% tolerance.
-   - Tests: Playwright placement test verifying saved x_norm/y_norm.
+   - Tests: Playwright placement test verifying saved x_norm/y_norm (test file added).
    - Est: 2–4 hours
-   - Notes: Implemented as mobile-gated UI and behind a soft feature check (URL param `?f=crosshair` or viewport < 700px). Pending test and review.
+   - Notes: Implemented as mobile-gated UI and behind a soft feature check (URL param `?f=crosshair` or viewport < 700px). Pending review and CI verification.
 
 3) Preview modal (confirm/cancel) before saving ✔️
    - Status: **Planned**
@@ -62,7 +62,8 @@ push to the main no branches
 
 ## Next actions (short-term)
 - Remove temporary `.fab` CSS override (small, safe change). ✅ (I can do this in a follow-up commit.)
-- Implement Step 2 (crosshair/reticle) in a feature branch and add tests.
+- Implement Step 2 (crosshair/reticle) in a feature branch and add tests. ✅ (Branch created; unit test added; dispatchable E2E workflow added — triggerable via the GitHub UI with a `site_url` input.)
+   - Update: Snap-to-reticle implemented (viewer now prefers the crosshair's visual center when creating issue during long-press). E2E test tolerance tightened to ~2.5% for acceptance. Pending CI run and review.
 - Add CI check to reject commits with conflict markers (recommended PR once you approve).
 
 ---

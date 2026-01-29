@@ -8,7 +8,10 @@ const SITE_URL = process.env.PIN_DRAG_E2E_URL || 'https://survey.defecttracker.u
 test('Crosshair follows pointer and placement snaps to it', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   page.on('console', msg => { try{ console.log('PAGE LOG:', msg.text()); }catch(e){} });
-  await page.goto(SITE_URL + '?plan_id=19&f=crosshair', { waitUntil: 'networkidle' });
+  // Allow PIN_DRAG_E2E_URL to be a fully-qualified URL (including query params). If it contains a '?', use as-is; otherwise append the default query.
+  const target = SITE_URL.indexOf('?') !== -1 ? SITE_URL : (SITE_URL + '?plan_id=19&f=crosshair');
+  console.log('Navigating to', target);
+  await page.goto(target, { waitUntil: 'networkidle' });
 
   // enable Add Issue mode via FAB
   const fab = page.locator('#fabAddIssue');
@@ -51,13 +54,25 @@ test('Crosshair follows pointer and placement snaps to it', async ({ page }) => 
 
   // Debug: capture overlay hold and rect info
   const debug = await page.evaluate(()=>{ const overlay = document.querySelector('#pdfContainer .pdfOverlay'); const hold = overlay && overlay._issueHold ? { startX: overlay._issueHold.startX, startY: overlay._issueHold.startY, currentX: overlay._issueHold.currentX, currentY: overlay._issueHold.currentY } : null; const rect = overlay ? { left: overlay.getBoundingClientRect().left, top: overlay.getBoundingClientRect().top, width: overlay.getBoundingClientRect().width, height: overlay.getBoundingClientRect().height } : null; return { hold, rect }; });
+
+  // ensure crosshair is visible and used for snapping
+  const crossVisible = await page.evaluate(()=>{ const el = window.__crosshair && window.__crosshair.element; return !!(el && el.classList && el.classList.contains('visible')); });
+  console.log('DEBUG: crosshair visible =>', crossVisible);
+  expect(crossVisible).toBe(true);
+
   const coords = await page.locator('#issueCoords').textContent();
   console.log('DEBUG: overlay hold/rect =>', JSON.stringify(debug));
   console.log('DEBUG: issue coords =>', coords);
   const match = coords.match(/x:(\d\.\d{2})\s+y:(\d\.\d{2})/);
   expect(match).not.toBeNull();
   const x = parseFloat(match[1]); const y = parseFloat(match[2]);
-  // allow wider tolerance initially while debugging
-  expect(Math.abs(x - 0.50)).toBeLessThan(0.30);
-  expect(Math.abs(y - 0.50)).toBeLessThan(0.30);
+
+  // Derive expected normalized coords from overlay._issueHold.currentX/Y and overlay rect
+  const expected = await page.evaluate(()=>{ const overlay = document.querySelector('#pdfContainer .pdfOverlay'); if(!overlay || !overlay._issueHold) return null; const rect = overlay.getBoundingClientRect(); const cx = overlay._issueHold.currentX || overlay._issueHold.startX; const cy = overlay._issueHold.currentY || overlay._issueHold.startY; return { x_norm: Math.max(0, Math.min(1, (cx - rect.left) / rect.width)), y_norm: Math.max(0, Math.min(1, (cy - rect.top) / rect.height)) }; });
+  expect(expected).not.toBeNull();
+  const ex = expected.x_norm; const ey = expected.y_norm;
+
+  // Acceptance tolerance: within ~2.5% of hold position
+  expect(Math.abs(x - ex)).toBeLessThan(0.025);
+  expect(Math.abs(y - ey)).toBeLessThan(0.025);
 });
