@@ -241,7 +241,7 @@ async function showIssueModal(pin){
           <!-- Moved preview: under assignee -->
           <div id="issuePreview" style="margin-top:8px;">
             <div style="font-size:13px;margin-bottom:6px;display:flex;align-items:center;gap:8px;"><strong>Preview</strong><button id="issueAnnotToggleBtn" class="btn" style="padding:4px 8px;font-size:12px;">Annotate</button></div>
-            <div id="issuePreviewWrap" style="width:420px;border:1px solid rgba(255,255,255,.06);position:relative;overflow:hidden;background:#111;">
+            <div id="issuePreviewWrap" style="width:100%;max-width:420px;border:1px solid rgba(255,255,255,.06);position:relative;overflow:hidden;background:#111;">
               <canvas id="issuePreviewCanvas" style="display:block;width:100%;height:auto;background:#0b1416;"></canvas>
               <div id="issuePreviewOverlay" style="position:absolute;left:0;top:0;right:0;bottom:0;background:transparent;pointer-events:none;"></div>
             </div>
@@ -346,12 +346,28 @@ async function showIssueModal(pin){
         const previewWrap = modal.querySelector('#issuePreviewWrap'); const previewCanvas = modal.querySelector('#issuePreviewCanvas'); const previewOverlay = modal.querySelector('#issuePreviewOverlay'); if(!previewWrap || !previewCanvas) return;
         // render a scaled snapshot of the current viewer canvas into previewCanvas
         const mainCanvas = document.getElementById('pdfCanvas'); if(!mainCanvas) return;
-        const previewWidth = Math.min(420, mainCanvas.clientWidth);
-        const scale = previewWidth / mainCanvas.clientWidth;
-        previewCanvas.width = Math.floor(mainCanvas.width * scale);
-        previewCanvas.height = Math.floor(mainCanvas.height * scale);
-        previewCanvas.getContext('2d').drawImage(mainCanvas, 0, 0, previewCanvas.width, previewCanvas.height);
-        previewWrap.style.width = previewWidth + 'px'; previewWrap.style.height = Math.round(mainCanvas.clientHeight * scale) + 'px';
+        const ensurePreview = () => {
+          const mw = mainCanvas.clientWidth || mainCanvas.width || 0;
+          if (mw < 20) {
+            const ctx = previewCanvas.getContext('2d'); const pw = 420; const ph = 260;
+            previewCanvas.width = pw; previewCanvas.height = ph;
+            ctx.fillStyle = '#0b1416'; ctx.fillRect(0,0,pw,ph);
+            ctx.fillStyle = '#6b7c80'; ctx.font = '12px sans-serif'; ctx.fillText('Preview unavailable', 10, 20);
+            previewWrap.style.width = '100%'; previewWrap.style.maxWidth = pw + 'px'; previewWrap.style.height = ph + 'px';
+            return;
+          }
+          const available = previewWrap.clientWidth || mainCanvas.clientWidth;
+          const previewWidth = Math.min(420, Math.max(1, available));
+          const scale = previewWidth / mainCanvas.clientWidth;
+          previewCanvas.width = Math.floor(mainCanvas.width * scale);
+          previewCanvas.height = Math.floor(mainCanvas.height * scale);
+          const ctx = previewCanvas.getContext('2d');
+          try{ ctx.clearRect(0,0,previewCanvas.width, previewCanvas.height); ctx.drawImage(mainCanvas, 0, 0, previewCanvas.width, previewCanvas.height); }catch(e){ console.warn('preview drawImage failed', e); ctx.fillStyle = '#0b1416'; ctx.fillRect(0,0,previewCanvas.width, previewCanvas.height); }
+          previewWrap.style.width = '100%'; previewWrap.style.maxWidth = previewWidth + 'px'; previewWrap.style.height = Math.round(mainCanvas.clientHeight * scale) + 'px';
+        };
+        ensurePreview();
+        const _previewResizeHandler = ()=> ensurePreview();
+        window.addEventListener('resize', _previewResizeHandler);
 
         // ensure annotation canvas exists (disabled by default) and wire annotate toggle
         try{
@@ -376,10 +392,10 @@ async function showIssueModal(pin){
         }catch(e){ console.warn('PinDraggable init failed', e); }
 
         // cleanup when modal is closed or cancelled
-        const cleanup = ()=>{ try{ if(pd && typeof pd.destroy === 'function') pd.destroy(); }catch(e){} };
+        const cleanup = ()=>{ try{ if(pd && typeof pd.destroy === 'function') pd.destroy(); }catch(e){} try{ window.removeEventListener('resize', _previewResizeHandler); }catch(e){} };
         const cancelBtn = modal.querySelector('#issueCancelBtn'); if(cancelBtn){ const prev = cancelBtn.onclick; cancelBtn.onclick = ()=>{ cleanup(); if(typeof prev === 'function') prev(); }; }
         // also cleanup on save hide
-        const saveBtn = modal.querySelector('#issueSaveBtn'); if(saveBtn){ const prevS = saveBtn.onclick; saveBtn.onclick = async ()=>{ if(typeof pd !== 'undefined' && pd && typeof pd.destroy === 'function') pd.destroy(); if(typeof prevS === 'function') await prevS(); } }
+        const saveBtn = modal.querySelector('#issueSaveBtn'); if(saveBtn){ const prevS = saveBtn.onclick; saveBtn.onclick = async ()=>{ if(typeof pd !== 'undefined' && pd && typeof pd.destroy === 'function') pd.destroy(); try{ window.removeEventListener('resize', _previewResizeHandler); }catch(e){} if(typeof prevS === 'function') await prevS(); } }
       }catch(e){ console.warn('Setting up pin draggable preview failed', e); }
     })();
 
