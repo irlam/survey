@@ -746,7 +746,7 @@ async function showIssueModal(pin){
     }
 
     // populate status/prio/assignee from fetched details if available
-    (async ()=>{
+    ;(async ()=>{
       let details = pin;
       if(pin.id && !(pin.created_at || pin.created_by || pin.status)){
         const fetched = await fetchIssueDetails(pin.id); if(fetched) details = Object.assign({}, pin, fetched);
