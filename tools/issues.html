@@ -20,7 +20,6 @@
   </main>
 
   <script>
-<<<<<<< HEAD
     // Small helper for safe text
     function txt(v){ return (v === null || v === undefined) ? '' : String(v); }
 
@@ -287,126 +286,6 @@
 
     // Start
     loadIssues();
-  </script>
-</body>
-</html>
-=======
-    function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
-    try {
-    async function loadIssues(){
-      const wrap = document.getElementById('issuesList');
-      wrap.innerHTML = 'Loading…';
-      try {
-        const res = await fetch('/api/list_issues.php');
-        if (!res.ok) {
-          let txt = '';
-          try { txt = await res.text(); } catch(e){}
-          wrap.innerHTML = 'Failed to load: HTTP ' + res.status + (txt ? (' — ' + escapeHtml(txt)) : '');
-          return;
-        }
-
-        // read as text first so we can show raw output for debugging if parsing fails
-        const txt = await res.text();
-        let data;
-        try {
-          data = JSON.parse(txt);
-        } catch (e) {
-          console.error('list_issues invalid JSON', txt);
-          wrap.innerHTML = 'Invalid JSON from server. Check console for details.';
-          return;
-        }
-
-        if (!data.ok) {
-          const err = data.error || 'unknown';
-          const raw = data._raw_output ? ('<br/><small>' + escapeHtml(data._raw_output) + '</small>') : '';
-          wrap.innerHTML = 'Failed: ' + escapeHtml(err) + raw;
-          return;
-        }
-
-        if (!Array.isArray(data.issues) || data.issues.length === 0) { wrap.innerHTML = '<div>No issues found</div>'; return; }
-        const table = document.createElement('table'); table.style.width='100%'; table.style.borderCollapse='collapse';
-        table.innerHTML = `<thead><tr><th>ID</th><th>Plan</th><th>Page</th><th>Title</th><th>Coords</th><th>Photos</th><th>Actions</th></tr></thead>`;
-        const tbody = document.createElement('tbody');
-        for(const iss of data.issues){
-          const tr = document.createElement('tr');
-          tr.innerHTML = `<td>${iss.id||''}</td><td>${iss.plan_name||iss.plan_id||''}</td><td>${iss.page||''}</td><td>${iss.title||''}</td><td>${iss.x_norm!==null && iss.y_norm!==null? (Number(iss.x_norm).toFixed(2)+', '+Number(iss.y_norm).toFixed(2)) : ''}</td><td id="ph-${iss.id}">Loading…</td><td><button data-id="${iss.id}" data-plan="${iss.plan_id}" class="delIssue">Delete</button></td>`;
-          tbody.appendChild(tr);
-        }
-        table.appendChild(tbody); wrap.innerHTML = ''; wrap.appendChild(table);
-
-        // fetch photo counts per issue
-        for(const iss of data.issues){
-          (async ()=>{
-            const phWrap = document.getElementById('ph-' + iss.id);
-            if(!phWrap){ console.warn('Missing photo element for issue', iss.id); return; }
-            try{
-              const r = await fetch(`/api/list_photos.php?plan_id=${encodeURIComponent(iss.plan_id)}&issue_id=${encodeURIComponent(iss.id)}`);
-              const j = await r.json();
-              if (j && j.ok && Array.isArray(j.photos)) {
-                phWrap.textContent = j.photos.length + ' photo(s)';
-              } else phWrap.textContent = '0';
-            }catch(e){ phWrap.textContent = '0'; }
-          })();
-        }
-
-        Array.from(document.querySelectorAll('.delIssue')).forEach(b=> {
-          if(!b){ console.warn('.delIssue element null'); return; }
-          b.addEventListener('click', async (ev)=>{
-            const id = Number(ev.target.dataset.id); const plan = Number(ev.target.dataset.plan);
-            if (!confirm('Delete issue ' + id + ' and all associated photos?')) return;
-            try{
-              const resp = await fetch('/api/delete_issue_with_photos.php', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id, plan_id: plan })});
-              const resj = await resp.json();
-              if (!resp.ok || !resj.ok) { alert('Delete failed: ' + (resj.error||'unknown')); return; }
-              // show snackbar with undo
-              showUndoSnack('Issue deleted', 'Undo', async ()=>{
-                const trash = resj.trash; if(!trash) throw new Error('No trash info');
-                const r = await fetch('/api/restore_trash.php',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ trash }) });
-                const jr = await r.json(); if(!r.ok || !jr.ok) throw new Error(jr.error||'restore failed');
-                loadIssues();
-              });
-              loadIssues();
-            }catch(e){ alert('Delete failed: '+e.message); }
-          });
-        });
-      } catch (e) {
-        console.error('loadIssues failed', e);
-        wrap.innerHTML = 'Error: ' + escapeHtml(e.message || String(e));
-      }
-    }
-
-    /* Snackbar & Menu helpers */
-    function showUndoSnack(message, undoLabel, undoCb) {
-      let sb = document.getElementById('snackbar');
-      if (!sb) {
-        sb = document.createElement('div'); sb.id = 'snackbar'; sb.style.position='fixed'; sb.style.left='50%'; sb.style.transform='translateX(-50%)'; sb.style.bottom='20px'; sb.style.zIndex=99999; sb.style.background='linear-gradient(90deg, rgba(6,56,56,0.95), rgba(0,255,160,0.06))'; sb.style.color='#fff'; sb.style.padding='12px 16px'; sb.style.borderRadius='10px'; sb.style.boxShadow='0 12px 30px rgba(0,0,0,.5)'; sb.style.display='flex'; sb.style.gap='12px'; sb.style.alignItems='center'; document.body.appendChild(sb);
-      }
-      sb.innerHTML = '';
-      const txt = document.createElement('div'); txt.textContent = message; sb.appendChild(txt);
-      if (undoCb) {
-        const undo = document.createElement('button'); undo.className = 'btnPrimary'; undo.textContent = undoLabel||'Undo'; undo.onclick = async ()=>{ try{ await undoCb(); }catch(e){ alert('Undo failed'); } sb.style.display='none'; };
-        sb.appendChild(undo);
-      }
-      sb.style.display = 'flex'; clearTimeout(sb._timeout); sb._timeout = setTimeout(()=>{ sb.style.display='none'; }, 8000);
-    }
-
-    const off = document.createElement('nav'); off.id='offcanvasMenu'; off.style.position='fixed'; off.style.left='-280px'; off.style.top='0'; off.style.bottom='0'; off.style.width='260px'; off.style.background='rgba(2,6,10,.95)'; off.style.padding='18px'; off.style.zIndex='99999'; off.style.boxShadow='6px 0 30px rgba(0,0,0,.6)'; off.style.transition='left .22s ease'; off.innerHTML = `<button id="menuClose" class="iconBtn">×</button><div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;"><a href="/" style="color:var(--text);text-decoration:none">Home</a><a href="/tools/index.html" style="color:var(--text);text-decoration:none">Tools</a><a href="/exports.html" style="color:var(--text);text-decoration:none">Exports</a></div>`;
-    document.body.appendChild(off);
-    // Guard wiring in case the host page doesn't include a #menuBtn (e.g. tools pages)
-    try {
-      const menuBtn = document.getElementById('menuBtn');
-      if (menuBtn) menuBtn.addEventListener('click', ()=>{ off.style.left='0'; });
-      const menuClose = off.querySelector('#menuClose');
-      if (menuClose) menuClose.addEventListener('click', ()=>{ off.style.left='-280px'; });
-    } catch (e) {
-      // Non-fatal: if the host environment does something odd with DOM APIs, keep going
-      console.warn('Menu wiring failed (non-critical):', e);
-    }
-    loadIssues().catch(e => { console.error('loadIssues failed', e); });
-  } catch (e) {
-    console.error('tools/issues init failed', e);
-    const wrap = document.getElementById('issuesList'); if (wrap) wrap.innerHTML = 'Init error: ' + escapeHtml(e.message || String(e));
-  }
   </script>
 </body>
 </html>
