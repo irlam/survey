@@ -3,7 +3,7 @@ const { test, expect } = require('@playwright/test');
 // Simple smoke test for the server-side analytics ingestion endpoint.
 // This verifies the endpoint accepts a JSON event and responds with { ok: true }.
 
-const BASE = 'https://survey.defecttracker.uk';
+const BASE = process.env.TRACK_EVENT_URL || 'http://127.0.0.1:8000'; // set TRACK_EVENT_URL in CI to target deployed site
 
 test('POST /api/track_event.php accepts an event', async ({ request }) => {
   const payload = {
