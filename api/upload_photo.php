@@ -85,8 +85,43 @@ $pdo = db();
 // Store paths in DB columns `file_path` and `thumb_path` (supports both schemas)
 $fileRel = 'photos/' . $filename;
 $thumbDbValue = $thumbCreated ? ('photos/thumbs/' . $thumbFilename) : null;
-// If the production DB uses `file_path`/`thumb_path`, insert into those; otherwise fall back to older names
+$replace_id = safe_int($_POST['replace_photo_id'] ?? null);
+// If replacing an existing photo, validate and update row (delete old file/thumb)
 $cols = $pdo->query("SHOW COLUMNS FROM photos")->fetchAll(PDO::FETCH_COLUMN);
+if ($replace_id) {
+    // fetch existing row
+    $stp = $pdo->prepare('SELECT * FROM photos WHERE id=? LIMIT 1');
+    $stp->execute([$replace_id]);
+    $prev = $stp->fetch(PDO::FETCH_ASSOC);
+    if (!$prev) error_response('Invalid replace_photo_id', 400);
+    if ((int)$prev['plan_id'] !== (int)$plan_id) error_response('replace_photo_id plan mismatch', 400);
+
+    // attempt to unlink previous files (if different)
+    try {
+        if (!empty($prev['file_path'])) {
+            $oldf = storage_dir($prev['file_path']); if (is_file($oldf) && basename($oldf) !== basename($fileRel)) @unlink($oldf);
+        } elseif (!empty($prev['filename'])) {
+            $oldf = storage_dir('photos/' . $prev['filename']); if (is_file($oldf) && basename($oldf) !== basename($fileRel)) @unlink($oldf);
+        }
+        if (!empty($prev['thumb_path'])) { $oldt = storage_dir($prev['thumb_path']); if (is_file($oldt)) @unlink($oldt); }
+        if (!empty($prev['thumb'])) { $oldt2 = storage_dir('photos/' . $prev['thumb']); if (is_file($oldt2)) @unlink($oldt2); }
+    } catch (Throwable $e) {
+        // ignore unlink errors
+    }
+
+    if (in_array('file_path', $cols) && in_array('thumb_path', $cols)) {
+        $stmt = $pdo->prepare('UPDATE photos SET file_path=?, thumb_path=?, issue_id=?, plan_id=? WHERE id=?');
+        $stmt->execute([$fileRel, $thumbDbValue, $issue_id, $plan_id, $replace_id]);
+    } else {
+        // older schema
+        $stmt = $pdo->prepare('UPDATE photos SET filename=?, thumb=?, issue_id=?, plan_id=? WHERE id=?');
+        $stmt->execute([$filename, $thumbDbValue, $issue_id, $plan_id, $replace_id]);
+    }
+    json_response(['ok'=>true, 'photo_id'=>$replace_id, 'file'=> $fileRel, 'thumb'=>$thumbDbValue]);
+    exit;
+}
+
+// No replace requested — insert as new photo
 if (in_array('file_path', $cols) && in_array('thumb_path', $cols)) {
     $stmt = $pdo->prepare('INSERT INTO photos (plan_id, issue_id, file_path, thumb_path) VALUES (?, ?, ?, ?)');
     $stmt->execute([$plan_id, $issue_id, $fileRel, $thumbDbValue]);

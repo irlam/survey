@@ -514,7 +514,36 @@ async function showIssueModal(pin){
           }
           const imgEl = document.getElementById('imageLightboxImg'); imgEl.src = t.url || src; document.getElementById('imageLightbox').style.display='flex';
         };
-        thumbsDiv.appendChild(img);
+        // create a small wrapper so we can add annotate button below each thumb
+        const item = document.createElement('div');
+        item.style.display='flex'; item.style.flexDirection='column'; item.style.alignItems='center'; item.style.gap='6px'; item.style.width='72px'; item.style.margin='2px';
+        item.appendChild(img);
+        const btnRow = document.createElement('div'); btnRow.style.display='flex'; btnRow.style.gap='6px';
+        const annBtn = document.createElement('button'); annBtn.className='btn'; annBtn.textContent='Annotate';
+        annBtn.onclick = async ()=>{
+          try{
+            annBtn.disabled = true;
+            // fetch the full-size image (prefer t.url)
+            const fetchUrl = t.url || src;
+            const resp = await fetch(fetchUrl, { credentials: 'same-origin' });
+            if(!resp.ok) throw new Error('Failed to fetch image');
+            const blob = await resp.blob();
+            openAnnotator(blob, async (annotBlob)=>{
+              try{
+                // replace the existing photo on server
+                await uploadProcessedFile(annotBlob, t.issue_id || pin.id, null, { replace_photo_id: t.id });
+                await loadPhotoThumbs();
+                localShowToast('Photo replaced');
+              }catch(e){
+                console.error('Replace failed', e);
+                localShowToast('Replace failed: ' + (e.message || e));
+              } finally { annBtn.disabled = false; }
+            });
+          }catch(e){ annBtn.disabled = false; localShowToast('Failed to fetch image: ' + (e.message || e)); }
+        };
+        btnRow.appendChild(annBtn);
+        item.appendChild(btnRow);
+        thumbsDiv.appendChild(item);
       }
     }catch(e){}
   }
@@ -602,7 +631,8 @@ async function showIssueModal(pin){
   }
     // helper used by both file inputs -- will resize/compress client-side then upload
     // upload with progress support; will queue when no issueId
-    function uploadProcessedFile(blobOrFile, targetIssueId, onProgress){
+    function uploadProcessedFile(blobOrFile, targetIssueId, onProgress, opts){
+      opts = opts || {};
       return new Promise((resolve, reject)=>{
         const planId = getPlanIdFromUrl(); const issueId = targetIssueId || pin.id;
         if(!planId || !issueId){ // queue for upload after save
@@ -617,6 +647,7 @@ async function showIssueModal(pin){
         }
         const fd = new FormData(); fd.append('file', blobOrFile, (blobOrFile.name||'photo.jpg'));
         fd.append('plan_id', planId); fd.append('issue_id', issueId);
+        if (opts.replace_photo_id) fd.append('replace_photo_id', opts.replace_photo_id);
 
         // Use XHR so we can report upload progress
         try{
@@ -631,7 +662,7 @@ async function showIssueModal(pin){
                 if(!data.ok) throw new Error(data.error || 'Photo upload failed');
                 await loadPhotoThumbs();
                 try{ document.dispatchEvent(new CustomEvent('photosUpdated', { detail: { issueId } })); }catch(e){}
-                localShowToast('Photo uploaded');
+                localShowToast(opts.replace_photo_id ? 'Photo replaced' : 'Photo uploaded');
                 resolve(data);
               }catch(err){ reject(err); }
             }else{ reject(new Error('HTTP ' + xhr.status)); }
