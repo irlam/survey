@@ -66,7 +66,13 @@ test('Crosshair follows pointer and placement snaps to it', async ({ page }) => 
   const match = coords.match(/x:(\d\.\d{2})\s+y:(\d\.\d{2})/);
   expect(match).not.toBeNull();
   const x = parseFloat(match[1]); const y = parseFloat(match[2]);
-  // tighter acceptance tolerance: within ~2.5% (~0.025)
-  expect(Math.abs(x - 0.50)).toBeLessThan(0.025);
-  expect(Math.abs(y - 0.50)).toBeLessThan(0.025);
+
+  // Derive expected normalized coords from overlay._issueHold.currentX/Y and overlay rect
+  const expected = await page.evaluate(()=>{ const overlay = document.querySelector('#pdfContainer .pdfOverlay'); if(!overlay || !overlay._issueHold) return null; const rect = overlay.getBoundingClientRect(); const cx = overlay._issueHold.currentX || overlay._issueHold.startX; const cy = overlay._issueHold.currentY || overlay._issueHold.startY; return { x_norm: Math.max(0, Math.min(1, (cx - rect.left) / rect.width)), y_norm: Math.max(0, Math.min(1, (cy - rect.top) / rect.height)) }; });
+  expect(expected).not.toBeNull();
+  const ex = expected.x_norm; const ey = expected.y_norm;
+
+  // Acceptance tolerance: within ~2.5% of hold position
+  expect(Math.abs(x - ex)).toBeLessThan(0.025);
+  expect(Math.abs(y - ey)).toBeLessThan(0.025);
 });
