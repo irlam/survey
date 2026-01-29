@@ -384,11 +384,14 @@ $render_debug = [];
 $pins_included_count = 0;
 
 // Optional single-A4 layout: place main plan image at the top and a grid of issue images below
-$fit_a4 = false;
+// Enabled by default to provide a large plan image with a 4-column image grid underneath.
+// Set fit_a4=0 or fit_a4=false to disable.
+$fit_a4 = true;
 if (isset($_POST['fit_a4']) || isset($_GET['fit_a4'])) {
     $val = strtolower(trim((string)($_POST['fit_a4'] ?? $_GET['fit_a4'] ?? '')));
-    $fit_a4 = !in_array($val, ['0','false','']);
-}
+    // honor explicit false-ish values
+    $fit_a4 = !in_array($val, ['0','false']);
+} 
 $skip_issue_loop = false;
 if ($fit_a4) {
     // Resolve plan file once
@@ -436,20 +439,36 @@ if ($fit_a4) {
             }
 
             if ($w_px && $h_px) {
+                // Start by sizing to page width
                 $planWidthMM = $availableW;
                 $planHeightMM = $planWidthMM * ($h_px / $w_px);
 
-                // Compute a minimum required grid height and cap the plan height so the grid will fit on A4
+                // Make the plan image much larger by preferring up to 75% of the available content height,
+                // while reserving space for a 4-column grid underneath. Use smaller grid thumbs so we can
+                // show more of the plan.
                 $n = count($gridImgs);
                 if ($n > 0) {
-                    $hgap = 4; $vgap = 6; $minThumb = 15; $captionH = 4; // mm
-                    $colsForCalc = min(4, max(1, $n));
+                    $hgap = 4; $vgap = 4; $minThumb = 12; $captionH = 3; // mm (smaller thumbs)
+                    $colsForCalc = 4; // assume 4-wide grid below
                     $rows = (int)ceil($n / $colsForCalc);
-                    $minGridHeight = $rows * ($minThumb + $captionH) + max(0, ($rows - 1) * $vgap) + 6; // small extra padding
+                    $minGridHeight = $rows * ($minThumb + $captionH) + max(0, ($rows - 1) * $vgap) + 6; // padding
                     $availableForContent = $pageH - 2 * $margin - $gap;
-                    $planHeightCap = max(30, $availableForContent - $minGridHeight);
-                    if ($planHeightMM > $planHeightCap) {
-                        $planHeightMM = $planHeightCap;
+                    // allow plan up to 75% of content height (but still leave room for the grid)
+                    $planHeightCap = max(40, (int)floor($availableForContent * 0.75));
+                    $desiredPlanHeight = min($planHeightCap, $availableForContent - $minGridHeight);
+
+                    // If natural plan height is smaller than desired, enlarge it (scaling width accordingly) but don't overflow horizontally
+                    if ($planHeightMM < $desiredPlanHeight) {
+                        $planHeightMM = $desiredPlanHeight;
+                        $planWidthMM = $planHeightMM * ($w_px / $h_px);
+                        if ($planWidthMM > $availableW) {
+                            $scale = $availableW / $planWidthMM;
+                            $planWidthMM *= $scale;
+                            $planHeightMM *= $scale;
+                        }
+                    } elseif ($planHeightMM > $desiredPlanHeight) {
+                        // cap it down if it's too tall
+                        $planHeightMM = $desiredPlanHeight;
                         $planWidthMM = $planHeightMM * ($w_px / $h_px);
                     }
                 }
@@ -459,16 +478,16 @@ if ($fit_a4) {
                 $pdf->Image($planThumb['tmp'], $x, $y, $planWidthMM, 0);
                 $currentY = $y + $planHeightMM + $gap;
             } else {
-                // fallback fixed height (try to shrink if grid needs space)
-                $planWidthMM = $availableW; $planHeightMM = 120;
+                // fallback fixed height (bigger by default, try to shrink if grid needs space)
+                $planWidthMM = $availableW; $planHeightMM = 160;
                 $n = count($gridImgs);
                 if ($n > 0) {
-                    $hgap = 4; $vgap = 6; $minThumb = 15; $captionH = 4;
-                    $colsForCalc = min(4, max(1, $n));
+                    $hgap = 4; $vgap = 4; $minThumb = 12; $captionH = 3;
+                    $colsForCalc = 4;
                     $rows = (int)ceil($n / $colsForCalc);
                     $minGridHeight = $rows * ($minThumb + $captionH) + max(0, ($rows - 1) * $vgap) + 6;
                     $availableForContent = $pageH - 2 * $margin - $gap;
-                    $planHeightCap = max(30, $availableForContent - $minGridHeight);
+                    $planHeightCap = max(40, (int)floor($availableForContent * 0.75));
                     if ($planHeightMM > $planHeightCap) $planHeightMM = $planHeightCap;
                 }
                 $x = $margin; $y = $margin; $pdf->Image($planThumb['tmp'], $x, $y, $planWidthMM, 0);
@@ -498,21 +517,32 @@ if ($fit_a4) {
         $availH = $bottomY - $currentY;
         $n = count($gridImgs);
         if ($n > 0 && $availH > 10) {
-            // try columns from 4 down to 1 to fit thumbnails at reasonable size
-            $hgap = 4; $vgap = 6; $minThumb = 15; // mm
-            $chosen = null;
-            for ($cols = 4; $cols >= 1; $cols--) {
-                $thumbW = floor((($pageW - 2*$margin) - ($cols-1)*$hgap) / $cols);
-                $rows = ceil($n / $cols);
-                $thumbH = floor(($availH - ($rows-1)*$vgap) / $rows);
-                $sq = min($thumbW, $thumbH);
-                if ($sq >= $minThumb) { $chosen = ['cols'=>$cols,'thumb'=>$sq,'rows'=>$rows]; break; }
+            // prefer a 4-column grid below the large plan image; fall back to fewer columns only if thumbs would be unusably small
+            $hgap = 4; $vgap = 4; $minThumb = 12; // mm (smaller thumbs to fit 4 cols)
+
+            // Try 4 columns first
+            $cols = 4;
+            $thumbW = floor((($pageW - 2*$margin) - ($cols-1)*$hgap) / $cols);
+            $rows = ceil($n / $cols);
+            $thumbH = floor(($availH - ($rows-1)*$vgap) / $rows);
+            $sq = min($thumbW, $thumbH);
+
+            // If thumbs would be too small, try fewer columns to increase size
+            if ($sq < $minThumb) {
+                $chosen = null;
+                for ($c = 3; $c >= 1; $c--) {
+                    $tw = floor((($pageW - 2*$margin) - ($c-1)*$hgap) / $c);
+                    $r = ceil($n / $c);
+                    $th = floor(($availH - ($r-1)*$vgap) / $r);
+                    $s = min($tw, $th);
+                    if ($s >= $minThumb) { $chosen = ['cols'=>$c,'thumb'=>$s,'rows'=>$r]; break; }
+                }
+                if ($chosen) { $cols = $chosen['cols']; $thumbSize = $chosen['thumb']; $rows = $chosen['rows']; }
+                else { $cols = 1; $rows = $n; $thumbSize = max(8, floor(($availH - ($rows-1)*$vgap) / $rows)); }
+            } else {
+                $thumbSize = $sq;
             }
-            if (!$chosen) {
-                // force smallest layout (1 column) scaled to availH
-                $cols = 1; $rows = $n; $thumb = max(8, floor(($availH - ($rows-1)*$vgap) / $rows)); $chosen = ['cols'=>$cols,'thumb'=>$thumb,'rows'=>$rows];
-            }
-            $cols = $chosen['cols']; $thumbSize = $chosen['thumb'];
+
             $x = $left; $y = $currentY; $col = 0;
             foreach ($gridImgs as $gi) {
                 if ($y + $thumbSize > $bottomY) break; // safety
