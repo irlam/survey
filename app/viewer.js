@@ -768,8 +768,6 @@ async function showIssueModal(pin){
           previewWrap.addEventListener('pointerup', (ev)=>{ if(ev.target && ev.target.closest && ev.target.closest('.pin')){ try{ trackEvent('pin_drag_end', { id: pin.id || null, page: pin.page, x: pin.x_norm, y: pin.y_norm }); }catch(e){} try{ if(navigator && typeof navigator.vibrate === 'function') navigator.vibrate(10); }catch(e){} } });
           // set initial coords display
           const elc = modal.querySelector('#issueCoords'); if(elc) elc.textContent = `x:${(pin.x_norm||0.5).toFixed(2)} y:${(pin.y_norm||0.5).toFixed(2)}`;
-          // set initial coords display
-          const elc = modal.querySelector('#issueCoords'); if(elc) elc.textContent = `x:${(pin.x_norm||0.5).toFixed(2)} y:${(pin.y_norm||0.5).toFixed(2)}`;
           console.debug('[DEBUG] PinDraggable created, display coords set to', elc && elc.textContent);
         }catch(e){ console.warn('PinDraggable init failed', e); }
 
