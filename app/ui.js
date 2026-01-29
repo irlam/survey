@@ -389,6 +389,30 @@ function showIssuesModal(planId) {
           })();
 
           const countBadge = document.createElement('span'); countBadge.className='pill'; countBadge.textContent = String(phs.length) + ' photos'; countBadge.style.fontSize='12px'; countBadge.style.marginLeft='6px'; left.appendChild(thumbsWrap); left.appendChild(countBadge); }
+        else {
+          // no photos — still show a pin preview
+          const thumbsWrap2 = document.createElement('div'); thumbsWrap2.style.display='flex'; thumbsWrap2.style.gap='6px'; thumbsWrap2.style.marginTop='6px';
+          const pinPreview = document.createElement('div'); pinPreview.style.marginLeft = '8px'; pinPreview.style.display = 'inline-block';
+          const pinImg = document.createElement('img'); pinImg.style.width = '80px'; pinImg.style.height = 'auto'; pinImg.style.borderRadius = '6px'; pinImg.style.boxShadow = '0 6px 18px rgba(0,0,0,.4)'; pinImg.style.display = 'none'; pinImg.alt = 'Pin location preview';
+          pinImg.onerror = ()=>{ pinImg.style.display = 'none'; };
+          pinImg.onclick = ()=>{ if(pinImg.src) window.open(pinImg.src, '_blank'); };
+          pinPreview.appendChild(pinImg);
+          thumbsWrap2.appendChild(pinPreview);
+
+          // fetch preview
+          (async ()=>{
+            try{
+              const u = '/api/render_pin.php?plan_id='+encodeURIComponent(planId)+'&issue_id='+encodeURIComponent(issue.id);
+              const res = await fetch(u, {cache: 'no-store', credentials: 'same-origin'});
+              if (res.ok && res.headers.get('Content-Type') && res.headers.get('Content-Type').includes('image')) {
+                const blob = await res.blob(); const url = URL.createObjectURL(blob); pinImg.src = url; pinImg.onload = ()=>{ pinImg.style.display = ''; URL.revokeObjectURL(url); };
+              } else { const note = document.createElement('div'); note.className = 'muted'; note.style.fontSize = '12px'; note.style.marginLeft = '6px'; note.textContent = 'No preview'; pinPreview.appendChild(note); }
+            }catch(e){ const note = document.createElement('div'); note.className = 'muted'; note.style.fontSize = '12px'; note.style.marginLeft = '6px'; note.textContent = 'No preview'; pinPreview.appendChild(note); }
+          })();
+
+          left.appendChild(thumbsWrap2);
+          const countBadge2 = document.createElement('span'); countBadge2.className='pill'; countBadge2.textContent = String(phs.length) + ' photos'; countBadge2.style.fontSize='12px'; countBadge2.style.marginLeft='6px'; left.appendChild(countBadge2);
+        }
         const createdDiv = document.createElement('div'); createdDiv.style.fontSize = '12px'; createdDiv.style.color = 'var(--muted)'; if (issue.created_at) { const val = issue.created_at; // API may return UK formatted string 'd/m/Y H:i' or ISO; if string contains '/' assume UK and display as-is
         if (typeof val === 'string' && val.indexOf('/') !== -1) { createdDiv.textContent = val + (issue.created_by ? (' — ' + issue.created_by) : ''); }
         else { const d = new Date(val); const pad = (n) => n.toString().padStart(2,'0'); createdDiv.textContent = `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}` + (issue.created_by ? (' — ' + issue.created_by) : ''); } } else if (issue.created_by) { createdDiv.textContent = issue.created_by; }
@@ -462,21 +486,23 @@ function showIssuesModal(planId) {
   }
   // initial load
   loadIssuesList();
-  // refresh thumbnails/counts when photosUpdated event fires for this plan
+  // refresh thumbnails/counts when photosUpdated or issueUpdated event fires for this plan
   const photosListener = (ev)=>{ loadIssuesList(); };
   document.addEventListener('photosUpdated', photosListener);
+  const issueUpdatedListener = (ev)=>{ loadIssuesList(); };
+  document.addEventListener('issueUpdated', issueUpdatedListener);
 
   // allow closing with ESC key
-  const escKeyHandler = (ev) => { if (ev.key === 'Escape') { modal.style.display = 'none'; issuesList.innerHTML = ''; pdfOut.textContent = ''; document.removeEventListener('photosUpdated', photosListener); document.removeEventListener('keydown', escKeyHandler); } };
+  const escKeyHandler = (ev) => { if (ev.key === 'Escape') { modal.style.display = 'none'; issuesList.innerHTML = ''; pdfOut.textContent = ''; document.removeEventListener('photosUpdated', photosListener); document.removeEventListener('issueUpdated', issueUpdatedListener); document.removeEventListener('keydown', escKeyHandler); } };
   document.addEventListener('keydown', escKeyHandler);
 
   // wire close button (X) to dismiss modal
   if (closeBtn){
     closeBtn.style.display = '';
-    closeBtn.onclick = () => { modal.style.display = 'none'; issuesList.innerHTML = ''; pdfOut.textContent = ''; document.removeEventListener('photosUpdated', photosListener); document.removeEventListener('keydown', escKeyHandler); };
+    closeBtn.onclick = () => { modal.style.display = 'none'; issuesList.innerHTML = ''; pdfOut.textContent = ''; document.removeEventListener('photosUpdated', photosListener); document.removeEventListener('issueUpdated', issueUpdatedListener); document.removeEventListener('keydown', escKeyHandler); };
   }
   // clicking outside modal content will also close
-  window.onclick = (event) => { if (event.target === modal) { modal.style.display = 'none'; issuesList.innerHTML = ''; pdfOut.textContent = ''; document.removeEventListener('photosUpdated', photosListener); document.removeEventListener('keydown', escKeyHandler); } };
+  window.onclick = (event) => { if (event.target === modal) { modal.style.display = 'none'; issuesList.innerHTML = ''; pdfOut.textContent = ''; document.removeEventListener('photosUpdated', photosListener); document.removeEventListener('issueUpdated', issueUpdatedListener); document.removeEventListener('keydown', escKeyHandler); } };
 }
 
 
