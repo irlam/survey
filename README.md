@@ -29,6 +29,8 @@ A mobile-first construction plan survey tool for viewing PDF plans, placing issu
 
 For developers: see the `app/` directory for client code and `api/` for server endpoints (PHP). Pull requests welcome.
 
+Note on deployments: a new analytics table and endpoint have been added (`api/track_event.php`, `sql/008_analytics_events.sql`). Apply the SQL migration on your DB (or allow the endpoint to create the table automatically on first use). Ensure your privacy policy and retention settings are correct before enabling analytics in production.
+
 Tools
 - A new **Tools** section is available from the Plans panel. The first tool is the **Crop PDF Tool** (`/tools/crop.html`) — it lets you select a plan or upload a PDF, draw a crop rectangle on a page, preview it, and export the cropped area as a new PDF.
   - **DPI settings**: choose a target DPI (e.g. 150, 300, 600, 1200) for raster exports. The tool will render the page at the selected DPI and crop to the selection — higher DPI means sharper output but larger file sizes and more memory usage.
