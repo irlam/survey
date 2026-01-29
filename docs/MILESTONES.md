@@ -15,12 +15,12 @@ push to the main no branches
    - Notes: Temporarily forced FAB visible on all viewports for verification and later will be reverted. Deployed and smoke-checked.
 
 2) Crosshair/reticle with snap-to-center while placing 🎯
-   - Status: **In progress**
+   - Status: **In progress** (tests added; needs review)
    - What: show crosshair that follows pointer; snap pin to reticle; optional precision mode.
    - Acceptance: Crosshair follows pointer; saved coords match visual pin within 1–2% tolerance.
-   - Tests: Playwright placement test verifying saved x_norm/y_norm.
+   - Tests: Playwright placement test verifying saved x_norm/y_norm (test file added).
    - Est: 2–4 hours
-   - Notes: Implemented as mobile-gated UI and behind a soft feature check (URL param `?f=crosshair` or viewport < 700px). Pending test and review.
+   - Notes: Implemented as mobile-gated UI and behind a soft feature check (URL param `?f=crosshair` or viewport < 700px). Pending review and CI verification.
 
 3) Preview modal (confirm/cancel) before saving ✔️
    - Status: **Planned**
