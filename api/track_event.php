@@ -25,6 +25,18 @@ $ip = $_SERVER['REMOTE_ADDR'] ?? '';
 
 try {
   $pdo = db();
+  // Ensure table exists (safe to call repeatedly)
+  $pdo->exec("CREATE TABLE IF NOT EXISTS analytics_events (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    event_name VARCHAR(100) NOT NULL,
+    payload JSON NULL,
+    user_agent VARCHAR(1024) NULL,
+    source_ip VARCHAR(45) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX (event_name),
+    INDEX (created_at)
+  )");
+
   $stmt = $pdo->prepare('INSERT INTO analytics_events (event_name, payload, user_agent, source_ip) VALUES (?, ?, ?, ?)');
   $stmt->execute([
     $event,
