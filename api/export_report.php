@@ -1,6 +1,30 @@
 <?php
 require_once __DIR__ . '/config-util.php';
 require_once __DIR__ . '/db.php';
+
+// Make fatal errors and uncaught exceptions return structured JSON to avoid empty 500 responses.
+// This helps the frontend parse the response and show a useful error instead of 'invalid JSON'.
+set_error_handler(function($severity, $message, $file, $line) {
+    throw new ErrorException($message, 0, $severity, $file, $line);
+});
+set_exception_handler(function($e) {
+    error_log('export_report: uncaught exception: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+    $extra = (isset($GLOBALS['debug']) && $GLOBALS['debug']) ? ['exception'=>['message'=>$e->getMessage(),'file'=>$e->getFile(),'line'=>$e->getLine()]] : [];
+    error_response('Internal server error', 500, $extra);
+});
+register_shutdown_function(function() {
+    $err = error_get_last();
+    if ($err && in_array($err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+        error_log('export_report: shutdown due to fatal: ' . print_r($err, true));
+        // Attempt to send JSON error if possible
+        if (!headers_sent()) {
+            http_response_code(500);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['ok'=>false,'error'=>'Internal server error','_fatal'=>$err], JSON_UNESCAPED_SLASHES);
+        }
+    }
+});
+
 if (php_sapi_name() !== 'cli') {
     require_method('POST');
     $plan_id = safe_int($_POST['plan_id'] ?? null);
