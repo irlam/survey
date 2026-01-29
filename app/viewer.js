@@ -771,29 +771,49 @@ async function showIssueModal(pin){
         }); }
         if(!window.PinDraggable) return; // library missing
         const previewWrap = modal.querySelector('#issuePreviewWrap'); const previewCanvas = modal.querySelector('#issuePreviewCanvas'); const previewOverlay = modal.querySelector('#issuePreviewOverlay'); if(!previewWrap || !previewCanvas) return;
-        // render a scaled snapshot of the current viewer canvas into previewCanvas
+        // render a scaled snapshot of the current viewer canvas into previewCanvas (retry if layout not ready)
         const mainCanvas = document.getElementById('pdfCanvas'); if(!mainCanvas) return;
-        const previewWidth = Math.min(220, mainCanvas.clientWidth);
-        const scale = previewWidth / mainCanvas.clientWidth;
-        previewCanvas.width = Math.floor(mainCanvas.width * scale);
-        previewCanvas.height = Math.floor(mainCanvas.height * scale);
-        previewCanvas.getContext('2d').drawImage(mainCanvas, 0, 0, previewCanvas.width, previewCanvas.height);
-        previewWrap.style.width = previewWidth + 'px'; previewWrap.style.height = Math.round(mainCanvas.clientHeight * scale) + 'px';
+        const ensurePreview = (attemptsLeft = 6) => {
+          const mw = mainCanvas.clientWidth || mainCanvas.width || 0;
+          if (mw < 20 && attemptsLeft > 0) { setTimeout(()=> ensurePreview(attemptsLeft - 1), 200); return; }
+          if (mw < 20) {
+            // placeholder when preview can't be rendered
+            const ctx = previewCanvas.getContext('2d'); const pw = 220; const ph = 140;
+            previewCanvas.width = pw; previewCanvas.height = ph;
+            ctx.fillStyle = '#0b1416'; ctx.fillRect(0,0,pw,ph);
+            ctx.fillStyle = '#6b7c80'; ctx.font = '12px sans-serif'; ctx.fillText('Preview unavailable', 10, 20);
+            previewWrap.style.width = pw + 'px'; previewWrap.style.height = ph + 'px';
+            return;
+          }
+          const previewWidth = Math.min(220, mainCanvas.clientWidth);
+          const scale = previewWidth / mainCanvas.clientWidth;
+          const newW = Math.floor(mainCanvas.width * scale);
+          const newH = Math.floor(mainCanvas.height * scale);
+          previewCanvas.width = Math.max(1, newW);
+          previewCanvas.height = Math.max(1, newH);
+          const ctx = previewCanvas.getContext('2d');
+          try{ ctx.clearRect(0,0,previewCanvas.width, previewCanvas.height); ctx.drawImage(mainCanvas, 0, 0, previewCanvas.width, previewCanvas.height); }catch(e){ console.warn('preview drawImage failed', e); ctx.fillStyle = '#0b1416'; ctx.fillRect(0,0,previewCanvas.width, previewCanvas.height); }
+          previewWrap.style.width = previewWidth + 'px'; previewWrap.style.height = Math.round(mainCanvas.clientHeight * scale) + 'px';
 
-        // instantiate PinDraggable on the preview
-        let pd = null;
-        try{
-          console.log('[DEBUG] PinDraggable init pin.x_norm,y_norm =', pin.x_norm, pin.y_norm);
-          const PD = window.PinDraggable && window.PinDraggable.PinDraggable ? window.PinDraggable.PinDraggable : window.PinDraggable;
-          pd = new PD({
-            container: previewWrap,
-            img: previewCanvas,
-            initial: { x_norm: (pin.x_norm !== undefined ? pin.x_norm : 0.5), y_norm: (pin.y_norm !== undefined ? pin.y_norm : 0.5) },
-            onChange: (coords)=>{ pin.x_norm = coords.x_norm; pin.y_norm = coords.y_norm; const el = modal.querySelector('#issueCoords'); if(el) el.textContent = `x:${coords.x_norm.toFixed(2)} y:${coords.y_norm.toFixed(2)}`; try{ trackEvent('pin_drag_move', { x: coords.x_norm, y: coords.y_norm }); }catch(e){} },
-            onSave: (coords)=>{ pin.x_norm = coords.x_norm; pin.y_norm = coords.y_norm; const el = modal.querySelector('#issueCoords'); if(el) el.textContent = `x:${coords.x_norm.toFixed(2)} y:${coords.y_norm.toFixed(2)}`; try{ trackEvent('pin_save_preview', { x: coords.x_norm, y: coords.y_norm }); }catch(e){} }
-          });
-          // store reference for nudges and cleanup
-          modal._pinDraggable = pd;
+          // instantiate PinDraggable after ensuring canvas is sized
+          try{
+            console.log('[DEBUG] PinDraggable init pin.x_norm,y_norm =', pin.x_norm, pin.y_norm);
+            const PD = window.PinDraggable && window.PinDraggable.PinDraggable ? window.PinDraggable.PinDraggable : window.PinDraggable;
+            if (PD) {
+              const pd = new PD({
+                container: previewWrap,
+                img: previewCanvas,
+                initial: { x_norm: (pin.x_norm !== undefined ? pin.x_norm : 0.5), y_norm: (pin.y_norm !== undefined ? pin.y_norm : 0.5) },
+                onChange: (coords)=>{ pin.x_norm = coords.x_norm; pin.y_norm = coords.y_norm; const el = modal.querySelector('#issueCoords'); if(el) el.textContent = `x:${coords.x_norm.toFixed(2)} y:${coords.y_norm.toFixed(2)}`; try{ trackEvent('pin_drag_move', { x: coords.x_norm, y: coords.y_norm }); }catch(e){} },
+                onSave: (coords)=>{ pin.x_norm = coords.x_norm; pin.y_norm = coords.y_norm; const el = modal.querySelector('#issueCoords'); if(el) el.textContent = `x:${coords.x_norm.toFixed(2)} y:${coords.y_norm.toFixed(2)}`; try{ trackEvent('pin_save_preview', { x: coords.x_norm, y: coords.y_norm }); }catch(e){} }
+              });
+              modal._pinDraggable = pd;
+            } else {
+              console.warn('PinDraggable library not available; preview will be static');
+            }
+          }catch(e){ console.warn('PinDraggable init failed', e); }
+        };
+        ensurePreview();
           // detect pointer interactions on preview pins (start/end)
           previewWrap.addEventListener('pointerdown', (ev)=>{ if(ev.target && ev.target.closest && ev.target.closest('.pin')){ try{ trackEvent('pin_drag_start', { id: pin.id || null, page: pin.page, x: pin.x_norm, y: pin.y_norm }); }catch(e){} try{ if(navigator && typeof navigator.vibrate === 'function') navigator.vibrate(10); }catch(e){} } });
           previewWrap.addEventListener('pointerup', (ev)=>{ if(ev.target && ev.target.closest && ev.target.closest('.pin')){ try{ trackEvent('pin_drag_end', { id: pin.id || null, page: pin.page, x: pin.x_norm, y: pin.y_norm }); }catch(e){} try{ if(navigator && typeof navigator.vibrate === 'function') navigator.vibrate(10); }catch(e){} } });
