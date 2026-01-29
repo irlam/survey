@@ -304,6 +304,128 @@ function render_pin_thumbnail($planFile, $page, $x_norm, $y_norm, $thumbWidthPx 
     return null;
 }
 
+// Render an entire plan page (PNG) to a temporary file. Returns ['tmp'=>path,'w'=>width_px,'h'=>height_px,'method'=>...]
+// or null on failure. This mirrors render_pin_thumbnail's rendering but without compositing a pin.
+function render_plan_thumbnail($planFile, $page = 1, $thumbWidthPx = 1200) {
+    if (!is_file($planFile)) return null;
+    // Try Imagick first
+    if (class_exists('Imagick')) {
+        try {
+            $im = new Imagick();
+            $im->setResolution(150,150);
+            $pageIndex = max(0, (int)$page - 1);
+            $im->readImage($planFile . '[' . $pageIndex . ']');
+            $im->setImageFormat('png');
+            $im->thumbnailImage($thumbWidthPx, 0);
+            $w = $im->getImageWidth(); $h = $im->getImageHeight();
+            $tmp = tempnam(sys_get_temp_dir(), 'planimg_') . '.png';
+            $im->setImageFormat('png');
+            $im->writeImage($tmp);
+            $im->clear();
+            return ['tmp'=>$tmp,'w'=>$w,'h'=>$h,'method'=>'imagick'];
+        } catch (Exception $e) {
+            // fall through to other methods
+        }
+    }
+
+    // If the plan file is itself an image, resize via GD
+    $imgExt = strtolower(pathinfo($planFile, PATHINFO_EXTENSION));
+    if (in_array($imgExt, ['png','jpg','jpeg','gif'])) {
+        if (function_exists('imagecreatefrompng') && function_exists('imagecopyresampled')) {
+            $base = null;
+            switch ($imgExt) {
+                case 'png': $base = @imagecreatefrompng($planFile); break;
+                case 'jpg': case 'jpeg': $base = @imagecreatefromjpeg($planFile); break;
+                case 'gif': $base = @imagecreatefromgif($planFile); break;
+            }
+            if ($base) {
+                imagesavealpha($base, true);
+                imagealphablending($base, true);
+                $w = imagesx($base); $h = imagesy($base);
+                $newW = $thumbWidthPx; $newH = intval($h * ($newW / $w));
+                $res = imagecreatetruecolor($newW, $newH);
+                imagesavealpha($res, true);
+                $trans_colour = imagecolorallocatealpha($res, 0, 0, 0, 127);
+                imagefill($res, 0, 0, $trans_colour);
+                imagecopyresampled($res, $base, 0, 0, 0, 0, $newW, $newH, $w, $h);
+                $tmp = tempnam(sys_get_temp_dir(), 'planimg_') . '.png';
+                imagepng($res, $tmp);
+                imagedestroy($base); imagedestroy($res);
+                return ['tmp'=>$tmp,'w'=>$newW,'h'=>$newH,'method'=>'gd_image'];
+            }
+        }
+    }
+
+    // Fallback: use pdftoppm if available
+    $pdftoppm = trim(shell_exec('command -v pdftoppm 2>/dev/null'));
+    if ($pdftoppm) {
+        $prefix = sys_get_temp_dir() . '/planr_' . bin2hex(random_bytes(6));
+        $outPng = $prefix . '.png';
+        $cmd = escapeshellcmd($pdftoppm) . ' -png -f ' . (int)$page . ' -singlefile -r 150 ' . escapeshellarg($planFile) . ' ' . escapeshellarg($prefix) . ' 2>&1';
+        @exec($cmd, $out, $rc);
+        if ($rc === 0 && is_file($outPng)) {
+            // optionally resize to target width
+            $img = @imagecreatefrompng($outPng);
+            if ($img) {
+                $w = imagesx($img); $h = imagesy($img);
+                if ($w > $thumbWidthPx) {
+                    $newW = $thumbWidthPx; $newH = intval($h * ($newW / $w));
+                    $res = imagecreatetruecolor($newW, $newH);
+                    imagesavealpha($res, true);
+                    $trans_colour = imagecolorallocatealpha($res, 0, 0, 0, 127);
+                    imagefill($res, 0, 0, $trans_colour);
+                    imagecopyresampled($res, $img, 0, 0, 0, 0, $newW, $newH, $w, $h);
+                    $tmp = tempnam(sys_get_temp_dir(), 'planimg_') . '.png';
+                    imagepng($res, $tmp);
+                    imagedestroy($img); imagedestroy($res);
+                    @unlink($outPng);
+                    return ['tmp'=>$tmp,'w'=>$newW,'h'=>$newH,'method'=>'pdftoppm_resized'];
+                } else {
+                    // use the generated image as-is
+                    return ['tmp'=>$outPng,'w'=>$w,'h'=>$h,'method'=>'pdftoppm'];
+                }
+            } else {
+                @unlink($outPng);
+            }
+        }
+    }
+
+    // Another fallback: use GhostScript
+    $gs = trim(shell_exec('command -v gs 2>/dev/null'));
+    if ($gs) {
+        $prefix = sys_get_temp_dir() . '/planr_' . bin2hex(random_bytes(6));
+        $outPng = $prefix . '.png';
+        $cmd = escapeshellcmd($gs) . ' -dSAFER -dBATCH -dNOPAUSE -sDEVICE=pngalpha -r150 -dFirstPage=' . (int)$page . ' -dLastPage=' . (int)$page . ' -sOutputFile=' . escapeshellarg($outPng) . ' ' . escapeshellarg($planFile) . ' 2>&1';
+        @exec($cmd, $out, $rc);
+        if ($rc === 0 && is_file($outPng)) {
+            // optionally resize like above
+            $img = @imagecreatefrompng($outPng);
+            if ($img) {
+                $w = imagesx($img); $h = imagesy($img);
+                if ($w > $thumbWidthPx) {
+                    $newW = $thumbWidthPx; $newH = intval($h * ($newW / $w));
+                    $res = imagecreatetruecolor($newW, $newH);
+                    imagesavealpha($res, true);
+                    $trans_colour = imagecolorallocatealpha($res, 0, 0, 0, 127);
+                    imagefill($res, 0, 0, $trans_colour);
+                    imagecopyresampled($res, $img, 0, 0, 0, 0, $newW, $newH, $w, $h);
+                    $tmp = tempnam(sys_get_temp_dir(), 'planimg_') . '.png';
+                    imagepng($res, $tmp);
+                    imagedestroy($img); imagedestroy($res);
+                    @unlink($outPng);
+                    return ['tmp'=>$tmp,'w'=>$newW,'h'=>$newH,'method'=>'gs_resized'];
+                } else {
+                    return ['tmp'=>$outPng,'w'=>$w,'h'=>$h,'method'=>'gs'];
+                }
+            } else {
+                @unlink($outPng);
+            }
+        }
+    }
+
+    return null;
+}
+
 // When included from CLI, don't run the endpoint code so tests can include this file
 if (php_sapi_name() === 'cli') return;
 
