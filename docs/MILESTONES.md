@@ -23,29 +23,29 @@ push to the main no branches
    - Notes: Implemented as mobile-gated UI and behind a soft feature check (URL param `?f=crosshair` or viewport < 700px). Pending review and CI verification.
 
 3) Preview modal (confirm/cancel) before saving ✔️
-   - Status: **Planned**
+   - Status: **Done** ✅
    - What: After placement, show modal with preview + short fields; create only on Confirm.
-   - Acceptance: Cancel prevents creation; Confirm creates issue and shows undo snackbar.
-   - Tests: Playwright: place → Cancel (no issue) → place → Confirm (issue created, undo available).
+   - Acceptance: Cancel prevents creation; Confirm creates issue and shows undo snackbar; photos and annotations can be queued and uploaded after save.
+   - Tests: Playwright flows added to cover cancel and confirm behavior.
    - Est: 2–3 hours
 
 4) Drag-to-adjust & precision nudges (later) ↕️
-   - Status: **Planned**
-   - What: Allow drag to fine-tune before confirm; add nudge buttons in precision mode.
-   - Acceptance: Drag changes coords and saved coords match visually.
+   - Status: **Done** ✅
+   - What: Drag-to-adjust and precision nudges added in the preview modal; keyboard arrow nudges (with shift for larger steps) also supported.
+   - Acceptance: Drag and nudge changes update coords live and saved coords reflect the final position. Haptic feedback and analytics events emitted for drag start/end and nudges.
    - Est: 4–8 hours
 
 5) Haptic & micro-feedback + accessibility 💡
-   - Status: **Planned**
-   - What: Vibration API support, larger hit targets, ARIA labels, screen-reader announcements.
-   - Acceptance: Screen reader announces entering Add mode; keyboard accessibility verified.
+   - Status: **Partially Done** ✅ (haptics implemented)
+   - What: Vibration API support for nudges, drag start/end and save/failure added. Larger hit targets and ARIA labels are partially present; full screen-reader announcement improvements remain to be completed.
+   - Acceptance: Haptics active on supported devices; accessibility announcements still planned.
    - Est: 2–3 hours
 
 6) Analytics & feature flag / A/B rollout 📊
-   - Status: **Planned**
-   - What: Feature-flag new flow for gradual rollout; add metrics for create success and accidental cancels.
-   - Acceptance: Flag togglable; metrics visible in logs or analytics backend.
-   - Est: 1–2 hours
+   - Status: **Partially Done** ✅ (client instrumentation added)
+   - What: Client-side analytics instrumentation added (events: `pin_drag_start`, `pin_drag_move`, `pin_drag_end`, `pin_nudge`, `pin_save_success`, `pin_save_failure`, `pin_create_cancel`). Events are queued and sent via `sendBeacon` when available. Server-side collection endpoint (`/api/track_event.php`) is used on a best-effort basis and may require backend wiring or verification.
+   - Acceptance: Events emit from client; backend ingestion and dashboards remain a follow-up item.
+   - Est: 1–2 hours (additional backend wiring as follow-up)
 
 ---
 

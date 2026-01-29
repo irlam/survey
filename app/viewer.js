@@ -25,6 +25,25 @@ function setBadges(){ const pageBadge = qs('#pageBadge'); if(pageBadge) pageBadg
 function ensurePdfJsConfigured(){ if(!window.pdfjsLib) throw new Error('PDF.js not loaded'); window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/vendor/pdfjs/pdf.worker.min.js'; }
 // local toast fallback if global not available
 function localShowToast(msg, timeout=2200){ try{ if(window && typeof window.showToast === 'function'){ window.showToast(msg, timeout); return; } }catch(e){} const el = document.createElement('div'); el.textContent = msg; el.style.position='fixed'; el.style.right='20px'; el.style.bottom='20px'; el.style.zIndex=999999; el.style.background='rgba(0,0,0,0.8)'; el.style.color='#fff'; el.style.padding='10px 14px'; el.style.borderRadius='8px'; el.style.boxShadow='0 6px 18px rgba(0,0,0,.4)'; document.body.appendChild(el); setTimeout(()=>{ try{ el.remove(); }catch(e){} }, timeout); }
+
+// Lightweight analytics helper — sends via sendBeacon when available and keeps an in-memory queue for inspection
+window.__analyticsQueue = window.__analyticsQueue || [];
+function trackEvent(name, payload = {}){
+  try{
+    const ev = Object.assign({ event: name, ts: Date.now() }, payload || {});
+    window.__analyticsQueue.push(ev);
+    if (navigator && typeof navigator.sendBeacon === 'function'){
+      try{ const blob = new Blob([JSON.stringify(ev)], {type: 'application/json'}); navigator.sendBeacon('/api/track_event.php', blob); }catch(e){ /* best-effort */ }
+    } else if (typeof fetch === 'function'){
+      // best-effort non-blocking POST
+      try{ fetch('/api/track_event.php', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(ev), keepalive: true }).catch(()=>{}); }catch(e){}
+    } else {
+      // fallback: console
+      console.log('trackEvent:', ev);
+    }
+  }catch(e){ console.log('trackEvent failed', name, e); }
+}
+
 function stageWidth(){ const stage = qs('#pdfStage'); if(!stage) return window.innerWidth; return Math.max(320, stage.clientWidth - 16); }
 
 function ensureWrapAndOverlay(){
@@ -177,10 +196,15 @@ async function renderPinsForPage(overlay, viewportWidth, viewportHeight){ clearO
         elPin.style.cursor = 'grab';
         let dragging = false, moved = false;
         async function savePin(){ if(!pinObj || !pinObj.id) return; try{ const issue = { id: pinObj.id, plan_id: getPlanIdFromUrl(), page: pinObj.page, x_norm: pinObj.x_norm, y_norm: pinObj.y_norm }; await apiSaveIssue(issue); localShowToast('Pin saved'); await reloadDbPins(); await renderPage(currentPage); }catch(e){ localShowToast('Pin save failed'); console.warn('Pin save failed', e); } }
-        function onPointerDown(ev){ ev.preventDefault(); ev.stopPropagation(); try{ elPin.setPointerCapture(ev.pointerId); }catch(e){} dragging = true; moved = false; elPin.style.cursor = 'grabbing'; window.addEventListener('pointermove', onPointerMove); window.addEventListener('pointerup', onPointerUp); if(overlay._issueHold && overlay._issueHold.timer){ clearTimeout(overlay._issueHold.timer); overlay._issueHold.timer = null; } }
+        function onPointerDown(ev){ ev.preventDefault(); ev.stopPropagation(); try{ elPin.setPointerCapture(ev.pointerId); }catch(e){} dragging = true; moved = false; elPin.style.cursor = 'grabbing'; window.addEventListener('pointermove', onPointerMove); window.addEventListener('pointerup', onPointerUp); if(overlay._issueHold && overlay._issueHold.timer){ clearTimeout(overlay._issueHold.timer); overlay._issueHold.timer = null; } // analytics & haptic
+          try{ trackEvent('pin_drag_start', { id: pinObj.id || null, page: pinObj.page, x: pinObj.x_norm, y: pinObj.y_norm }); }catch(e){}
+          try{ if(navigator && typeof navigator.vibrate === 'function') navigator.vibrate(10); }catch(e){}
+        }
         function onPointerMove(ev){ if(!dragging) return; moved = true; const rect = overlay.getBoundingClientRect(); const x = ev.clientX - rect.left; const y = ev.clientY - rect.top; const nx = Math.max(0, Math.min(1, x/viewportWidth)); const ny = Math.max(0, Math.min(1, y/viewportHeight)); pinObj.x_norm = nx; pinObj.y_norm = ny; elPin.style.left = `${nx * viewportWidth}px`; elPin.style.top = `${ny * viewportHeight}px`; }
         function onPointerUp(ev){ try{ elPin.releasePointerCapture(ev.pointerId); }catch(e){} dragging = false; elPin.style.cursor = 'grab'; window.removeEventListener('pointermove', onPointerMove); window.removeEventListener('pointerup', onPointerUp); setTimeout(()=>{ moved = false; }, 0); // persist change for saved issues
           if (pinObj && pinObj.id) { savePin(); }
+          try{ trackEvent('pin_drag_end', { id: pinObj.id || null, page: pinObj.page, x: pinObj.x_norm, y: pinObj.y_norm }); }catch(e){}
+          try{ if(navigator && typeof navigator.vibrate === 'function') navigator.vibrate(10); }catch(e){}
         }
         elPin.addEventListener('pointerdown', onPointerDown);
         // ensure click opens modal only when not dragged
@@ -222,9 +246,14 @@ async function renderPinsForPage(overlay, viewportWidth, viewportHeight){ clearO
         elPin.style.touchAction = 'none';
         elPin.style.cursor = 'grab';
         let dragging = false, moved = false;
-        function onPointerDown(ev){ ev.preventDefault(); ev.stopPropagation(); try{ elPin.setPointerCapture(ev.pointerId); }catch(e){} dragging = true; moved = false; elPin.style.cursor = 'grabbing'; window.addEventListener('pointermove', onPointerMove); window.addEventListener('pointerup', onPointerUp); if(overlay._issueHold && overlay._issueHold.timer){ clearTimeout(overlay._issueHold.timer); overlay._issueHold.timer = null; } }
+        function onPointerDown(ev){ ev.preventDefault(); ev.stopPropagation(); try{ elPin.setPointerCapture(ev.pointerId); }catch(e){} dragging = true; moved = false; elPin.style.cursor = 'grabbing'; window.addEventListener('pointermove', onPointerMove); window.addEventListener('pointerup', onPointerUp); if(overlay._issueHold && overlay._issueHold.timer){ clearTimeout(overlay._issueHold.timer); overlay._issueHold.timer = null; } // analytics & haptic
+          try{ trackEvent('pin_drag_start', { id: pinObj.id || null, page: pinObj.page, x: pinObj.x_norm, y: pinObj.y_norm }); }catch(e){}
+          try{ if(navigator && typeof navigator.vibrate === 'function') navigator.vibrate(10); }catch(e){}
+        }
         function onPointerMove(ev){ if(!dragging) return; moved = true; const rect = overlay.getBoundingClientRect(); const x = ev.clientX - rect.left; const y = ev.clientY - rect.top; const nx = Math.max(0, Math.min(1, x/viewportWidth)); const ny = Math.max(0, Math.min(1, y/viewportHeight)); pinObj.x_norm = nx; pinObj.y_norm = ny; elPin.style.left = `${nx * viewportWidth}px`; elPin.style.top = `${ny * viewportHeight}px`; }
-        function onPointerUp(ev){ try{ elPin.releasePointerCapture(ev.pointerId); }catch(e){} dragging = false; elPin.style.cursor = 'grab'; window.removeEventListener('pointermove', onPointerMove); window.removeEventListener('pointerup', onPointerUp); setTimeout(()=>{ moved = false; }, 0); }
+        function onPointerUp(ev){ try{ elPin.releasePointerCapture(ev.pointerId); }catch(e){} dragging = false; elPin.style.cursor = 'grab'; window.removeEventListener('pointermove', onPointerMove); window.removeEventListener('pointerup', onPointerUp); setTimeout(()=>{ moved = false; }, 0); try{ trackEvent('pin_drag_end', { id: pinObj.id || null, page: pinObj.page, x: pinObj.x_norm, y: pinObj.y_norm }); }catch(e){}
+          try{ if(navigator && typeof navigator.vibrate === 'function') navigator.vibrate(10); }catch(e){}
+        }
         elPin.addEventListener('pointerdown', onPointerDown);
         elPin.addEventListener('click', (ev)=>{ if(moved) { ev.stopPropagation(); return; } showIssueModal(pinObj); });
       })(el, p);
@@ -332,6 +361,17 @@ async function showIssueModal(pin){
               <div id="issuePreviewOverlay" style="position:absolute;left:0;top:0;right:0;bottom:0;"></div>
             </div>
             <div style="font-size:12px;color:var(--muted);margin-top:6px;">Coords: <span id="issueCoords">x:0.00 y:0.00</span></div>
+            <div style="margin-top:8px;">
+              <div id="issueNudgeControls" style="display:flex;gap:10px;align-items:center;">
+                <div style="display:grid;grid-template-columns:40px 40px 40px;grid-template-rows:40px 40px;gap:6px;">
+                  <button class="btnNudge btn" data-dir="up" title="Nudge up">▲</button>
+                  <button class="btnNudge btn" data-dir="left" title="Nudge left">◀</button>
+                  <button class="btnNudge btn" data-dir="right" title="Nudge right">▶</button>
+                  <button class="btnNudge btn" data-dir="down" title="Nudge down">▼</button>
+                </div>
+                <label style="font-size:12px;">Step:&nbsp;<input id="nudgeStep" type="number" min="0.001" step="0.001" value="0.005" style="width:70px" /></label>
+              </div>
+            </div> 
           </div>
         </div>
       </div>
@@ -390,6 +430,22 @@ async function showIssueModal(pin){
       const clearBtn = modal.querySelector('#issueClearAnnotBtn'); if(clearBtn) clearBtn.onclick = ()=>{ modal._clearAnnotations(); };
     }
     ensureAnnotCanvas();
+
+    // precision nudge helper — updates pin coords, updates UI, triggers haptic and analytics
+    function clamp01(v){ return Math.max(0, Math.min(1, v)); }
+    function applyNudge(dx, dy, source){ const step = Number(modal.querySelector('#nudgeStep')?.value) || 0.005; const nx = clamp01((pin.x_norm || 0) + dx); const ny = clamp01((pin.y_norm || 0) + dy); pin.x_norm = nx; pin.y_norm = ny; const el = modal.querySelector('#issueCoords'); if(el) el.textContent = `x:${nx.toFixed(2)} y:${ny.toFixed(2)}`; // update PinDraggable preview if present
+      try{ if(modal._pinDraggable && typeof modal._pinDraggable.setPosition === 'function'){ modal._pinDraggable.setPosition(nx, ny); } }catch(e){}
+      // small haptic cue when nudging
+      try{ if(navigator && typeof navigator.vibrate === 'function') navigator.vibrate(10); }catch(e){}
+      // analytics
+      try{ trackEvent('pin_nudge', { dir: source || 'manual', x: nx, y: ny }); }catch(e){}
+    }
+    // keyboard listeners scoped to modal
+    modal._keyHandler = function(ev){ if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(ev.key)){ ev.preventDefault(); const base = Number(modal.querySelector('#nudgeStep')?.value) || 0.005; const step = ev.shiftKey ? base * 4 : base; switch(ev.key){ case 'ArrowUp': applyNudge(0, -step, 'keyboard'); break; case 'ArrowDown': applyNudge(0, step, 'keyboard'); break; case 'ArrowLeft': applyNudge(-step, 0, 'keyboard'); break; case 'ArrowRight': applyNudge(step, 0, 'keyboard'); break; } } else if(ev.key === 'Escape'){ // treat as cancel
+        try{ if(!pin.id) trackEvent('pin_create_cancel', { x: pin.x_norm, y: pin.y_norm, title: modal.querySelector('#issueTitle')?.value || '' }); }catch(e){}
+        modal.style.display='none'; if(modal._clearAnnotations) modal._clearAnnotations(); window.removeEventListener('keydown', modal._keyHandler); }
+    };
+    window.addEventListener('keydown', modal._keyHandler);
 
     modal.querySelector('#issueTitle').value = pin.title||'';
     modal.querySelector('#issueNotes').value = pin.notes||'';
@@ -702,9 +758,16 @@ async function showIssueModal(pin){
             container: previewWrap,
             img: previewCanvas,
             initial: { x_norm: (pin.x_norm !== undefined ? pin.x_norm : 0.5), y_norm: (pin.y_norm !== undefined ? pin.y_norm : 0.5) },
-            onChange: (coords)=>{ pin.x_norm = coords.x_norm; pin.y_norm = coords.y_norm; const el = modal.querySelector('#issueCoords'); if(el) el.textContent = `x:${coords.x_norm.toFixed(2)} y:${coords.y_norm.toFixed(2)}`; },
-            onSave: (coords)=>{ pin.x_norm = coords.x_norm; pin.y_norm = coords.y_norm; const el = modal.querySelector('#issueCoords'); if(el) el.textContent = `x:${coords.x_norm.toFixed(2)} y:${coords.y_norm.toFixed(2)}`; }
+            onChange: (coords)=>{ pin.x_norm = coords.x_norm; pin.y_norm = coords.y_norm; const el = modal.querySelector('#issueCoords'); if(el) el.textContent = `x:${coords.x_norm.toFixed(2)} y:${coords.y_norm.toFixed(2)}`; try{ trackEvent('pin_drag_move', { x: coords.x_norm, y: coords.y_norm }); }catch(e){} },
+            onSave: (coords)=>{ pin.x_norm = coords.x_norm; pin.y_norm = coords.y_norm; const el = modal.querySelector('#issueCoords'); if(el) el.textContent = `x:${coords.x_norm.toFixed(2)} y:${coords.y_norm.toFixed(2)}`; try{ trackEvent('pin_save_preview', { x: coords.x_norm, y: coords.y_norm }); }catch(e){} }
           });
+          // store reference for nudges and cleanup
+          modal._pinDraggable = pd;
+          // detect pointer interactions on preview pins (start/end)
+          previewWrap.addEventListener('pointerdown', (ev)=>{ if(ev.target && ev.target.closest && ev.target.closest('.pin')){ try{ trackEvent('pin_drag_start', { id: pin.id || null, page: pin.page, x: pin.x_norm, y: pin.y_norm }); }catch(e){} try{ if(navigator && typeof navigator.vibrate === 'function') navigator.vibrate(10); }catch(e){} } });
+          previewWrap.addEventListener('pointerup', (ev)=>{ if(ev.target && ev.target.closest && ev.target.closest('.pin')){ try{ trackEvent('pin_drag_end', { id: pin.id || null, page: pin.page, x: pin.x_norm, y: pin.y_norm }); }catch(e){} try{ if(navigator && typeof navigator.vibrate === 'function') navigator.vibrate(10); }catch(e){} } });
+          // set initial coords display
+          const elc = modal.querySelector('#issueCoords'); if(elc) elc.textContent = `x:${(pin.x_norm||0.5).toFixed(2)} y:${(pin.y_norm||0.5).toFixed(2)}`;
           // set initial coords display
           const elc = modal.querySelector('#issueCoords'); if(elc) elc.textContent = `x:${(pin.x_norm||0.5).toFixed(2)} y:${(pin.y_norm||0.5).toFixed(2)}`;
           console.debug('[DEBUG] PinDraggable created, display coords set to', elc && elc.textContent);
@@ -730,6 +793,8 @@ async function showIssueModal(pin){
     if(pin.id) issue.id = pin.id;
     try{
       const saved = await apiSaveIssue(issue);
+      try{ trackEvent('pin_save_success', { id: saved.id || null, x: issue.x_norm, y: issue.y_norm }); }catch(e){}
+      try{ if(navigator && typeof navigator.vibrate === 'function') navigator.vibrate(50); }catch(e){}
       // after saving, upload any queued photos that were added before save
       if(pendingPhotos && pendingPhotos.length){
         pin.id = saved.id || pin.id;
@@ -742,14 +807,15 @@ async function showIssueModal(pin){
         pendingPhotos = []; renderPendingPhotos();
       }
       modal.style.display='none';
+      window.removeEventListener('keydown', modal._keyHandler);
       await reloadDbPins();
       await renderPage(currentPage);
       if(!pin.id && saved.id){ pin.id = saved.id; await showIssueModal(pin); }
-    }catch(e){ localShowToast('Error saving issue: '+e.message); }
+    }catch(e){ localShowToast('Error saving issue: '+e.message); try{ trackEvent('pin_save_failure', { error: e && e.message || String(e) }); }catch(x){} try{ if(navigator && typeof navigator.vibrate === 'function') navigator.vibrate(20); }catch(x){} }
   };
 
   // Cancel handler and close modal
-  const cancelBtn = modal.querySelector('#issueCancelBtn'); if(cancelBtn) cancelBtn.onclick = ()=>{ modal.style.display='none'; if(modal._clearAnnotations) modal._clearAnnotations(); };
+  const cancelBtn = modal.querySelector('#issueCancelBtn'); if(cancelBtn) cancelBtn.onclick = ()=>{ try{ if(!pin.id) trackEvent('pin_create_cancel', { x: pin.x_norm, y: pin.y_norm, title: modal.querySelector('#issueTitle')?.value || '' }); }catch(e){} modal.style.display='none'; if(modal._clearAnnotations) modal._clearAnnotations(); window.removeEventListener('keydown', modal._keyHandler); };
 
   // Refresh viewer when an issue is deleted elsewhere
   const issueDeletedHandler = (ev)=>{ try{ reloadDbPins(); renderPage(currentPage); }catch(e){} };
