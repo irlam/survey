@@ -364,7 +364,18 @@ function showIssuesModal(planId) {
           const pinPreview = document.createElement('div'); pinPreview.style.marginLeft = '8px'; pinPreview.style.display = 'inline-block';
           const pinImg = document.createElement('img'); pinImg.style.width = '80px'; pinImg.style.height = 'auto'; pinImg.style.borderRadius = '6px'; pinImg.style.boxShadow = '0 6px 18px rgba(0,0,0,.4)'; pinImg.style.display = 'none'; pinImg.alt = 'Pin location preview';
           pinImg.onerror = ()=>{ pinImg.style.display = 'none'; };
-          pinImg.onclick = ()=>{ if(pinImg.src) window.open(pinImg.src, '_blank'); };
+          // open a simple lightbox when clicking the pin preview (reuses the same lightbox as photos)
+          pinImg.onclick = ()=>{
+            if(!pinImg.src) return;
+            let lb = document.getElementById('imageLightbox');
+            if(!lb){
+              lb = document.createElement('div'); lb.id = 'imageLightbox';
+              lb.style.position='fixed'; lb.style.left=0; lb.style.top=0; lb.style.width='100%'; lb.style.height='100%';
+              lb.style.background='rgba(0,0,0,0.85)'; lb.style.display='flex'; lb.style.alignItems='center'; lb.style.justifyContent='center'; lb.style.zIndex=200000; lb.onclick = ()=>{ lb.style.display='none'; };
+              const imgEl = document.createElement('img'); imgEl.style.maxWidth='95%'; imgEl.style.maxHeight='95%'; imgEl.id='imageLightboxImg'; lb.appendChild(imgEl); document.body.appendChild(lb);
+            }
+            const imgEl = document.getElementById('imageLightboxImg'); imgEl.src = pinImg.src; document.getElementById('imageLightbox').style.display='flex';
+          };
           pinPreview.appendChild(pinImg);
           thumbsWrap.appendChild(pinPreview);
 
