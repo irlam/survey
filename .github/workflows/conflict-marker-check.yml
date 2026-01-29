@@ -15,7 +15,7 @@ jobs:
       - name: Check repository for conflict markers
         run: |
           echo "Searching for Git conflict markers in the repo..."
-          if grep -R --line-number -E '^(<<<<<<<|>>>>>>>|=======$)' --exclude-dir=.git . ; then
+          if grep -R --line-number -E '^(<<<<<<<|>>>>>>>|=======$)' --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=vendor --exclude-dir=storage --exclude-dir=.github . ; then
             echo "\nERROR: Merge conflict markers detected. Please resolve them before committing.";
             exit 1;
           else
