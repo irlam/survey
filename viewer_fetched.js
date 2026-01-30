@@ -352,8 +352,10 @@ async function showIssueModal(pin){
             const ctx = previewCanvas.getContext('2d'); const pw = 420; const ph = 260;
             previewCanvas.width = pw; previewCanvas.height = ph;
             ctx.fillStyle = '#0b1416'; ctx.fillRect(0,0,pw,ph);
-            ctx.fillStyle = '#6b7c80'; ctx.font = '12px sans-serif'; ctx.fillText('Preview unavailable', 10, 20);
+            try{ ctx.fillStyle = '#6b7c80'; ctx.font = '12px sans-serif'; ctx.fillText('Preview not ready — PDF rendering', 10, 20); }catch(ignore){}
             previewWrap.style.width = '100%'; previewWrap.style.maxWidth = pw + 'px'; previewWrap.style.height = ph + 'px';
+            try{ previewWrap.setAttribute('data-preview-error', 'canvas-unready'); const msg = previewWrap.querySelector('.issuePreviewMsg'); if(msg){ msg.querySelector('.issuePreviewMsgText').textContent = 'Preview not ready — PDF is still rendering or unavailable. Click Retry preview when the PDF has finished loading.'; msg.style.display = 'flex'; }
+            }catch(ignore){}
             return;
           }
           const available = previewWrap.clientWidth || mainCanvas.clientWidth;
