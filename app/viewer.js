@@ -805,11 +805,35 @@ async function showIssueModal(pin){
           previewCanvas.width = Math.max(1, newW);
           previewCanvas.height = Math.max(1, newH);
           const ctx = previewCanvas.getContext('2d');
-          try{ console.debug('[DEBUG] preview draw sizes', { srcW, srcH, previewW: previewCanvas.width, previewH: previewCanvas.height }); ctx.clearRect(0,0,previewCanvas.width, previewCanvas.height); ctx.drawImage(mainCanvas, 0, 0, previewCanvas.width, previewCanvas.height); }catch(e){ console.warn('preview drawImage failed', e); // Draw a clear placeholder with message so it's obvious why the preview is empty
+          // Ensure a small overlay exists for user-visible preview errors / retry
+          let msgEl = previewWrap.querySelector('.issuePreviewMsg');
+          if(!msgEl){
+            msgEl = document.createElement('div');
+            msgEl.className = 'issuePreviewMsg';
+            msgEl.style.position = 'absolute'; msgEl.style.left = '0'; msgEl.style.top = '0'; msgEl.style.right = '0'; msgEl.style.bottom = '0';
+            msgEl.style.display = 'none'; msgEl.style.alignItems = 'center'; msgEl.style.justifyContent = 'center'; msgEl.style.flexDirection = 'column'; msgEl.style.gap = '8px';
+            msgEl.style.pointerEvents = 'auto'; msgEl.style.background = 'linear-gradient(180deg, rgba(11,20,22,0.6), rgba(11,20,22,0.6))';
+            msgEl.style.color = '#9fb3b6'; msgEl.style.fontSize = '13px'; msgEl.style.textAlign = 'center'; msgEl.style.padding = '12px'; msgEl.style.zIndex = 10; msgEl.style.borderRadius = '4px';
+            const text = document.createElement('div'); text.className = 'issuePreviewMsgText'; text.textContent = '';
+            const btn = document.createElement('button'); btn.className = 'btn'; btn.textContent = 'Retry preview'; btn.style.marginTop = '6px';
+            btn.onclick = ()=>{ try{ msgEl.style.display = 'none'; ensurePreview(1); }catch(ignore){} };
+            msgEl.appendChild(text); msgEl.appendChild(btn);
+            previewWrap.appendChild(msgEl);
+          }
+          try{
+            console.debug('[DEBUG] preview draw sizes', { srcW, srcH, previewW: previewCanvas.width, previewH: previewCanvas.height });
+            ctx.clearRect(0,0,previewCanvas.width, previewCanvas.height);
+            ctx.drawImage(mainCanvas, 0, 0, previewCanvas.width, previewCanvas.height);
+            // hide any previous message and clear diagnostic attribute
+            try{ msgEl.style.display = 'none'; previewWrap.removeAttribute('data-preview-error'); }catch(ignore){}
+          }catch(e){
+            console.warn('preview drawImage failed', e); // Draw a clear placeholder with message so it's obvious why the preview is empty
             ctx.fillStyle = '#0b1416'; ctx.fillRect(0,0,previewCanvas.width, previewCanvas.height);
             try{ ctx.fillStyle = '#6b7c80'; ctx.font = '12px sans-serif'; ctx.fillText('Preview unavailable', 10, 20); }catch(err){}
             // expose failure for diagnostics/tests
             try{ previewWrap.setAttribute('data-preview-error', String(e && e.message || 'drawImage failed')); }catch(ignore){}
+            // show a user-visible message and allow retry
+            try{ msgEl.querySelector('.issuePreviewMsgText').textContent = 'Preview unavailable — ' + (e && e.message ? e.message : 'drawImage failed'); msgEl.style.display = 'flex'; }catch(ignore){}
             // Fallback: try to render the PDF page directly into the preview canvas using PDF.js
             (async ()=>{
               try{
@@ -821,9 +845,9 @@ async function showIssueModal(pin){
                   const viewport = page.getViewport({ scale });
                   await page.render({ canvasContext: ctx, viewport }).promise;
                   // clear any error flag if render succeeds
-                  try{ previewWrap.removeAttribute('data-preview-error'); }catch(ignore){}
+                  try{ previewWrap.removeAttribute('data-preview-error'); msgEl.style.display = 'none'; }catch(ignore){}
                 }
-              }catch(err2){ console.warn('preview fallback render failed', err2); }
+              }catch(err2){ console.warn('preview fallback render failed', err2); try{ msgEl.querySelector('.issuePreviewMsgText').textContent = 'Preview fallback failed — ' + (err2 && err2.message || String(err2)); msgEl.style.display='flex'; }catch(ignore){} }
             })(); }
           previewWrap.style.width = '100%'; previewWrap.style.maxWidth = previewWidth + 'px'; previewWrap.style.height = Math.round((mainCanvas.clientHeight || srcH) * scale) + 'px';
 
