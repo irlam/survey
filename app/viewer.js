@@ -805,7 +805,26 @@ async function showIssueModal(pin){
           previewCanvas.width = Math.max(1, newW);
           previewCanvas.height = Math.max(1, newH);
           const ctx = previewCanvas.getContext('2d');
-          try{ ctx.clearRect(0,0,previewCanvas.width, previewCanvas.height); ctx.drawImage(mainCanvas, 0, 0, previewCanvas.width, previewCanvas.height); }catch(e){ console.warn('preview drawImage failed', e); ctx.fillStyle = '#0b1416'; ctx.fillRect(0,0,previewCanvas.width, previewCanvas.height); }
+          try{ console.debug('[DEBUG] preview draw sizes', { srcW, srcH, previewW: previewCanvas.width, previewH: previewCanvas.height }); ctx.clearRect(0,0,previewCanvas.width, previewCanvas.height); ctx.drawImage(mainCanvas, 0, 0, previewCanvas.width, previewCanvas.height); }catch(e){ console.warn('preview drawImage failed', e); // Draw a clear placeholder with message so it's obvious why the preview is empty
+            ctx.fillStyle = '#0b1416'; ctx.fillRect(0,0,previewCanvas.width, previewCanvas.height);
+            try{ ctx.fillStyle = '#6b7c80'; ctx.font = '12px sans-serif'; ctx.fillText('Preview unavailable', 10, 20); }catch(err){}
+            // expose failure for diagnostics/tests
+            try{ previewWrap.setAttribute('data-preview-error', String(e && e.message || 'drawImage failed')); }catch(ignore){}
+            // Fallback: try to render the PDF page directly into the preview canvas using PDF.js
+            (async ()=>{
+              try{
+                if(window.pdfDoc && typeof window.pdfDoc.getPage === 'function'){
+                  const pageNum = (pin && pin.page) ? Number(pin.page) : currentPage || 1;
+                  const page = await window.pdfDoc.getPage(pageNum);
+                  const unscaled = page.getViewport({ scale: 1 });
+                  const scale = previewCanvas.width / Math.max(1, unscaled.width);
+                  const viewport = page.getViewport({ scale });
+                  await page.render({ canvasContext: ctx, viewport }).promise;
+                  // clear any error flag if render succeeds
+                  try{ previewWrap.removeAttribute('data-preview-error'); }catch(ignore){}
+                }
+              }catch(err2){ console.warn('preview fallback render failed', err2); }
+            })(); }
           previewWrap.style.width = '100%'; previewWrap.style.maxWidth = previewWidth + 'px'; previewWrap.style.height = Math.round((mainCanvas.clientHeight || srcH) * scale) + 'px';
 
           // instantiate PinDraggable after ensuring canvas is sized
