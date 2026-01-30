@@ -360,10 +360,12 @@ async function showIssueModal(pin){
           }
           const available = previewWrap.clientWidth || mainCanvas.clientWidth;
           const previewWidth = Math.min(420, Math.max(1, available));
+          const HEIGHT_MULT = 1.20; // make preview a bit taller
           const scale = previewWidth / mainCanvas.clientWidth;
           previewCanvas.width = Math.floor(mainCanvas.width * scale);
-          previewCanvas.height = Math.floor(mainCanvas.height * scale);
+          previewCanvas.height = Math.floor(mainCanvas.height * scale * HEIGHT_MULT);
           const ctx = previewCanvas.getContext('2d');
+          console.debug('[DEBUG] preview bitmap sizes (with HEIGHT_MULT)', { bitmapW: previewCanvas.width, bitmapH: previewCanvas.height, HEIGHT_MULT });
           // Ensure a small overlay exists for user-visible preview errors / retry
           let msgEl = previewWrap.querySelector('.issuePreviewMsg');
           if(!msgEl){
@@ -380,7 +382,7 @@ async function showIssueModal(pin){
             previewWrap.appendChild(msgEl);
           }
           try{ console.debug('[DEBUG] preview draw sizes', { srcW, srcH, previewW: previewCanvas.width, previewH: previewCanvas.height }); ctx.clearRect(0,0,previewCanvas.width, previewCanvas.height); ctx.drawImage(mainCanvas, 0, 0, previewCanvas.width, previewCanvas.height); try{ msgEl.style.display = 'none'; previewWrap.removeAttribute('data-preview-error'); }catch(ignore){} }catch(e){ console.warn('preview drawImage failed', e); ctx.fillStyle = '#0b1416'; ctx.fillRect(0,0,previewCanvas.width, previewCanvas.height); try{ ctx.fillStyle = '#6b7c80'; ctx.font = '12px sans-serif'; ctx.fillText('Preview unavailable', 10, 20); }catch(err){} try{ previewWrap.setAttribute('data-preview-error', String(e && e.message || 'drawImage failed')); }catch(ignore){} try{ msgEl.querySelector('.issuePreviewMsgText').textContent = 'Preview unavailable — ' + (e && e.message ? e.message : 'drawImage failed'); msgEl.style.display = 'flex'; }catch(ignore){} (async ()=>{ try{ if(window.pdfDoc && typeof window.pdfDoc.getPage === 'function'){ const pageNum = (pin && pin.page) ? Number(pin.page) : currentPage || 1; const page = await window.pdfDoc.getPage(pageNum); const unscaled = page.getViewport({ scale: 1 }); const scale = previewCanvas.width / Math.max(1, unscaled.width); const viewport = page.getViewport({ scale }); await page.render({ canvasContext: ctx, viewport }).promise; try{ previewWrap.removeAttribute('data-preview-error'); msgEl.style.display = 'none'; }catch(ignore){} } }catch(err2){ console.warn('preview fallback render failed', err2); try{ msgEl.querySelector('.issuePreviewMsgText').textContent = 'Preview fallback failed — ' + (err2 && err2.message || String(err2)); msgEl.style.display='flex'; }catch(ignore){} } })(); }
-          const cssHeight = Math.round(mainCanvas.clientHeight * scale);
+          const cssHeight = Math.round(mainCanvas.clientHeight * scale * HEIGHT_MULT);
           previewWrap.style.width = '100%'; previewWrap.style.maxWidth = previewWidth + 'px'; previewWrap.style.height = cssHeight + 'px';
           try{ previewCanvas.style.width = previewWidth + 'px'; previewCanvas.style.height = cssHeight + 'px'; console.debug('[DEBUG] preview CSS sizes set', { previewWidth, cssHeight, canvasBitmapW: previewCanvas.width, canvasBitmapH: previewCanvas.height }); }catch(ignore){}
         };

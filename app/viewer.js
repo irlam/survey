@@ -812,12 +812,15 @@ async function showIssueModal(pin){
           // prefer the preview container width (fluid on small screens)
           const available = previewWrap.clientWidth || srcW;
           const previewWidth = Math.min(420, Math.max(1, available));
+          const HEIGHT_MULT = 1.20; // make preview a bit taller to avoid looking squashed
           const scale = previewWidth / srcW;
           const newW = Math.floor(srcW * scale);
-          const newH = Math.floor(srcH * scale);
+          const newH = Math.floor(srcH * scale * HEIGHT_MULT);
           previewCanvas.width = Math.max(1, newW);
+          // set bitmap height a bit larger so visual area is taller (matches CSS height below)
           previewCanvas.height = Math.max(1, newH);
           const ctx = previewCanvas.getContext('2d');
+          console.debug('[DEBUG] preview bitmap sizes (with HEIGHT_MULT)', { newW, newH, HEIGHT_MULT });
           // Ensure a small overlay exists for user-visible preview errors / retry
           let msgEl = previewWrap.querySelector('.issuePreviewMsg');
           if(!msgEl){
@@ -865,9 +868,9 @@ async function showIssueModal(pin){
                 }
               }catch(err2){ console.warn('preview fallback render failed', err2); try{ msgEl.querySelector('.issuePreviewMsgText').textContent = 'Preview fallback failed — ' + (err2 && err2.message || String(err2)); msgEl.style.display='flex'; }catch(ignore){} }
             })(); }
-          const cssHeight = Math.round((mainCanvas.clientHeight || srcH) * scale);
+          const cssHeight = Math.round((mainCanvas.clientHeight || srcH) * scale * HEIGHT_MULT);
           previewWrap.style.width = '100%'; previewWrap.style.maxWidth = previewWidth + 'px'; previewWrap.style.height = cssHeight + 'px';
-          // Ensure canvas CSS size matches wrapper to avoid cropping (bitmap size already set above)
+          // Ensure canvas CSS size matches wrapper to avoid cropping
           try{ previewCanvas.style.width = previewWidth + 'px'; previewCanvas.style.height = cssHeight + 'px'; console.debug('[DEBUG] preview CSS sizes set', { previewWidth, cssHeight, canvasBitmapW: previewCanvas.width, canvasBitmapH: previewCanvas.height }); }catch(ignore){}
 
           // instantiate PinDraggable after ensuring canvas is sized
