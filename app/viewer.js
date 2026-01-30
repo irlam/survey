@@ -792,6 +792,35 @@ async function showIssueModal(pin){
         const mainCanvas = document.getElementById('pdfCanvas'); if(!mainCanvas) return;
         // shared state for preview instance (pd may be created only in add mode)
         let pd = null;
+        // place a preview pin overlay inside previewWrap (static fallback when PinDraggable is unavailable)
+        function placePreviewPin(){
+          try{
+            const existing = previewWrap.querySelector('.preview-pin'); if(existing) existing.remove();
+            const w = previewWrap.clientWidth || previewCanvas.clientWidth || previewCanvas.width || 0;
+            const h = previewWrap.clientHeight || previewCanvas.clientHeight || previewCanvas.height || 0;
+            if(!w || !h) return;
+            const el = document.createElement('div'); el.className = 'pin preview-pin'; el.title = pin.title || '';
+            const left = (pin.x_norm !== undefined ? (pin.x_norm * w) : (0.5 * w));
+            const top = (pin.y_norm !== undefined ? (pin.y_norm * h) : (0.5 * h));
+            el.style.left = left + 'px'; el.style.top = top + 'px';
+            const labelText = String(pin.id || pin.label || pin.title || '!');
+            const fontSize = labelText.length <= 2 ? 12 : (labelText.length === 3 ? 10 : 9);
+            if(_pinSvgText){ try{ const parser = new DOMParser(); const doc = parser.parseFromString(_pinSvgText, 'image/svg+xml'); const svgEl = doc.querySelector('svg'); if(svgEl){ const node = document.importNode(svgEl, true); const txt = node.querySelector('.pin-number'); if(txt){ txt.textContent = labelText; txt.setAttribute('font-size', String(fontSize)); } el.appendChild(node); } else { el.innerHTML = `<svg viewBox="0 0 64 80" width="56" height="72"><circle cx="32" cy="20" r="16" fill="#e12b2b"/><path d="M32 36 C24 48, 16 60, 32 76 C48 60, 40 48, 32 36 Z" fill="#e12b2b"/><text x="32" y="20" text-anchor="middle" dominant-baseline="central" fill="#000" font-weight="900" font-size="${fontSize}">${labelText}</text></svg>`; } }catch(e){ console.warn('preview pin SVG parse failed', e); el.innerHTML = `<svg viewBox="0 0 64 80" width="56" height="72"><circle cx="32" cy="20" r="16" fill="#e12b2b"/><path d="M32 36 C24 48, 16 60, 32 76 C48 60, 40 48, 32 36 Z" fill="#e12b2b"/><text x="32" y="20" text-anchor="middle" dominant-baseline="central" fill="#000" font-weight="900" font-size="${fontSize}">${labelText}</text></svg>`; }
+            // when user nudges via keyboard controls, keep preview pin in sync by updating attributes
+            previewWrap.appendChild(el);
+            // if add mode is active, make preview pin draggable (simple pointer drag that updates pin.x_norm / y_norm)
+            if(addIssueMode){
+              el.style.cursor='grab'; el.style.touchAction='none';
+              let dragging=false, moved=false;
+              function onDown(ev){ ev.preventDefault(); try{ el.setPointerCapture(ev.pointerId); }catch(ignore){} dragging=true; el.style.cursor='grabbing'; window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp); }
+              function onMove(ev){ if(!dragging) return; moved=true; const r = previewWrap.getBoundingClientRect(); const x = ev.clientX - r.left; const y = ev.clientY - r.top; const nx = Math.max(0, Math.min(1, x / r.width)); const ny = Math.max(0, Math.min(1, y / r.height)); pin.x_norm = nx; pin.y_norm = ny; el.style.left = (nx * r.width) + 'px'; el.style.top = (ny * r.height) + 'px'; const coordEl = modal.querySelector('#issueCoords'); if(coordEl) coordEl.textContent = `x:${nx.toFixed(2)} y:${ny.toFixed(2)}`; }
+              function onUp(ev){ try{ el.releasePointerCapture(ev.pointerId); }catch(ignore){} dragging=false; el.style.cursor='grab'; window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); // persist if saved
+                if(pin && pin.id){ const issue = { id: pin.id, plan_id: getPlanIdFromUrl(), page: pin.page, x_norm: pin.x_norm, y_norm: pin.y_norm }; apiSaveIssue(issue).then(()=>{ localShowToast('Pin saved'); reloadDbPins(); renderPage(currentPage); }).catch(()=>{}); }
+              }
+              el.addEventListener('pointerdown', onDown);
+            }
+          }catch(e){ console.warn('placePreviewPin failed', e); }
+        }
         const ensurePreview = (attemptsLeft = 6) => {
           // prefer the canvas's actual pixel size (width/height). Sometimes CSS clientWidth is set
           // while the internal bitmap is not yet ready (width === 0), which caused drawImage to fail.
@@ -842,6 +871,7 @@ async function showIssueModal(pin){
             ctx.drawImage(mainCanvas, 0, 0, previewCanvas.width, previewCanvas.height);
             // hide any previous message and clear diagnostic attribute
             try{ msgEl.style.display = 'none'; previewWrap.removeAttribute('data-preview-error'); }catch(ignore){}
+            try{ placePreviewPin(); }catch(ignore){}
           }catch(e){
             console.warn('preview drawImage failed', e); // Draw a clear placeholder with message so it's obvious why the preview is empty
             ctx.fillStyle = '#0b1416'; ctx.fillRect(0,0,previewCanvas.width, previewCanvas.height);
@@ -862,6 +892,8 @@ async function showIssueModal(pin){
                   await page.render({ canvasContext: ctx, viewport }).promise;
                   // clear any error flag if render succeeds
                   try{ previewWrap.removeAttribute('data-preview-error'); msgEl.style.display = 'none'; }catch(ignore){}
+                  // ensure preview pin overlays after fallback render
+                  try{ placePreviewPin(); }catch(ignore){}
                 } else {
                   // If PDF.js not available here, surface a hint to the user
                   try{ msgEl.querySelector('.issuePreviewMsgText').textContent = 'Preview fallback unavailable — PDF not loaded'; msgEl.style.display='flex'; }catch(ignore){}
