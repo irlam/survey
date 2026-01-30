@@ -782,9 +782,12 @@ async function showIssueModal(pin){
         // shared state for preview instance
         let pd = null;
         const ensurePreview = (attemptsLeft = 6) => {
-          const mw = mainCanvas.clientWidth || mainCanvas.width || 0;
-          if (mw < 20 && attemptsLeft > 0) { setTimeout(()=> ensurePreview(attemptsLeft - 1), 200); return; }
-          if (mw < 20) {
+          // prefer the canvas's actual pixel size (width/height). Sometimes CSS clientWidth is set
+          // while the internal bitmap is not yet ready (width === 0), which caused drawImage to fail.
+          const srcW = mainCanvas.width || mainCanvas.clientWidth || 0;
+          const srcH = mainCanvas.height || mainCanvas.clientHeight || 0;
+          if ((srcW < 20 || srcH < 20) && attemptsLeft > 0) { setTimeout(()=> ensurePreview(attemptsLeft - 1), 200); return; }
+          if (srcW < 20 || srcH < 20) {
             // placeholder when preview can't be rendered
             const ctx = previewCanvas.getContext('2d'); const pw = 420; const ph = 260;
             previewCanvas.width = pw; previewCanvas.height = ph;
@@ -794,16 +797,16 @@ async function showIssueModal(pin){
             return;
           }
           // prefer the preview container width (fluid on small screens)
-          const available = previewWrap.clientWidth || mainCanvas.clientWidth;
+          const available = previewWrap.clientWidth || srcW;
           const previewWidth = Math.min(420, Math.max(1, available));
-          const scale = previewWidth / mainCanvas.clientWidth;
-          const newW = Math.floor(mainCanvas.width * scale);
-          const newH = Math.floor(mainCanvas.height * scale);
+          const scale = previewWidth / srcW;
+          const newW = Math.floor(srcW * scale);
+          const newH = Math.floor(srcH * scale);
           previewCanvas.width = Math.max(1, newW);
           previewCanvas.height = Math.max(1, newH);
           const ctx = previewCanvas.getContext('2d');
           try{ ctx.clearRect(0,0,previewCanvas.width, previewCanvas.height); ctx.drawImage(mainCanvas, 0, 0, previewCanvas.width, previewCanvas.height); }catch(e){ console.warn('preview drawImage failed', e); ctx.fillStyle = '#0b1416'; ctx.fillRect(0,0,previewCanvas.width, previewCanvas.height); }
-          previewWrap.style.width = '100%'; previewWrap.style.maxWidth = previewWidth + 'px'; previewWrap.style.height = Math.round(mainCanvas.clientHeight * scale) + 'px';
+          previewWrap.style.width = '100%'; previewWrap.style.maxWidth = previewWidth + 'px'; previewWrap.style.height = Math.round((mainCanvas.clientHeight || srcH) * scale) + 'px';
 
           // instantiate PinDraggable after ensuring canvas is sized
           try{
