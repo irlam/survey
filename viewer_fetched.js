@@ -342,7 +342,7 @@ async function showIssueModal(pin){
         if(!window.PinDraggable){ await new Promise((resolve,reject)=>{
           const s = document.createElement('script'); s.src = '/app/pin-draggable.js'; s.onload = resolve; s.onerror = ()=>{ console.warn('Failed to load pin-draggable.js'); resolve(); }; document.head.appendChild(s);
         }); }
-        if(!window.PinDraggable) return; // library missing
+        // note: preview snapshot should render even when not in addIssueMode; PinDraggable will only be initialized when add mode is active
         const previewWrap = modal.querySelector('#issuePreviewWrap'); const previewCanvas = modal.querySelector('#issuePreviewCanvas'); const previewOverlay = modal.querySelector('#issuePreviewOverlay'); if(!previewWrap || !previewCanvas) return;
         // render a scaled snapshot of the current viewer canvas into previewCanvas
         const mainCanvas = document.getElementById('pdfCanvas'); if(!mainCanvas) return;

@@ -769,17 +769,12 @@ async function showIssueModal(pin){
     // Setup PinDraggable preview if Add Issue Mode is active and feature enabled
     (async ()=>{
       try{
-        if(!addIssueMode) return; // only enable during add-issue workflow
-        if(window.FEATURE_PIN_DRAG === false) return; // respect opt-out flag if provided
-        // attempt to load PinDraggable lib if not present
-        if(!window.PinDraggable){ await new Promise((resolve,reject)=>{
-          const s = document.createElement('script'); s.src = '/app/pin-draggable.js'; s.onload = resolve; s.onerror = ()=>{ console.warn('Failed to load pin-draggable.js'); resolve(); }; document.head.appendChild(s);
-        }); }
-        if(!window.PinDraggable) return; // library missing
+        // Always render a static snapshot for preview; only initialize PinDraggable when in add-issue workflow
+        if(window.FEATURE_PIN_DRAG === false) console.debug('[DEBUG] Pin draggable feature disabled; preview will be static');
         const previewWrap = modal.querySelector('#issuePreviewWrap'); const previewCanvas = modal.querySelector('#issuePreviewCanvas'); const previewOverlay = modal.querySelector('#issuePreviewOverlay'); if(!previewWrap || !previewCanvas) return;
         // render a scaled snapshot of the current viewer canvas into previewCanvas (retry if layout not ready)
         const mainCanvas = document.getElementById('pdfCanvas'); if(!mainCanvas) return;
-        // shared state for preview instance
+        // shared state for preview instance (pd may be created only in add mode)
         let pd = null;
         const ensurePreview = (attemptsLeft = 6) => {
           // prefer the canvas's actual pixel size (width/height). Sometimes CSS clientWidth is set
@@ -848,6 +843,9 @@ async function showIssueModal(pin){
                   await page.render({ canvasContext: ctx, viewport }).promise;
                   // clear any error flag if render succeeds
                   try{ previewWrap.removeAttribute('data-preview-error'); msgEl.style.display = 'none'; }catch(ignore){}
+                } else {
+                  // If PDF.js not available here, surface a hint to the user
+                  try{ msgEl.querySelector('.issuePreviewMsgText').textContent = 'Preview fallback unavailable — PDF not loaded'; msgEl.style.display='flex'; }catch(ignore){}
                 }
               }catch(err2){ console.warn('preview fallback render failed', err2); try{ msgEl.querySelector('.issuePreviewMsgText').textContent = 'Preview fallback failed — ' + (err2 && err2.message || String(err2)); msgEl.style.display='flex'; }catch(ignore){} }
             })(); }
