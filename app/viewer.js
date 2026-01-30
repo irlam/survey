@@ -350,7 +350,7 @@ async function showIssueModal(pin){
           <!-- Moved: Preview block now under Assignee; enlarged and annotated -->
           <div id="issuePreview" style="margin-top:8px;">
             <div style="font-size:13px;margin-bottom:6px;display:flex;align-items:center;gap:8px;"><strong>Preview</strong><button id="issueAnnotToggleBtn" class="btn" style="padding:4px 8px;font-size:12px;">Annotate</button></div>
-            <div id="issuePreviewWrap" style="width:100%;max-width:420px;border:1px solid rgba(255,255,255,.06);position:relative;overflow:hidden;background:#111;">
+            <div id="issuePreviewWrap" style="width:100%;max-width:none;border:1px solid rgba(255,255,255,.06);position:relative;overflow:hidden;background:#111;">
               <canvas id="issuePreviewCanvas" style="display:block;width:100%;height:auto;background:#0b1416;"></canvas>
               <div id="issuePreviewOverlay" style="position:absolute;left:0;top:0;right:0;bottom:0;background:transparent;pointer-events:none;"></div>
             </div>
@@ -832,18 +832,18 @@ async function showIssueModal(pin){
           if ((srcW < 20 || srcH < 20) && attemptsLeft > 0) { console.debug('[DEBUG] preview deferred: main canvas internal bitmap not ready, retrying', { attemptsLeft, srcW, srcH, clientW: mainCanvas.clientWidth, clientH: mainCanvas.clientHeight }); setTimeout(()=> ensurePreview(attemptsLeft - 1), 200); return; }
           if (srcW < 20 || srcH < 20) {
             // placeholder when preview can't be rendered; surface a helpful UI message and set diagnostic attribute
-            const ctx = previewCanvas.getContext('2d'); const pw = 420; const ph = 260;
+            const ctx = previewCanvas.getContext('2d'); const pw = previewWrap.clientWidth || 420; const ph = 260;
             previewCanvas.width = pw; previewCanvas.height = ph;
             ctx.fillStyle = '#0b1416'; ctx.fillRect(0,0,pw,ph);
             try{ ctx.fillStyle = '#6b7c80'; ctx.font = '12px sans-serif'; ctx.fillText('Preview not ready — PDF rendering', 10, 20); }catch(ignore){}
-            previewWrap.style.width = '100%'; previewWrap.style.maxWidth = pw + 'px'; previewWrap.style.height = ph + 'px';
+            previewWrap.style.width = '100%'; previewWrap.style.maxWidth = 'none'; previewWrap.style.height = ph + 'px';
             try{ previewWrap.setAttribute('data-preview-error', 'canvas-unready'); const msg = previewWrap.querySelector('.issuePreviewMsg'); if(msg){ msg.querySelector('.issuePreviewMsgText').textContent = 'Preview not ready — PDF is still rendering or unavailable. Click Retry preview when the PDF has finished loading.'; msg.style.display = 'flex'; }
             }catch(ignore){}
             return;
           }
           // prefer the preview container width (fluid on small screens)
           const available = previewWrap.clientWidth || srcW;
-          const previewWidth = Math.min(420, Math.max(1, available));
+          const previewWidth = Math.max(1, available);
           const HEIGHT_MULT = 1.20; // make preview a bit taller to avoid looking squashed
           const scale = previewWidth / srcW;
           const newW = Math.floor(srcW * scale);
@@ -904,7 +904,7 @@ async function showIssueModal(pin){
               }catch(err2){ console.warn('preview fallback render failed', err2); try{ msgEl.querySelector('.issuePreviewMsgText').textContent = 'Preview fallback failed — ' + (err2 && err2.message || String(err2)); msgEl.style.display='flex'; }catch(ignore){} }
             })(); }
           const cssHeight = Math.round((mainCanvas.clientHeight || srcH) * scale * HEIGHT_MULT);
-          previewWrap.style.width = '100%'; previewWrap.style.maxWidth = previewWidth + 'px'; previewWrap.style.height = cssHeight + 'px';
+          previewWrap.style.width = '100%'; previewWrap.style.maxWidth = 'none'; previewWrap.style.height = cssHeight + 'px';
           // Ensure canvas CSS size matches wrapper to avoid cropping
           try{ previewCanvas.style.width = previewWidth + 'px'; previewCanvas.style.height = cssHeight + 'px'; console.debug('[DEBUG] preview CSS sizes set', { previewWidth, cssHeight, canvasBitmapW: previewCanvas.width, canvasBitmapH: previewCanvas.height }); }catch(ignore){}
 

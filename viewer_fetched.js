@@ -241,7 +241,7 @@ async function showIssueModal(pin){
           <!-- Moved preview: under assignee -->
           <div id="issuePreview" style="margin-top:8px;">
             <div style="font-size:13px;margin-bottom:6px;display:flex;align-items:center;gap:8px;"><strong>Preview</strong><button id="issueAnnotToggleBtn" class="btn" style="padding:4px 8px;font-size:12px;">Annotate</button></div>
-            <div id="issuePreviewWrap" style="width:100%;max-width:420px;border:1px solid rgba(255,255,255,.06);position:relative;overflow:hidden;background:#111;">
+            <div id="issuePreviewWrap" style="width:100%;max-width:none;border:1px solid rgba(255,255,255,.06);position:relative;overflow:hidden;background:#111;">
               <canvas id="issuePreviewCanvas" style="display:block;width:100%;height:auto;background:#0b1416;"></canvas>
               <div id="issuePreviewOverlay" style="position:absolute;left:0;top:0;right:0;bottom:0;background:transparent;pointer-events:none;"></div>
             </div>
@@ -351,17 +351,17 @@ async function showIssueModal(pin){
         const ensurePreview = () => {
           const mw = mainCanvas.clientWidth || mainCanvas.width || 0;
           if (mw < 20) {
-            const ctx = previewCanvas.getContext('2d'); const pw = 420; const ph = 260;
+            const ctx = previewCanvas.getContext('2d'); const pw = previewWrap.clientWidth || 420; const ph = 260;
             previewCanvas.width = pw; previewCanvas.height = ph;
             ctx.fillStyle = '#0b1416'; ctx.fillRect(0,0,pw,ph);
             try{ ctx.fillStyle = '#6b7c80'; ctx.font = '12px sans-serif'; ctx.fillText('Preview not ready — PDF rendering', 10, 20); }catch(ignore){}
-            previewWrap.style.width = '100%'; previewWrap.style.maxWidth = pw + 'px'; previewWrap.style.height = ph + 'px';
+            previewWrap.style.width = '100%'; previewWrap.style.maxWidth = 'none'; previewWrap.style.height = ph + 'px';
             try{ previewWrap.setAttribute('data-preview-error', 'canvas-unready'); const msg = previewWrap.querySelector('.issuePreviewMsg'); if(msg){ msg.querySelector('.issuePreviewMsgText').textContent = 'Preview not ready — PDF is still rendering or unavailable. Click Retry preview when the PDF has finished loading.'; msg.style.display = 'flex'; }
             }catch(ignore){}
             return;
           }
           const available = previewWrap.clientWidth || mainCanvas.clientWidth;
-          const previewWidth = Math.min(420, Math.max(1, available));
+          const previewWidth = Math.max(1, available);
           const HEIGHT_MULT = 1.20; // make preview a bit taller
           const scale = previewWidth / mainCanvas.clientWidth;
           previewCanvas.width = Math.floor(mainCanvas.width * scale);
@@ -385,7 +385,7 @@ async function showIssueModal(pin){
           }
           try{ console.debug('[DEBUG] preview draw sizes', { srcW, srcH, previewW: previewCanvas.width, previewH: previewCanvas.height }); ctx.clearRect(0,0,previewCanvas.width, previewCanvas.height); ctx.drawImage(mainCanvas, 0, 0, previewCanvas.width, previewCanvas.height); try{ msgEl.style.display = 'none'; previewWrap.removeAttribute('data-preview-error'); }catch(ignore){} try{ placePreviewPin(); }catch(ignore){} }catch(e){ console.warn('preview drawImage failed', e); ctx.fillStyle = '#0b1416'; ctx.fillRect(0,0,previewCanvas.width, previewCanvas.height); try{ ctx.fillStyle = '#6b7c80'; ctx.font = '12px sans-serif'; ctx.fillText('Preview unavailable', 10, 20); }catch(err){} try{ previewWrap.setAttribute('data-preview-error', String(e && e.message || 'drawImage failed')); }catch(ignore){} try{ msgEl.querySelector('.issuePreviewMsgText').textContent = 'Preview unavailable — ' + (e && e.message ? e.message : 'drawImage failed'); msgEl.style.display = 'flex'; }catch(ignore){} (async ()=>{ try{ if(window.pdfDoc && typeof window.pdfDoc.getPage === 'function'){ const pageNum = (pin && pin.page) ? Number(pin.page) : currentPage || 1; const page = await window.pdfDoc.getPage(pageNum); const unscaled = page.getViewport({ scale: 1 }); const scale = previewCanvas.width / Math.max(1, unscaled.width); const viewport = page.getViewport({ scale }); await page.render({ canvasContext: ctx, viewport }).promise; try{ previewWrap.removeAttribute('data-preview-error'); msgEl.style.display = 'none'; }catch(ignore){} try{ placePreviewPin(); }catch(ignore){} } }catch(err2){ console.warn('preview fallback render failed', err2); try{ msgEl.querySelector('.issuePreviewMsgText').textContent = 'Preview fallback failed — ' + (err2 && err2.message || String(err2)); msgEl.style.display='flex'; }catch(ignore){} } })(); }
           const cssHeight = Math.round(mainCanvas.clientHeight * scale * HEIGHT_MULT);
-          previewWrap.style.width = '100%'; previewWrap.style.maxWidth = previewWidth + 'px'; previewWrap.style.height = cssHeight + 'px';
+          previewWrap.style.width = '100%'; previewWrap.style.maxWidth = 'none'; previewWrap.style.height = cssHeight + 'px';
           try{ previewCanvas.style.width = previewWidth + 'px'; previewCanvas.style.height = cssHeight + 'px'; console.debug('[DEBUG] preview CSS sizes set', { previewWidth, cssHeight, canvasBitmapW: previewCanvas.width, canvasBitmapH: previewCanvas.height }); }catch(ignore){}
         };
         ensurePreview();
