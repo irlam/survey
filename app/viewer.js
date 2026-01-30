@@ -834,11 +834,12 @@ async function showIssueModal(pin){
           }catch(e){ console.warn('placePreviewPin failed', e); }
         }
         const ensurePreview = (attemptsLeft = 6) => {
-          // prefer the canvas's actual pixel size (width/height). Sometimes CSS clientWidth is set
-          // while the internal bitmap is not yet ready (width === 0), which caused drawImage to fail.
-          const srcW = mainCanvas.width || mainCanvas.clientWidth || 0;
-          const srcH = mainCanvas.height || mainCanvas.clientHeight || 0;
-          if ((srcW < 20 || srcH < 20) && attemptsLeft > 0) { console.debug('[DEBUG] preview deferred: main canvas internal bitmap not ready, retrying', { attemptsLeft, srcW, srcH, clientW: mainCanvas.clientWidth, clientH: mainCanvas.clientHeight }); setTimeout(()=> ensurePreview(attemptsLeft - 1), 200); return; }
+          // Prefer the canvas' displayed CSS size (clientWidth/clientHeight) so the preview matches
+          // exactly what the user sees in the main viewer. Using the internal bitmap size caused
+          // mismatches (devicePixelRatio) and the old HEIGHT_MULT distorted vertical scale.
+          const srcW = mainCanvas.clientWidth || mainCanvas.width || 0;
+          const srcH = mainCanvas.clientHeight || mainCanvas.height || 0;
+          if ((srcW < 20 || srcH < 20) && attemptsLeft > 0) { console.debug('[DEBUG] preview deferred: main canvas not ready, retrying', { attemptsLeft, srcW, srcH, clientW: mainCanvas.clientWidth, clientH: mainCanvas.clientHeight }); setTimeout(()=> ensurePreview(attemptsLeft - 1), 200); return; }
           if (srcW < 20 || srcH < 20) {
             // placeholder when preview can't be rendered; surface a helpful UI message and set diagnostic attribute
             const ctx = previewCanvas.getContext('2d'); const pw = previewWrap.clientWidth || 420; const ph = 260;
@@ -853,12 +854,12 @@ async function showIssueModal(pin){
           // prefer the preview container width (fluid on small screens)
           const available = previewWrap.clientWidth || srcW;
           const previewWidth = Math.max(1, available);
-          const HEIGHT_MULT = 1.20; // make preview a bit taller to avoid looking squashed
+          const HEIGHT_MULT = 1.0; // preserve aspect ratio (do not artificially stretch)
           const scale = previewWidth / srcW;
           const newW = Math.floor(srcW * scale);
           const newH = Math.floor(srcH * scale * HEIGHT_MULT);
           previewCanvas.width = Math.max(1, newW);
-          // set bitmap height a bit larger so visual area is taller (matches CSS height below)
+          // set bitmap height to match aspect ratio
           previewCanvas.height = Math.max(1, newH);
           const ctx = previewCanvas.getContext('2d');
           console.debug('[DEBUG] preview bitmap sizes (with HEIGHT_MULT)', { newW, newH, HEIGHT_MULT });
