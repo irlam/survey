@@ -412,6 +412,22 @@ async function showIssueModal(pin){
   }
     modal.style.display = 'block';
 
+    // Normalize pin coordinates to numbers to avoid TypeErrors (e.g., when values are strings from the API)
+    try{
+      if(pin){
+        pin.x_norm = (pin.x_norm !== undefined && pin.x_norm !== null) ? Number(pin.x_norm) : 0.5;
+        pin.y_norm = (pin.y_norm !== undefined && pin.y_norm !== null) ? Number(pin.y_norm) : 0.5;
+        if(!isFinite(pin.x_norm)) pin.x_norm = 0.5;
+        if(!isFinite(pin.y_norm)) pin.y_norm = 0.5;
+        // ensure page is numeric when present
+        if(pin.page !== undefined && pin.page !== null) {
+          const pn = Number(pin.page);
+          if(isFinite(pn)) pin.page = pn;
+        }
+      }
+    }catch(ignore){}
+
+
     // --- Annotation canvas: enable touch/pointer drawing on the preview area ---
     function ensureAnnotCanvas(){
       const wrap = modal.querySelector('#issuePreviewWrap'); if(!wrap) return;
