@@ -865,7 +865,10 @@ async function showIssueModal(pin){
                 }
               }catch(err2){ console.warn('preview fallback render failed', err2); try{ msgEl.querySelector('.issuePreviewMsgText').textContent = 'Preview fallback failed — ' + (err2 && err2.message || String(err2)); msgEl.style.display='flex'; }catch(ignore){} }
             })(); }
-          previewWrap.style.width = '100%'; previewWrap.style.maxWidth = previewWidth + 'px'; previewWrap.style.height = Math.round((mainCanvas.clientHeight || srcH) * scale) + 'px';
+          const cssHeight = Math.round((mainCanvas.clientHeight || srcH) * scale);
+          previewWrap.style.width = '100%'; previewWrap.style.maxWidth = previewWidth + 'px'; previewWrap.style.height = cssHeight + 'px';
+          // Ensure canvas CSS size matches wrapper to avoid cropping (bitmap size already set above)
+          try{ previewCanvas.style.width = previewWidth + 'px'; previewCanvas.style.height = cssHeight + 'px'; console.debug('[DEBUG] preview CSS sizes set', { previewWidth, cssHeight, canvasBitmapW: previewCanvas.width, canvasBitmapH: previewCanvas.height }); }catch(ignore){}
 
           // instantiate PinDraggable after ensuring canvas is sized
           try{
