@@ -456,6 +456,8 @@ async function showIssueModal(pin){
     function clamp01(v){ return Math.max(0, Math.min(1, v)); }
     function applyNudge(dx, dy, source){ const step = Number(modal.querySelector('#nudgeStep')?.value) || 0.005; const nx = clamp01((pin.x_norm || 0) + dx); const ny = clamp01((pin.y_norm || 0) + dy); pin.x_norm = nx; pin.y_norm = ny; const el = modal.querySelector('#issueCoords'); if(el) el.textContent = `x:${nx.toFixed(2)} y:${ny.toFixed(2)}`; // update PinDraggable preview if present
       try{ if(modal._pinDraggable && typeof modal._pinDraggable.setPosition === 'function'){ modal._pinDraggable.setPosition(nx, ny); } }catch(e){}
+      // update static preview pin overlay if present
+      try{ placePreviewPin(); }catch(ignore){}
       // small haptic cue when nudging
       try{ if(navigator && typeof navigator.vibrate === 'function') navigator.vibrate(10); }catch(e){}
       // analytics
