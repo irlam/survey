@@ -451,23 +451,7 @@ async function showIssueModal(pin){
     }
     ensureAnnotCanvas();
 
-    // precision nudge helper — updates pin coords, updates UI, triggers haptic and analytics
-    function clamp01(v){ return Math.max(0, Math.min(1, v)); }
-    function applyNudge(dx, dy, source){ const step = Number(modal.querySelector('#nudgeStep')?.value) || 0.005; const nx = clamp01((pin.x_norm || 0) + dx); const ny = clamp01((pin.y_norm || 0) + dy); pin.x_norm = nx; pin.y_norm = ny; const el = modal.querySelector('#issueCoords'); if(el) el.textContent = `x:${nx.toFixed(2)} y:${ny.toFixed(2)}`; // update PinDraggable preview if present
-      try{ if(modal._pinDraggable && typeof modal._pinDraggable.setPosition === 'function'){ modal._pinDraggable.setPosition(nx, ny); } }catch(e){}
-      // update static preview pin overlay if present
-      try{ placePreviewPin(); }catch(ignore){}
-      // small haptic cue when nudging
-      try{ if(navigator && typeof navigator.vibrate === 'function') navigator.vibrate(10); }catch(e){}
-      // analytics
-      try{ trackEvent('pin_nudge', { dir: source || 'manual', x: nx, y: ny }); }catch(e){}
-    }
-    // keyboard listeners scoped to modal
-    modal._keyHandler = function(ev){ if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(ev.key)){ ev.preventDefault(); const base = Number(modal.querySelector('#nudgeStep')?.value) || 0.005; const step = ev.shiftKey ? base * 4 : base; switch(ev.key){ case 'ArrowUp': applyNudge(0, -step, 'keyboard'); break; case 'ArrowDown': applyNudge(0, step, 'keyboard'); break; case 'ArrowLeft': applyNudge(-step, 0, 'keyboard'); break; case 'ArrowRight': applyNudge(step, 0, 'keyboard'); break; } } else if(ev.key === 'Escape'){ // treat as cancel
-        try{ if(!pin.id) trackEvent('pin_create_cancel', { x: pin.x_norm, y: pin.y_norm, title: modal.querySelector('#issueTitle')?.value || '' }); }catch(e){}
-        modal.style.display='none'; if(modal._clearAnnotations) modal._clearAnnotations(); window.removeEventListener('keydown', modal._keyHandler); }
-    };
-    window.addEventListener('keydown', modal._keyHandler);
+    // precision nudge and keyboard nudge removed
 
     modal.querySelector('#issueTitle').value = pin.title||'';
     modal.querySelector('#issueNotes').value = pin.notes||'';

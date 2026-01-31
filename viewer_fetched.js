@@ -245,7 +245,7 @@ async function showIssueModal(pin){
               <canvas id="issuePreviewCanvas" style="display:block;width:100%;height:auto;background:#0b1416;"></canvas>
               <div id="issuePreviewOverlay" style="position:absolute;left:0;top:0;right:0;bottom:0;background:transparent;pointer-events:none;"></div>
             </div>
-            <div style="font-size:12px;color:var(--muted);margin-top:6px;">Coords: <span id="issueCoords">x:0.00 y:0.00</span></div>
+            <!-- coords display removed -->
           </div>
         </div>
         <div style="width:220px;border-left:1px solid rgba(255,255,255,.04);padding-left:12px;font-size:13px;">
