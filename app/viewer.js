@@ -364,17 +364,7 @@ async function showIssueModal(pin){
               <div id="issuePreviewOverlay" style="position:absolute;left:0;top:0;right:0;bottom:0;background:transparent;pointer-events:none;"></div>
             </div>
             <div style="font-size:12px;color:var(--muted);margin-top:6px;">Coords: <span id="issueCoords">x:0.00 y:0.00</span></div>
-            <div style="margin-top:8px;">
-              <div id="issueNudgeControls" style="display:flex;gap:10px;align-items:center;">
-                <div style="display:grid;grid-template-columns:40px 40px 40px;grid-template-rows:40px 40px;gap:6px;">
-                  <button class="btnNudge btn" data-dir="up" title="Nudge up">▲</button>
-                  <button class="btnNudge btn" data-dir="left" title="Nudge left">◀</button>
-                  <button class="btnNudge btn" data-dir="right" title="Nudge right">▶</button>
-                  <button class="btnNudge btn" data-dir="down" title="Nudge down">▼</button>
-                </div>
-                <label style="font-size:12px;">Step:&nbsp;<input id="nudgeStep" type="number" min="0.001" step="0.001" value="0.005" style="width:70px" /></label>
-              </div>
-            </div>
+
           </div>
         </div>
         <div style="width:320px;border-left:1px solid rgba(255,255,255,.04);padding-left:12px;font-size:13px;">
