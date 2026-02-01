@@ -811,10 +811,12 @@ async function showIssueModal(pin){
           // Prefer the canvas' displayed CSS size (clientWidth/clientHeight) so the preview matches
           // exactly what the user sees in the main viewer. Using the internal bitmap size caused
           // mismatches (devicePixelRatio) and the old HEIGHT_MULT distorted vertical scale.
-          const srcW = mainCanvas.clientWidth || mainCanvas.width || 0;
-          const srcH = mainCanvas.clientHeight || mainCanvas.height || 0;
-          if ((srcW < 20 || srcH < 20) && attemptsLeft > 0) { console.debug('[DEBUG] preview deferred: main canvas not ready, retrying', { attemptsLeft, srcW, srcH, clientW: mainCanvas.clientWidth, clientH: mainCanvas.clientHeight }); setTimeout(()=> ensurePreview(attemptsLeft - 1), 200); return; }
-          if (srcW < 20 || srcH < 20) {
+          const cssBaseW = mainCanvas.clientWidth || mainCanvas.width || 0;
+          const cssBaseH = mainCanvas.clientHeight || mainCanvas.height || 0;
+          const deviceW = mainCanvas.width || cssBaseW;
+          const deviceH = mainCanvas.height || cssBaseH;
+          if ((cssBaseW < 20 || cssBaseH < 20) && attemptsLeft > 0) { console.debug('[DEBUG] preview deferred: main canvas not ready, retrying', { attemptsLeft, cssBaseW, cssBaseH, clientW: mainCanvas.clientWidth, clientH: mainCanvas.clientHeight, deviceW, deviceH }); setTimeout(()=> ensurePreview(attemptsLeft - 1), 200); return; }
+          if (cssBaseW < 20 || cssBaseH < 20) {
             // placeholder when preview can't be rendered; surface a helpful UI message and set diagnostic attribute
             const ctx = previewCanvas.getContext('2d'); const pw = previewWrap.clientWidth || 420; const ph = 260;
             previewCanvas.width = pw; previewCanvas.height = ph;
@@ -826,17 +828,17 @@ async function showIssueModal(pin){
             return;
           }
           // prefer the preview container width (fluid on small screens)
-          const available = previewWrap.clientWidth || srcW;
+          const available = previewWrap.clientWidth || cssBaseW;
           const previewWidth = Math.max(1, available);
           const HEIGHT_MULT = 1.0; // preserve aspect ratio (do not artificially stretch)
-          const scale = previewWidth / srcW;
-          const newW = Math.floor(srcW * scale);
-          const newH = Math.floor(srcH * scale * HEIGHT_MULT);
-          previewCanvas.width = Math.max(1, newW);
-          // set bitmap height to match aspect ratio
-          previewCanvas.height = Math.max(1, newH);
+          const cssScale = previewWidth / cssBaseW;
+          const newW = Math.max(1, Math.round(deviceW * cssScale));
+          const newH = Math.max(1, Math.round(deviceH * cssScale * HEIGHT_MULT));
+          // Keep the bitmap at device-pixel resolution so the preview matches main viewer clarity
+          previewCanvas.width = newW;
+          previewCanvas.height = newH;
           const ctx = previewCanvas.getContext('2d');
-          console.debug('[DEBUG] preview bitmap sizes (with HEIGHT_MULT)', { newW, newH, HEIGHT_MULT });
+          console.debug('[DEBUG] preview bitmap sizes (with HEIGHT_MULT)', { bitmapW: previewCanvas.width, bitmapH: previewCanvas.height, cssScale, HEIGHT_MULT, deviceW, deviceH });
           // Ensure a small overlay exists for user-visible preview errors / retry
           let msgEl = previewWrap.querySelector('.issuePreviewMsg');
           if(!msgEl){
@@ -853,7 +855,7 @@ async function showIssueModal(pin){
             previewWrap.appendChild(msgEl);
           }
           try{
-            console.debug('[DEBUG] preview draw sizes', { srcW, srcH, previewW: previewCanvas.width, previewH: previewCanvas.height });
+            console.debug('[DEBUG] preview draw sizes', { cssBaseW, cssBaseH, deviceW, deviceH, previewW: previewCanvas.width, previewH: previewCanvas.height, cssScale });
             ctx.clearRect(0,0,previewCanvas.width, previewCanvas.height);
             ctx.drawImage(mainCanvas, 0, 0, previewCanvas.width, previewCanvas.height);
             // hide any previous message and clear diagnostic attribute
@@ -887,7 +889,7 @@ async function showIssueModal(pin){
                 }
               }catch(err2){ console.warn('preview fallback render failed', err2); try{ msgEl.querySelector('.issuePreviewMsgText').textContent = 'Preview fallback failed — ' + (err2 && err2.message || String(err2)); msgEl.style.display='flex'; }catch(ignore){} }
             })(); }
-          const cssHeight = Math.round((mainCanvas.clientHeight || srcH) * scale * HEIGHT_MULT);
+          const cssHeight = Math.round(cssBaseH * cssScale * HEIGHT_MULT);
           previewWrap.style.width = '100%'; previewWrap.style.maxWidth = 'none'; previewWrap.style.height = cssHeight + 'px';
           // Ensure canvas CSS size matches wrapper to avoid cropping
           try{ previewCanvas.style.width = previewWidth + 'px'; previewCanvas.style.height = cssHeight + 'px'; console.debug('[DEBUG] preview CSS sizes set', { previewWidth, cssHeight, canvasBitmapW: previewCanvas.width, canvasBitmapH: previewCanvas.height }); }catch(ignore){}
