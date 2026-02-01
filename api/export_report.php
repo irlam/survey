@@ -719,8 +719,9 @@ if ($fit_a4) {
             $currentY = 30;
         }
 
-        // Issues summary placed above the photo grid
-        $pdf->Ln(4);
+        // Issues summary placed above the photo grid, starting at left margin below the plan
+        $pdf->SetXY($margin, max($currentY, $pdf->GetY()) + 2);
+        $pdf->Ln(2);
         $pdf->SetFont('Arial','B',11);
         $pdf->Cell(0,6,'Issues Summary',0,1,'L');
         $pdf->SetFont('Arial','',9);
@@ -740,7 +741,7 @@ if ($fit_a4) {
         }
 
         // Arrange grid to fit into remaining area on A4, below the summary
-        $currentY = $pdf->GetY();
+        $currentY = $pdf->GetY() + 2;
         $left = $margin; $right = $pageW - $margin; $bottomY = $pageH - $margin;
         $availH = $bottomY - $currentY;
         $n = count($gridImgs);
