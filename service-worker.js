@@ -1,4 +1,4 @@
-const CACHE_NAME = 'survey-pwa-v5';
+const CACHE_NAME = 'survey-pwa-v6';
 const OFFLINE_URL = '/';
 const ASSETS = [
   '/',
@@ -16,8 +16,8 @@ const ASSETS = [
   '/app/pin-draggable.js',
   '/icons/icon-192-maskable.png',
   '/icons/icon-512-maskable.png',
-  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.js'
+  '/vendor/pdfjs/pdf.min.js',
+  '/vendor/pdfjs/pdf.worker.min.js'
 ];
 
 self.addEventListener('install', (e) => {
