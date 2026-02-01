@@ -1,8 +1,11 @@
-const CACHE_NAME = 'survey-pwa-v4';
+const CACHE_NAME = 'survey-pwa-v5';
+const OFFLINE_URL = '/';
 const ASSETS = [
   '/',
   '/index.html',
-  '/assets/ui.css?v=20260124_1',
+  '/manifest.json',
+  '/assets/ui.css?v=20260125_7',
+  '/assets/ui-icons.svg',
   '/app/app.js?v=20260121_2',
   '/app/router.js',
   '/app/viewer.js?v=20260128_3',
@@ -10,19 +13,66 @@ const ASSETS = [
   '/app/idb.js',
   '/app/sync.js',
   '/app/overlay.js',
-  '/assets/ui-icons.svg',
+  '/app/pin-draggable.js',
+  '/icons/icon-192-maskable.png',
+  '/icons/icon-512-maskable.png',
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.js'
 ];
-self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS)));
+
+self.addEventListener('install', (e) => {
+  self.skipWaiting();
+  e.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)));
 });
-self.addEventListener('activate', e => {
-  e.waitUntil(self.clients.claim());
+
+self.addEventListener('activate', (e) => {
+  e.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)));
+    await self.clients.claim();
+  })());
 });
-self.addEventListener('fetch', e => {
+
+self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
-  e.respondWith(
-    caches.match(e.request).then(r => r || fetch(e.request))
-  );
+  const url = new URL(e.request.url);
+
+  // App shell / navigation: serve cached shell when offline.
+  if (e.request.mode === 'navigate') {
+    e.respondWith((async () => {
+      const cache = await caches.open(CACHE_NAME);
+      const cached = await cache.match(OFFLINE_URL);
+      if (cached) return cached;
+      try {
+        const res = await fetch(e.request);
+        cache.put(OFFLINE_URL, res.clone());
+        return res;
+      } catch (_) {
+        return cached || Response.error();
+      }
+    })());
+    return;
+  }
+
+  // Runtime cache for same-origin GET (incl. exports) with network fallback.
+  if (url.origin === self.location.origin) {
+    e.respondWith((async () => {
+      const cache = await caches.open(CACHE_NAME);
+      const cached = await cache.match(e.request);
+      if (cached) return cached;
+      try {
+        const res = await fetch(e.request);
+        if (res && res.status === 200 && res.type === 'basic') {
+          cache.put(e.request, res.clone());
+        }
+        return res;
+      } catch (err) {
+        if (e.request.destination === 'document') {
+          const fallback = await cache.match(OFFLINE_URL);
+          if (fallback) return fallback;
+        }
+        throw err;
+      }
+    })());
+  }
 });
