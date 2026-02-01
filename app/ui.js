@@ -298,7 +298,13 @@ function showIssuesModal(planId) {
     try{
       const data = await apiJson('/api/get_plan.php?plan_id=' + encodeURIComponent(planId));
       const plan = data.plan || {};
-      if (modalTitle) modalTitle.textContent = `Issues for: ${plan.name || ('Plan ' + planId)} (#${planId})`;
+      const planLabel = `${plan.name || ('Plan ' + planId)} (#${planId})`;
+      if (modalTitle) {
+        modalTitle.textContent = `Issues for: ${planLabel}`;
+      }
+      // ensure the trigger button shows text (regression guard)
+      const trigger = document.getElementById('btnViewIssues');
+      if (trigger && !trigger.textContent.trim()) trigger.textContent = 'View Issues';
     }catch(e){ /* ignore */ }
   })();
 

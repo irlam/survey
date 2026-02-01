@@ -704,7 +704,7 @@ async function showIssueModal(pin){
             await reloadDbPins();
             await renderPage(currentPage);
           }catch(e){
-            localShowToast('Error saving issue: '+e.message);
+            localShowToast('Error saving issue: '+(e && e.message ? e.message : e));
             confirmBtn.disabled=false;
             return;
           }
@@ -738,7 +738,7 @@ async function showIssueModal(pin){
     let camInput = modal.querySelector('#issueCameraInput');
     if(!camInput){ camInput = document.createElement('input'); camInput.type='file'; camInput.accept='image/*'; camInput.capture='environment'; camInput.id='issueCameraInput'; camInput.style.display='none'; camInput.onchange = (e)=>{ const f = e.target.files && e.target.files[0]; if(f) handleSelectedFile(f); }; modal.appendChild(camInput); }
     const camBtn = modal.querySelector('#issueTakePhotoBtn');
-    if(camBtn){ camBtn.onclick = ()=>{ camInput.click(); }; }
+    if(camBtn){ camBtn.onclick = ()=>{ camInput.value = ''; camInput.click(); }; }
     await loadPhotoThumbs();
 
     // helper to initialize and set values on customSelect widgets
