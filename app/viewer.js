@@ -777,6 +777,20 @@ async function showIssueModal(pin){
         const mainCanvas = document.getElementById('pdfCanvas'); if(!mainCanvas) return;
         // shared state for preview instance (pd may be created only in add mode)
         let pd = null;
+
+        // load PinDraggable on-demand when add issue mode is active
+        let pinLibReady = false;
+        async function ensurePinLib(){
+          if(!addIssueMode || window.FEATURE_PIN_DRAG === false) return false;
+          if(window.PinDraggable){ pinLibReady = true; return true; }
+          return new Promise((resolve)=>{
+            const s = document.createElement('script'); s.src = '/app/pin-draggable.js';
+            s.onload = ()=>{ pinLibReady = true; resolve(true); };
+            s.onerror = ()=>{ console.warn('Failed to load pin-draggable.js'); resolve(false); };
+            document.head.appendChild(s);
+          });
+        }
+        await ensurePinLib();
         // place a preview pin overlay inside previewWrap (static fallback when PinDraggable is unavailable)
         function placePreviewPin(){
           try{
@@ -897,7 +911,7 @@ async function showIssueModal(pin){
           // instantiate PinDraggable after ensuring canvas is sized
           try{
             console.log('[DEBUG] PinDraggable init pin.x_norm,y_norm =', pin.x_norm, pin.y_norm);
-            const PD = window.PinDraggable && window.PinDraggable.PinDraggable ? window.PinDraggable.PinDraggable : window.PinDraggable;
+            const PD = pinLibReady ? (window.PinDraggable && window.PinDraggable.PinDraggable ? window.PinDraggable.PinDraggable : window.PinDraggable) : null;
             if (PD) {
               pd = new PD({
                 container: previewWrap,
@@ -907,7 +921,7 @@ async function showIssueModal(pin){
                 onSave: (coords)=>{ pin.x_norm = coords.x_norm; pin.y_norm = coords.y_norm; const el = modal.querySelector('#issueCoords'); if(el) el.textContent = `x:${coords.x_norm.toFixed(2)} y:${coords.y_norm.toFixed(2)}`; try{ trackEvent('pin_save_preview', { x: coords.x_norm, y: coords.y_norm }); }catch(e){} }
               });
               modal._pinDraggable = pd;
-            } else {
+            } else if(addIssueMode && window.FEATURE_PIN_DRAG !== false) {
               console.warn('PinDraggable library not available; preview will be static');
             }
           }catch(e){ console.warn('PinDraggable init failed', e); }
