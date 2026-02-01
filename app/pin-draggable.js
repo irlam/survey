@@ -44,7 +44,7 @@ PinDraggable: lightweight module to support dragging a pin overlay on a plan ima
       // simple visual pin (kept minimal to match styles)
       this.pinEl.innerHTML = '<svg viewBox="0 0 64 80" width="28" height="36" aria-hidden="true"><path d="M32 76s20-16.3 20-34A20 20 0 1 0 12 42c0 17.7 20 34 20 34Z" fill="#00ffd0"/></svg>';
 
-      this.container.style.position = this.container.style.position || 'relative';
+      if (!this.container.style.position) this.container.style.position = 'relative';
       this.container.appendChild(this.pinEl);
 
       // bind handlers

@@ -1,3 +1,4 @@
+const { test, expect, describe } = require('@playwright/test');
 const { PinDraggable, pxToNorm, normToPx, clamp01 } = require('../app/pin-draggable');
 
 describe('PinDraggable utils', () => {
