@@ -100,10 +100,14 @@
   #pageInput{ width:80px; }
   /* layout for larger viewer with right-side controls */
   .annotLayout{ display:flex; gap:18px; align-items:flex-start; }
-  .viewerCol{ flex:1 1 auto; }
-  .controlsCol{ width:320px; display:flex; flex-direction:column; align-items:flex-end; gap:12px; }
-  .controlsCol .btn, .controlsCol .btnPrimary{ min-width:120px }
-  @media (max-width:900px){ .annotLayout{ flex-direction:column; } .controlsCol{ width:100%; align-items:flex-start } }
+  .viewerCol{ flex:1 1 auto; min-width:0; }
+  .controlsCol{ width:240px; display:flex; flex-direction:column; align-items:stretch; gap:12px; }
+  .controlsCol .btn, .controlsCol .btnPrimary{ width:100%; min-width:0; }
+  .controlBlock{ display:flex; flex-direction:column; gap:10px; }
+  .controlRow{ display:flex; gap:8px; align-items:center; }
+  .controlRow > *{ flex:1; }
+  @media (max-width:1100px){ .controlsCol{ width:220px; } }
+  @media (max-width:900px){ .annotLayout{ flex-direction:column; } .controlsCol{ width:100%; align-items:stretch } }
 </style>
 </head>
 <body>
@@ -170,14 +174,16 @@
           </div>
         </div>
         <aside class="controlsCol">
-          <label style="display:block;margin-bottom:10px">Or upload PDF: <input id="fileUploader" type="file" accept="application/pdf"></label>
-          <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
-            <label class="muted">Page:</label>
-            <input id="pageInput" type="number" min="1" value="1" style="width:80px">
+          <div class="controlBlock">
+            <label>Or upload PDF:
+              <input id="fileUploader" type="file" accept="application/pdf">
+            </label>
+            <div class="controlRow">
+              <label class="muted" style="flex:0 0 auto">Page:</label>
+              <input id="pageInput" type="number" min="1" value="1" style="width:80px">
+            </div>
             <button id="btnUndo" class="btn">Undo</button>
             <button id="btnClear" class="btn">Clear</button>
-          </div>
-          <div style="display:flex;gap:8px;margin-top:8px;">
             <button class="btn" id="btnExport">Export PDF</button>
             <button class="btnPrimary" id="btnSavePlan">Save as Plan</button>
           </div>
@@ -213,6 +219,9 @@
   let color = '#ff0000', stroke = 3;
   let shapes = []; // undo stack
   let current = null; // current drawing
+  let selectedIndex = -1;
+  let dragMode = null; // 'move' | 'rotate'
+  let dragStart = null;
 
   async function loadPlans(){
     const r = await fetch('/api/list_plans.php');
@@ -400,26 +409,67 @@ fileUploader.onchange = (e)=>{ const f=e.target.files&&e.target.files[0]; if(!f)
   document.getElementById('pageInput').onchange = async (e)=>{ const v=parseInt(e.target.value||'1',10); if(v>=1 && v<=totalPages){ curPage=v; await renderPage(curPage); } };
 
   // tools
-  document.querySelectorAll('.toolBtn').forEach(b=>{ b.onclick=()=>{ document.querySelectorAll('.toolBtn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); tool=b.dataset.tool; }; });
+  document.querySelectorAll('.toolBtn').forEach(b=>{ b.onclick=()=>{ document.querySelectorAll('.toolBtn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); tool=b.dataset.tool; selectedIndex = -1; dragMode=null; dragStart=null; redrawAnnotations(); }; });
   document.getElementById('colorPicker').addEventListener('input', (e)=>{ color=e.target.value; });
   document.getElementById('strokeWidth').addEventListener('change',(e)=>{ stroke=parseInt(e.target.value||3,10); });
 
-  aCanvas.addEventListener('pointerdown',(e)=>{ const r=aCanvas.getBoundingClientRect(); const scaleX = aCanvas.width / r.width; const scaleY = aCanvas.height / r.height; const x=(e.clientX-r.left) * scaleX; const y=(e.clientY-r.top) * scaleY; if(tool==='text'){ const txt = prompt('Text to add'); if(txt){ shapes.push({type:'text', x,y, text:txt, color, size:16}); redrawAnnotations(); } return; } current={tool, color, stroke, startX:x, startY:y, points: [{x,y}]}; // ensure pointer capture for drawing tools so pointermove/up fire reliably on touch
+  aCanvas.addEventListener('pointerdown',(e)=>{
+    const r=aCanvas.getBoundingClientRect(); const scaleX = aCanvas.width / r.width; const scaleY = aCanvas.height / r.height; const x=(e.clientX-r.left) * scaleX; const y=(e.clientY-r.top) * scaleY;
+    if(tool==='select'){
+      const hit = hitTest(x,y);
+      selectedIndex = hit.index;
+      dragMode = hit.handle;
+      dragStart = hit.index>=0 ? {x, y, shape: cloneShape(shapes[hit.index]), rotation: shapes[hit.index].rotation||0} : null;
+      redrawAnnotations();
+      try{ if(typeof e.pointerId !== 'undefined') aCanvas.setPointerCapture(e.pointerId); }catch(ignore){}
+      return;
+    }
+    if(tool==='text'){
+      const txt = prompt('Text to add');
+      if(txt){ shapes.push({type:'text', x,y, text:txt, color, size:16}); redrawAnnotations(); }
+      return;
+    }
+    current={tool, color, stroke, startX:x, startY:y, points: [{x,y}]};
     try{ if(typeof e.pointerId !== 'undefined') aCanvas.setPointerCapture(e.pointerId); }catch(ignore){}
   });
-  aCanvas.addEventListener('pointermove',(e)=>{ if(!current) return; const r=aCanvas.getBoundingClientRect(); const scaleX = aCanvas.width / r.width; const scaleY = aCanvas.height / r.height; const x=(e.clientX-r.left) * scaleX; const y=(e.clientY-r.top) * scaleY; if(current.tool==='free'){ current.points.push({x,y}); drawTemp(); } else { current.endX=x; current.endY=y; drawTemp(); } });
+  aCanvas.addEventListener('pointermove',(e)=>{
+    const r=aCanvas.getBoundingClientRect(); const scaleX = aCanvas.width / r.width; const scaleY = aCanvas.height / r.height; const x=(e.clientX-r.left) * scaleX; const y=(e.clientY-r.top) * scaleY;
+    if(tool==='select'){
+      if(selectedIndex<0 || !dragStart) return;
+      const s = shapes[selectedIndex];
+      const dx = x - dragStart.x;
+      const dy = y - dragStart.y;
+      if(dragMode==='rotate'){
+        const {cx, cy} = getShapeCenter(s);
+        const a1 = Math.atan2(dragStart.y - cy, dragStart.x - cx);
+        const a2 = Math.atan2(y - cy, x - cx);
+        s.rotation = (dragStart.rotation||0) + (a2 - a1);
+      } else { // move
+        applyDelta(s, dragStart.shape, dx, dy);
+      }
+      redrawAnnotations();
+      return;
+    }
+    if(!current) return;
+    const x2=x, y2=y;
+    if(current.tool==='free'){ current.points.push({x:x2,y:y2}); drawTemp(); }
+    else { current.endX=x2; current.endY=y2; drawTemp(); }
+  });
   aCanvas.addEventListener('pointerup',(e)=>{
+    if(tool==='select'){
+      dragMode=null; dragStart=null;
+      try{ aCanvas.releasePointerCapture(e.pointerId); }catch(ignore){}
+      return;
+    }
     if(!current) return;
     if(current.tool==='icon'){
       const id = document.getElementById('iconSelect').value;
       current.icon = id;
       current.size = 28;
     } else if(current.tool==='cloud'){
-      // store bounding box to render cloud outline
       current.type = 'cloud';
       current.stroke = current.stroke || stroke;
     }
-    // normalize saved shape to use `type` (redrawAnnotations checks `type`)
     const saved = Object.assign({}, current);
     if(!saved.type && saved.tool) saved.type = saved.tool;
     shapes.push(saved);
@@ -430,35 +480,15 @@ fileUploader.onchange = (e)=>{ const f=e.target.files&&e.target.files[0]; if(!f)
 
   // handle pointer cancel (e.g., OS gesture cancel) similar to pointerup
   aCanvas.addEventListener('pointercancel', (e)=>{
-    if(!current) return; current = null; try{ aCanvas.releasePointerCapture(e.pointerId); }catch(ignore){}; redrawAnnotations();
+    current = null; dragMode=null; dragStart=null;
+    try{ aCanvas.releasePointerCapture(e.pointerId); }catch(ignore){}; redrawAnnotations();
   });
 
   function drawTemp(){
     redrawAnnotations();
     if(!current) return;
-    aCtx.save();
-    aCtx.strokeStyle=current.color;
-    aCtx.lineWidth=current.stroke;
-    aCtx.fillStyle=current.color;
-    if(current.tool==='free'){
-      aCtx.beginPath();
-      aCtx.moveTo(current.points[0].x, current.points[0].y);
-      for(let p of current.points) aCtx.lineTo(p.x,p.y);
-      aCtx.stroke();
-    } else if(current.tool==='line' || current.tool==='arrow'){
-      aCtx.beginPath();
-      aCtx.moveTo(current.startX,current.startY);
-      aCtx.lineTo(current.endX,current.endY);
-      aCtx.stroke();
-      if(current.tool==='arrow') drawArrowHead(aCtx,current.startX,current.startY,current.endX,current.endY,current.stroke,current.color);
-    } else if(current.tool==='rect'){
-      aCtx.strokeRect(Math.min(current.startX,current.endX), Math.min(current.startY,current.endY), Math.abs(current.endX-current.startX), Math.abs(current.endY-current.startY));
-    } else if(current.tool==='cloud'){
-      drawCloud(aCtx, current.startX, current.startY, current.endX || current.startX, current.endY || current.startY, current.stroke, current.color);
-    } else if(current.tool==='icon'){
-      drawIconPreview(aCtx, current);
-    }
-    aCtx.restore();
+    const tempShape = Object.assign({}, current, {endX: current.endX ?? current.startX, endY: current.endY ?? current.startY, type: current.tool});
+    drawShape(aCtx, tempShape, 1, false);
   }
   function drawArrowHead(ctx,x1,y1,x2,y2,w, color){ const dx=x2-x1, dy=y2-y1; const dist = Math.hypot(dx,dy); const ang=Math.atan2(dy,dx); const len = Math.min( Math.max(12, dist * 0.15), 40 ); // scale arrow head with line length
     ctx.fillStyle=color; ctx.beginPath(); ctx.moveTo(x2,y2); ctx.lineTo(x2 - len*Math.cos(ang - Math.PI/6), y2 - len*Math.sin(ang - Math.PI/6)); ctx.lineTo(x2 - len*Math.cos(ang + Math.PI/6), y2 - len*Math.sin(ang + Math.PI/6)); ctx.closePath(); ctx.fill(); }
@@ -469,72 +499,188 @@ function drawIconPreview(ctx, current){ const size = 24; drawIcon(ctx, document.
 
 function redrawAnnotations(){
   aCtx.clearRect(0,0,aCanvas.width,aCanvas.height);
-  for(const s of shapes){
-    aCtx.save();
-    aCtx.strokeStyle=s.color;
-    aCtx.fillStyle=s.color;
-    aCtx.lineWidth=s.stroke||s.size||3;
-    if(s.type==='free'){
-      aCtx.beginPath();
-      aCtx.moveTo(s.points[0].x,s.points[0].y);
-      for(let p of s.points) aCtx.lineTo(p.x,p.y);
-      aCtx.stroke();
-    } else if(s.type==='line'){
-      aCtx.beginPath();
-      aCtx.moveTo(s.startX,s.startY);
-      aCtx.lineTo(s.endX,s.endY);
-      aCtx.stroke();
-    } else if(s.type==='arrow'){
-      aCtx.beginPath();
-      aCtx.moveTo(s.startX,s.startY);
-      aCtx.lineTo(s.endX,s.endY);
-      aCtx.stroke();
-      drawArrowHead(aCtx,s.startX,s.startY,s.endX,s.endY,s.stroke,s.color);
-    } else if(s.type==='rect'){
-      aCtx.strokeRect(Math.min(s.startX,s.endX), Math.min(s.startY,s.endY), Math.abs(s.endX-s.startX), Math.abs(s.endY-s.startY));
-    } else if(s.type==='cloud'){
-      drawCloud(aCtx, s.startX, s.startY, s.endX || s.startX, s.endY || s.startY, s.stroke||3, s.color);
-    } else if(s.type==='text'){
-      aCtx.font=(s.size||16)+'px sans-serif';
-      aCtx.fillText(s.text, s.x, s.y);
-    } else if(s.type==='icon'){
-      drawIcon(aCtx, s.icon, s.startX, s.startY, s.size||24, s.color);
-    }
-    aCtx.restore();
-  }
+  shapes.forEach((s,idx)=> drawShape(aCtx, s, 1, idx===selectedIndex));
+  drawSelectionOverlay();
 }
 
-// Draw a fluffy cloud outline around a bounding box
+function drawShape(ctx, s, scaleFactor=1, highlight=false){
+  const rot = s.rotation || 0;
+  const bbox = getBoundingBox(s);
+  const cx = (bbox.x1 + bbox.x2)/2;
+  const cy = (bbox.y1 + bbox.y2)/2;
+  ctx.save();
+  ctx.translate(cx, cy);
+  if(rot) ctx.rotate(rot);
+  ctx.strokeStyle = s.color;
+  ctx.fillStyle = s.color;
+  ctx.lineWidth = (s.stroke||s.size||3) * scaleFactor;
+  const draw = ()=>{
+    if(s.type==='free'){
+      ctx.beginPath();
+      const pts = s.points||[];
+      if(pts.length){
+        ctx.moveTo(pts[0].x - cx, pts[0].y - cy);
+        for(let p of pts) ctx.lineTo(p.x - cx, p.y - cy);
+      }
+      ctx.stroke();
+    } else if(s.type==='line'){
+      ctx.beginPath();
+      ctx.moveTo(s.startX - cx, s.startY - cy);
+      ctx.lineTo(s.endX - cx, s.endY - cy);
+      ctx.stroke();
+    } else if(s.type==='arrow'){
+      ctx.beginPath();
+      ctx.moveTo(s.startX - cx, s.startY - cy);
+      ctx.lineTo(s.endX - cx, s.endY - cy);
+      ctx.stroke();
+      drawArrowHead(ctx, s.startX - cx, s.startY - cy, s.endX - cx, s.endY - cy, (s.stroke||3)*scaleFactor, s.color);
+    } else if(s.type==='rect'){
+      ctx.strokeRect(Math.min(s.startX,s.endX) - cx, Math.min(s.startY,s.endY) - cy, Math.abs(s.endX-s.startX), Math.abs(s.endY-s.startY));
+    } else if(s.type==='cloud'){
+      drawCloud(ctx, s.startX - cx, s.startY - cy, (s.endX||s.startX) - cx, (s.endY||s.startY) - cy, (s.stroke||3)*scaleFactor, s.color);
+    } else if(s.type==='text'){
+      ctx.font=((s.size||16)*scaleFactor)+'px sans-serif';
+      ctx.fillText(s.text, s.x - cx, s.y - cy);
+    } else if(s.type==='icon'){
+      drawIcon(ctx, s.icon, s.startX - cx, s.startY - cy, (s.size||24)*scaleFactor, s.color);
+    }
+  };
+  draw();
+  ctx.restore();
+}
+
+// Draw a fluffy cloud outline using repeating arcs around a bounding box
 function drawCloud(ctx, x1, y1, x2, y2, strokeWidth, color){
   const left = Math.min(x1, x2), right = Math.max(x1, x2);
   const top = Math.min(y1, y2), bottom = Math.max(y1, y2);
-  const w = Math.max(12, right - left);
-  const h = Math.max(12, bottom - top);
-  const bumps = 6;
-  const radius = Math.max(10, Math.min(w, h) * 0.18);
+  const w = Math.max(16, right - left);
+  const h = Math.max(16, bottom - top);
+  const radius = Math.max(8, Math.min(w, h) * 0.2);
+  const bumpsX = Math.max(4, Math.round(w / (radius * 1.2)));
+  const bumpsY = Math.max(3, Math.round(h / (radius * 1.2)));
   ctx.save();
   ctx.strokeStyle = color;
   ctx.lineWidth = strokeWidth;
   ctx.beginPath();
-  for(let i=0;i<=bumps;i++){
-    const t = i / bumps;
-    const bx = left + w * t;
-    const by = top + (Math.sin(t * Math.PI * 2) * h * 0.08) + h * 0.4;
-    const cx = left + w * Math.max(0, t - 0.05);
-    const cy = top + h * 0.5;
-    ctx.quadraticCurveTo(cx, cy, bx, by);
+  // start at top-left
+  ctx.moveTo(left, top + radius);
+  // left side bumps
+  for(let i=0;i<bumpsY;i++){
+    const sy = top + (h/bumpsY)*i;
+    const ey = top + (h/bumpsY)*(i+1);
+    const my = (sy+ey)/2;
+    ctx.quadraticCurveTo(left - radius, my, left, ey);
   }
-  for(let i=bumps;i>=0;i--){
-    const t = i / bumps;
-    const bx = left + w * t;
-    const by = bottom - (Math.sin(t * Math.PI * 2) * h * 0.08) - h * 0.2;
-    const cx = left + w * Math.min(1, t + 0.05);
-    const cy = top + h * 0.7;
-    ctx.quadraticCurveTo(cx, cy, bx, by);
+  // bottom bumps
+  for(let i=0;i<bumpsX;i++){
+    const sx = left + (w/bumpsX)*i;
+    const ex = left + (w/bumpsX)*(i+1);
+    const mx = (sx+ex)/2;
+    ctx.quadraticCurveTo(mx, bottom + radius, ex, bottom);
+  }
+  // right side bumps
+  for(let i=0;i<bumpsY;i++){
+    const sy = bottom - (h/bumpsY)*i;
+    const ey = bottom - (h/bumpsY)*(i+1);
+    const my = (sy+ey)/2;
+    ctx.quadraticCurveTo(right + radius, my, right, ey);
+  }
+  // top bumps
+  for(let i=0;i<bumpsX;i++){
+    const sx = right - (w/bumpsX)*i;
+    const ex = right - (w/bumpsX)*(i+1);
+    const mx = (sx+ex)/2;
+    ctx.quadraticCurveTo(mx, top - radius, ex, top);
   }
   ctx.closePath();
   ctx.stroke();
   ctx.restore();
+}
+
+function getBoundingBox(s){
+  if(s.type==='text'){ const size=s.size||16; return {x1:s.x, y1:s.y-size, x2:s.x+size*5, y2:s.y+size}; }
+  if(s.type==='icon'){ const sz=s.size||24; return {x1:s.startX - sz, y1:s.startY - sz, x2:s.startX + sz, y2:s.startY + sz}; }
+  if(s.type==='free'){
+    const xs=s.points.map(p=>p.x), ys=s.points.map(p=>p.y);
+    return {x1:Math.min(...xs), y1:Math.min(...ys), x2:Math.max(...xs), y2:Math.max(...ys)};
+  }
+  const x1=Math.min(s.startX, s.endX||s.startX), x2=Math.max(s.startX, s.endX||s.startX);
+  const y1=Math.min(s.startY, s.endY||s.startY), y2=Math.max(s.startY, s.endY||s.startY);
+  return {x1, y1, x2, y2};
+}
+
+function getShapeCenter(s){ const b=getBoundingBox(s); return {cx:(b.x1+b.x2)/2, cy:(b.y1+b.y2)/2}; }
+
+function drawSelectionOverlay(){
+  if(selectedIndex<0 || selectedIndex>=shapes.length) return;
+  const s = shapes[selectedIndex];
+  const rot = s.rotation||0;
+  const bbox = getBoundingBox(s);
+  const cx = (bbox.x1+bbox.x2)/2;
+  const cy = (bbox.y1+bbox.y2)/2;
+  const w = bbox.x2 - bbox.x1;
+  const h = bbox.y2 - bbox.y1;
+  aCtx.save();
+  aCtx.translate(cx, cy);
+  if(rot) aCtx.rotate(rot);
+  aCtx.strokeStyle = 'rgba(0,255,231,0.8)';
+  aCtx.setLineDash([6,4]);
+  aCtx.strokeRect(-w/2 -4, -h/2 -4, w+8, h+8);
+  aCtx.setLineDash([]);
+  // rotate handle above top edge
+  const handleY = -h/2 - 24;
+  aCtx.beginPath();
+  aCtx.moveTo(0, -h/2 -4);
+  aCtx.lineTo(0, handleY+8);
+  aCtx.stroke();
+  aCtx.beginPath();
+  aCtx.fillStyle='rgba(0,255,231,0.9)';
+  aCtx.strokeStyle='rgba(0,255,231,1)';
+  aCtx.arc(0, handleY, 8, 0, Math.PI*2);
+  aCtx.fill();
+  aCtx.restore();
+}
+
+function hitTest(x, y){
+  for(let i=shapes.length-1;i>=0;i--){
+    const s = shapes[i];
+    const rot = s.rotation||0;
+    const {cx, cy} = getShapeCenter(s);
+    const localX = Math.cos(-rot)*(x-cx) - Math.sin(-rot)*(y-cy) + cx;
+    const localY = Math.sin(-rot)*(x-cx) + Math.cos(-rot)*(y-cy) + cy;
+    const b = getBoundingBox(s);
+    if(localX>=b.x1 && localX<=b.x2 && localY>=b.y1 && localY<=b.y2){
+      // check rotate handle proximity
+      const handleY = b.y1 - 24;
+      const distHandle = Math.hypot(localX - cx, localY - handleY);
+      if(distHandle < 12) return {index:i, handle:'rotate'};
+      return {index:i, handle:'move'};
+    }
+  }
+  return {index:-1, handle:null};
+}
+
+function cloneShape(s){ return JSON.parse(JSON.stringify(s)); }
+
+function applyDelta(target, original, dx, dy){
+  Object.assign(target, cloneShape(original));
+  if(target.type==='free') target.points = original.points.map(p=>({x:p.x+dx, y:p.y+dy}));
+  else if(target.type==='text'){ target.x = original.x + dx; target.y = original.y + dy; }
+  else if(target.type==='icon'){ target.startX = original.startX + dx; target.startY = original.startY + dy; }
+  else { target.startX = original.startX + dx; target.startY = original.startY + dy; target.endX = (original.endX||original.startX) + dx; target.endY = (original.endY||original.startY) + dy; }
+}
+
+function scaleShape(s, factor){
+  const c = cloneShape(s);
+  if(c.type==='free'){ c.points = c.points.map(p=>({x:p.x*factor, y:p.y*factor})); }
+  else if(c.type==='text'){ c.x*=factor; c.y*=factor; c.size = (c.size||16)*factor; }
+  else if(c.type==='icon'){ c.startX*=factor; c.startY*=factor; c.size = (c.size||24)*factor; }
+  else {
+    c.startX*=factor; c.startY*=factor; c.endX = (c.endX||c.startX)*factor; c.endY = (c.endY||c.startY)*factor;
+  }
+  c.stroke = (c.stroke||3)*factor;
+  if(c.rotation) c.rotation = c.rotation; // keep rotation unchanged
+  return c;
 }
 
   document.getElementById('btnUndo').onclick = ()=>{ shapes.pop(); redrawAnnotations(); };
@@ -554,7 +700,10 @@ function drawCloud(ctx, x1, y1, x2, y2, strokeWidth, color){
       const scaleFactor = off.width / canvas.width;
       // draw each shape scaled
       offCtx.strokeStyle='#f00';
-      for(const s of shapes){ offCtx.save(); offCtx.strokeStyle = s.color; offCtx.fillStyle = s.color; offCtx.lineWidth = (s.stroke||3) * scaleFactor; if(s.type==='free'){ offCtx.beginPath(); offCtx.moveTo(s.points[0].x*scaleFactor, s.points[0].y*scaleFactor); for(let p of s.points) offCtx.lineTo(p.x*scaleFactor,p.y*scaleFactor); offCtx.stroke(); } else if(s.type==='line'){ offCtx.beginPath(); offCtx.moveTo(s.startX*scaleFactor,s.startY*scaleFactor); offCtx.lineTo(s.endX*scaleFactor,s.endY*scaleFactor); offCtx.stroke(); } else if(s.type==='arrow'){ offCtx.beginPath(); offCtx.moveTo(s.startX*scaleFactor,s.startY*scaleFactor); offCtx.lineTo(s.endX*scaleFactor,s.endY*scaleFactor); offCtx.stroke(); drawArrowHead(offCtx,s.startX*scaleFactor,s.startY*scaleFactor,s.endX*scaleFactor,s.endY*scaleFactor,(s.stroke||3)*scaleFactor,s.color); } else if(s.type==='rect'){ offCtx.strokeRect(Math.min(s.startX,s.endX)*scaleFactor, Math.min(s.startY,s.endY)*scaleFactor, Math.abs(s.endX-s.startX)*scaleFactor, Math.abs(s.endY-s.startY)*scaleFactor); } else if(s.type==='cloud'){ drawCloud(offCtx, s.startX*scaleFactor, s.startY*scaleFactor, s.endX*scaleFactor, s.endY*scaleFactor, (s.stroke||3)*scaleFactor, s.color); } else if(s.type==='text'){ offCtx.font = ((s.size||16)*scaleFactor) + 'px sans-serif'; offCtx.fillText(s.text, s.x*scaleFactor, s.y*scaleFactor); } else if(s.type==='icon'){ drawIcon(offCtx, s.icon, s.startX*scaleFactor, s.startY*scaleFactor, (s.size||24)*scaleFactor, s.color); } offCtx.restore(); }
+      for(const s of shapes){
+        const scaled = scaleShape(s, scaleFactor);
+        drawShape(offCtx, scaled, 1, false);
+      }
       // export as PDF using pdf-lib
       const blob = await new Promise(r=> off.toBlob(r, 'image/jpeg', 0.95));
       const bytes = await blob.arrayBuffer(); const pdflib = window.PDFLib; const newPdf = await pdflib.PDFDocument.create(); const img = await newPdf.embedJpg(bytes); const p = newPdf.addPage([img.width,img.height]); p.drawImage(img,{x:0,y:0,width:img.width,height:img.height}); const pdfBytesOut = await newPdf.save(); const blobOut = new Blob([pdfBytesOut], {type:'application/pdf'}); const url = URL.createObjectURL(blobOut); const a = document.createElement('a'); a.href=url; a.download = `annot_page_${curPage}.pdf`; a.textContent='Download annotated PDF'; a.style.display='block'; out.innerHTML=''; out.appendChild(a);
@@ -569,7 +718,10 @@ function drawCloud(ctx, x1, y1, x2, y2, strokeWidth, color){
       const vp = page.getViewport({scale:1.5 * (pageViewport.scale || 1)});
       const off = document.createElement('canvas'); off.width=Math.ceil(vp.width); off.height=Math.ceil(vp.height); const offCtx = off.getContext('2d'); await page.render({canvasContext:offCtx, viewport:vp}).promise;
       const scaleFactor = off.width / canvas.width;
-      for(const s of shapes){ offCtx.save(); offCtx.strokeStyle=s.color; offCtx.fillStyle=s.color; offCtx.lineWidth=(s.stroke||3)*scaleFactor; if(s.type==='free'){ offCtx.beginPath(); offCtx.moveTo(s.points[0].x*scaleFactor, s.points[0].y*scaleFactor); for(let p of s.points) offCtx.lineTo(p.x*scaleFactor,p.y*scaleFactor); offCtx.stroke(); } else if(s.type==='line'){ offCtx.beginPath(); offCtx.moveTo(s.startX*scaleFactor,s.startY*scaleFactor); offCtx.lineTo(s.endX*scaleFactor,s.endY*scaleFactor); offCtx.stroke(); } else if(s.type==='arrow'){ offCtx.beginPath(); offCtx.moveTo(s.startX*scaleFactor,s.startY*scaleFactor); offCtx.lineTo(s.endX*scaleFactor,s.endY*scaleFactor); offCtx.stroke(); drawArrowHead(offCtx,s.startX*scaleFactor,s.startY*scaleFactor,s.endX*scaleFactor,s.endY*scaleFactor,(s.stroke||3)*scaleFactor,s.color); } else if(s.type==='rect'){ offCtx.strokeRect(Math.min(s.startX,s.endX)*scaleFactor, Math.min(s.startY,s.endY)*scaleFactor, Math.abs(s.endX-s.startX)*scaleFactor, Math.abs(s.endY-s.startY)*scaleFactor); } else if(s.type==='cloud'){ drawCloud(offCtx, s.startX*scaleFactor, s.startY*scaleFactor, s.endX*scaleFactor, s.endY*scaleFactor, (s.stroke||3)*scaleFactor, s.color); } else if(s.type==='text'){ offCtx.font = ((s.size||16)*scaleFactor) + 'px sans-serif'; offCtx.fillText(s.text, s.x*scaleFactor, s.y*scaleFactor); } else if(s.type==='icon'){ drawIcon(offCtx, s.icon, s.startX*scaleFactor, s.startY*scaleFactor, (s.size||24)*scaleFactor, s.color); } offCtx.restore(); }
+      for(const s of shapes){
+        const scaled = scaleShape(s, scaleFactor);
+        drawShape(offCtx, scaled, 1, false);
+      }
       const blob = await new Promise(r=> off.toBlob(r, 'image/jpeg', 0.95)); const bytes = await blob.arrayBuffer(); const pdflib = window.PDFLib; const newPdf = await pdflib.PDFDocument.create(); const img = await newPdf.embedJpg(bytes); const p2 = newPdf.addPage([img.width,img.height]); p2.drawImage(img,{x:0,y:0,width:img.width,height:img.height}); const pdfBytesOut = await newPdf.save(); const blobOut = new Blob([pdfBytesOut],{type:'application/pdf'});
       // upload using FormData to upload_plan.php
       const fd = new FormData(); fd.append('file', blobOut, 'annotated.pdf'); fd.append('name','Annotated plan');
