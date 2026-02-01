@@ -22,7 +22,27 @@ const ASSETS = [
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
-  e.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)));
+  // Robust install: fetch each asset individually so a single failed fetch
+  // does not fail the whole install. Log failures for diagnostics.
+  e.waitUntil((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    const results = await Promise.all(ASSETS.map(async (url) => {
+      try {
+        const res = await fetch(url, { cache: 'no-cache' });
+        if (!res || !res.ok) throw new Error('HTTP ' + (res && res.status));
+        await cache.put(url, res.clone());
+        return { url, ok: true };
+      } catch (err) {
+        console.error('service-worker: asset cache failed', url, err);
+        return { url, ok: false, error: String(err) };
+      }
+    }));
+    const failed = results.filter(r => !r.ok);
+    if (failed.length) {
+      // Don't reject install — keep existing SW active. Useful for flaky CDNs or blocked resources.
+      console.warn('service-worker: some assets failed to cache during install:', failed.map(f => f.url));
+    }
+  })());
 });
 
 self.addEventListener('activate', (e) => {
