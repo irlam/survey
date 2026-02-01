@@ -122,6 +122,7 @@ function get_exports_listing($limit = 20) {
 function render_pin_thumbnail($planFile, $page, $x_norm, $y_norm, $thumbWidthPx = 400) {
     $pinSvgPath = __DIR__ . '/../assets/pin.svg';
     $pinPngPath = __DIR__ . '/../assets/pin.png';
+    $pinHeightPx = 72; // keep consistent pin scale similar to viewer overlay
 
     // Try Imagick first (cleanest, server-side PDF rendering + composite). Prefer the neon SVG pin.
     if (class_exists('Imagick')) {
@@ -140,7 +141,7 @@ function render_pin_thumbnail($planFile, $page, $x_norm, $y_norm, $thumbWidthPx 
             $pin->setBackgroundColor(new ImagickPixel('transparent'));
             $pin->readImage($pinPath);
             $pin->setImageFormat('png');
-            $pinHeight = max(24, intval($h * 0.12));
+            $pinHeight = max(32, min($pinHeightPx, intval($h * 0.15)));
             $pin->thumbnailImage(0, $pinHeight);
             $pw = $pin->getImageWidth(); $ph = $pin->getImageHeight();
 
@@ -178,7 +179,7 @@ function render_pin_thumbnail($planFile, $page, $x_norm, $y_norm, $thumbWidthPx 
                 $pinSrc = $pinPath ? @imagecreatefrompng($pinPath) : null;
                 if (!$pinSrc) {
                     // GD fallback: synthesize a neon pin if the PNG is unavailable
-                    $pinHeight = max(24, intval($h * 0.12));
+                    $pinHeight = max(32, min($pinHeightPx, intval($h * 0.15)));
                     $pinWidth = intval($pinHeight * 0.8);
                     $pinSrc = imagecreatetruecolor($pinWidth, $pinHeight);
                     imagesavealpha($pinSrc, true);
@@ -191,7 +192,7 @@ function render_pin_thumbnail($planFile, $page, $x_norm, $y_norm, $thumbWidthPx 
                     imagefilledellipse($pinSrc, intval($pinWidth/2), $pinHeight-2, $pinWidth/2, 10, $shadow);
                 }
                 if ($pinSrc) {
-                    $pinHeight = max(24, intval($h * 0.12));
+                    $pinHeight = max(32, min($pinHeightPx, intval($h * 0.15)));
                     $pw = imagesx($pinSrc); $ph = imagesy($pinSrc);
                     $pw2 = intval($pw * ($pinHeight / $ph));
                     $ph2 = $pinHeight;
@@ -236,7 +237,7 @@ function render_pin_thumbnail($planFile, $page, $x_norm, $y_norm, $thumbWidthPx 
                     if ($pinPath) {
                         $pinSrc = @imagecreatefrompng($pinPath);
                         if ($pinSrc) {
-                            $pinHeight = max(24, intval($h * 0.12));
+                            $pinHeight = max(32, min($pinHeightPx, intval($h * 0.15)));
                             $pw = imagesx($pinSrc); $ph = imagesy($pinSrc);
                             $pw2 = intval($pw * ($pinHeight / $ph));
                             $ph2 = $pinHeight;
@@ -286,7 +287,7 @@ function render_pin_thumbnail($planFile, $page, $x_norm, $y_norm, $thumbWidthPx 
                     if ($pinPath) {
                         $pinSrc = @imagecreatefrompng($pinPath);
                         if ($pinSrc) {
-                            $pinHeight = max(24, intval($h * 0.12));
+                            $pinHeight = max(32, min($pinHeightPx, intval($h * 0.15)));
                             $pw = imagesx($pinSrc); $ph = imagesy($pinSrc);
                             $pw2 = intval($pw * ($pinHeight / $ph));
                             $ph2 = $pinHeight;
@@ -465,6 +466,14 @@ function ensure_exports_table_columns(PDO $pdo) {
         error_log('ensure_exports_table_columns: error checking exports table: ' . $ex->getMessage());
         return false;
     }
+}
+
+function safe_pdf_text($s){
+    // FPDF expects ISO-8859-1; transliterate from UTF-8 to avoid garbled characters
+    if ($s === null) return '';
+    $s = (string)$s;
+    $converted = @iconv('UTF-8','ISO-8859-1//TRANSLIT',$s);
+    return $converted !== false ? $converted : utf8_decode($s);
 }
 
 // Default: PDF (if requested)
@@ -710,7 +719,28 @@ if ($fit_a4) {
             $currentY = 30;
         }
 
-        // Arrange grid to fit into remaining area on A4
+        // Issues summary placed above the photo grid
+        $pdf->Ln(4);
+        $pdf->SetFont('Arial','B',11);
+        $pdf->Cell(0,6,'Issues Summary',0,1,'L');
+        $pdf->SetFont('Arial','',9);
+        foreach ($issue_list as $iss) {
+            $title = $iss['title'] ?? ('Issue ' . ($iss['id'] ?? ''));
+            $meta = [];
+            if (!empty($iss['status'])) $meta[] = 'Status: ' . $iss['status'];
+            if (!empty($iss['priority'])) $meta[] = 'Priority: ' . $iss['priority'];
+            if (!empty($iss['assigned_to'])) $meta[] = 'Assignee: ' . $iss['assigned_to'];
+            if (!empty($iss['created_at'])) $meta[] = 'Created: ' . date('d/m/Y H:i', strtotime($iss['created_at']));
+            $metaLine = implode(' • ', $meta);
+            $pdf->SetFont('Arial','B',9);
+            $pdf->MultiCell(0,5, safe_pdf_text('Issue ' . ($iss['id'] ?? '') . ': ' . $title), 0, 'L');
+            if ($metaLine) { $pdf->SetFont('Arial','',8); $pdf->MultiCell(0,4, safe_pdf_text($metaLine), 0, 'L'); }
+            if (!empty($iss['notes'])) { $pdf->SetFont('Arial','',8); $pdf->MultiCell(0,4, safe_pdf_text('Notes: ' . $iss['notes']), 0, 'L'); }
+            $pdf->Ln(2);
+        }
+
+        // Arrange grid to fit into remaining area on A4, below the summary
+        $currentY = $pdf->GetY();
         $left = $margin; $right = $pageW - $margin; $bottomY = $pageH - $margin;
         $availH = $bottomY - $currentY;
         $n = count($gridImgs);
@@ -757,26 +787,6 @@ if ($fit_a4) {
                     $x += $thumbSize + $hgap;
                 }
             }
-        }
-
-        // Append a concise issues summary (title, notes, status, priority, assignee, created) beneath the grid
-        $pdf->Ln(6);
-        $pdf->SetFont('Arial','B',11);
-        $pdf->Cell(0,6,'Issues Summary',0,1,'L');
-        $pdf->SetFont('Arial','',9);
-        foreach ($issue_list as $iss) {
-            $title = $iss['title'] ?? ('Issue ' . ($iss['id'] ?? ''));
-            $meta = [];
-            if (!empty($iss['status'])) $meta[] = 'Status: ' . $iss['status'];
-            if (!empty($iss['priority'])) $meta[] = 'Priority: ' . $iss['priority'];
-            if (!empty($iss['assigned_to'])) $meta[] = 'Assignee: ' . $iss['assigned_to'];
-            if (!empty($iss['created_at'])) $meta[] = 'Created: ' . date('d/m/Y H:i', strtotime($iss['created_at']));
-            $metaLine = implode(' • ', $meta);
-            $pdf->SetFont('Arial','B',9);
-            $pdf->MultiCell(0,5, 'Issue ' . ($iss['id'] ?? '') . ' (Page ' . ($iss['page'] ?? '') . '): ' . $title, 0, 'L');
-            if ($metaLine) { $pdf->SetFont('Arial','',8); $pdf->MultiCell(0,4, $metaLine, 0, 'L'); }
-            if (!empty($iss['notes'])) { $pdf->SetFont('Arial','',8); $pdf->MultiCell(0,4, 'Notes: ' . $iss['notes'], 0, 'L'); }
-            $pdf->Ln(2);
         }
     }
     // mark to skip per-issue detailed loop below
