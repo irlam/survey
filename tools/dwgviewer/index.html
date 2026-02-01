@@ -405,6 +405,56 @@
     </script>
     <script>
       // PDF Export functionality
+      async function isImageMostlyBlank(dataUrl){
+        return new Promise((resolve)=>{
+          const img = new Image();
+          img.onload = ()=>{
+            try{
+              const c = document.createElement('canvas');
+              c.width = img.width;
+              c.height = img.height;
+              const ctx = c.getContext('2d');
+              ctx.drawImage(img,0,0);
+              const stepX = Math.max(1, Math.floor(img.width / 40));
+              const stepY = Math.max(1, Math.floor(img.height / 40));
+              let sum=0, sumSq=0, count=0;
+              const data = ctx.getImageData(0,0,img.width,img.height).data;
+              for(let y=0;y<img.height;y+=stepY){
+                for(let x=0;x<img.width;x+=stepX){
+                  const idx = (y*img.width + x) * 4;
+                  const r = data[idx];
+                  const g = data[idx+1];
+                  const b = data[idx+2];
+                  const a = data[idx+3];
+                  const brightness = a === 0 ? 255 : (r+g+b)/3;
+                  sum += brightness;
+                  sumSq += brightness*brightness;
+                  count++;
+                }
+              }
+              const avg = sum / Math.max(1,count);
+              const variance = (sumSq / Math.max(1,count)) - (avg*avg);
+              const stdDev = Math.sqrt(Math.max(0, variance));
+              resolve(avg > 250 && stdDev < 4);
+            }catch(err){
+              console.warn('isImageMostlyBlank failed', err);
+              resolve(false);
+            }
+          };
+          img.onerror = ()=> resolve(false);
+          img.src = dataUrl;
+        });
+      }
+
+      const ensureScript = (url, checkFn) => new Promise((resolve,reject)=>{
+        if(checkFn && checkFn()) return resolve();
+        const s = document.createElement('script');
+        s.src = url;
+        s.onload = resolve;
+        s.onerror = ()=> reject(new Error('Failed to load '+url));
+        document.head.appendChild(s);
+      });
+
       document.addEventListener('DOMContentLoaded', () => {
         const exportPdfBtn = document.getElementById('exportPdfBtn');
         if (exportPdfBtn) {
@@ -417,21 +467,17 @@
             exportPdfBtn.disabled = true;
             try {
               // Ensure jsPDF is available (we only need jsPDF for PDF generation)
-              if (!window.jspdf) {
-                await new Promise((resolve, reject) => {
-                  const script = document.createElement('script');
-                  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-                  script.onload = resolve;
-                  script.onerror = () => reject(new Error('Failed to load jsPDF from CDN'));
-                  document.head.appendChild(script);
-                });
-              }
+              await ensureScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', ()=> window.jspdf);
 
               // Try direct canvas export first (fastest and preserves fidelity if possible)
               let imgData = null;
               try {
                 imgData = canvas.toDataURL('image/png');
                 if (!imgData || !imgData.startsWith('data:image')) imgData = null;
+                if (imgData && await isImageMostlyBlank(imgData)) {
+                  console.warn('PDF export: canvas toDataURL appears blank, will fallback');
+                  imgData = null;
+                }
               } catch (e) {
                 console.warn('canvas.toDataURL failed:', e);
                 imgData = null;
@@ -461,6 +507,10 @@
                     const imageData = new ImageData(flipped, width, height);
                     ctx.putImageData(imageData, 0, 0);
                     imgData = tmp.toDataURL('image/png');
+                    if (imgData && await isImageMostlyBlank(imgData)) {
+                      console.warn('PDF export: WebGL readPixels capture appears blank, will fallback');
+                      imgData = null;
+                    }
                   }
                 } catch (e) {
                   console.warn('WebGL readPixels export failed:', e);
@@ -470,16 +520,9 @@
               // If still no image data, try html2canvas as a last resort
               if (!imgData) {
                 // Load html2canvas on demand
-                if (!window.html2canvas) {
-                  await new Promise((resolve, reject) => {
-                    const script = document.createElement('script');
-                    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-                    script.onload = resolve;
-                    script.onerror = () => reject(new Error('Failed to load html2canvas from CDN'));
-                    document.head.appendChild(script);
-                  });
-                }
-                const canvasImage = await html2canvas(canvas, { useCORS: true, allowTaint: false });
+                await ensureScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js', ()=> window.html2canvas);
+                const container = document.getElementById('cad-container') || canvas;
+                const canvasImage = await html2canvas(container, { useCORS: true, allowTaint: false, backgroundColor:'#ffffff' });
                 imgData = canvasImage.toDataURL('image/png');
               }
 
