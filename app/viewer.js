@@ -950,7 +950,7 @@ async function showIssueModal(pin){
       }catch(e){ console.warn('Setting up pin draggable preview failed', e); }
     })();
 
-  modal.querySelector('#issueSaveBtn').onclick = async ()=>{
+    modal.querySelector('#issueSaveBtn').onclick = async ()=>{
     const planId = getPlanIdFromUrl();
     const title = modal.querySelector('#issueTitle').value.trim();
     const notes = modal.querySelector('#issueNotes').value.trim();
@@ -984,7 +984,7 @@ async function showIssueModal(pin){
   };
 
   // Cancel handler and close modal
-  const cancelBtn = modal.querySelector('#issueCancelBtn'); if(cancelBtn) cancelBtn.onclick = ()=>{ try{ if(!pin.id) trackEvent('pin_create_cancel', { x: pin.x_norm, y: pin.y_norm, title: modal.querySelector('#issueTitle')?.value || '' }); }catch(e){} modal.style.display='none'; if(modal._clearAnnotations) modal._clearAnnotations(); window.removeEventListener('keydown', modal._keyHandler); };
+    const cancelBtn = modal.querySelector('#issueCancelBtn'); if(cancelBtn) cancelBtn.onclick = ()=>{ try{ if(!pin.id) trackEvent('pin_create_cancel', { x: pin.x_norm, y: pin.y_norm, title: modal.querySelector('#issueTitle')?.value || '' }); }catch(e){} modal.style.display='none'; if(modal._clearAnnotations) modal._clearAnnotations(); window.removeEventListener('keydown', modal._keyHandler); };
 
   // Refresh viewer when an issue is deleted elsewhere
   const issueDeletedHandler = (ev)=>{ try{ reloadDbPins(); renderPage(currentPage); }catch(e){} };
