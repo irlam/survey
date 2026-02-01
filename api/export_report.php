@@ -120,7 +120,10 @@ function get_exports_listing($limit = 20) {
 // Render a small thumbnail of the plan page with a pin composited at normalized coordinates.
 // Returns path to a temporary PNG file, or null on failure. Requires Imagick; falls back silently.
 function render_pin_thumbnail($planFile, $page, $x_norm, $y_norm, $thumbWidthPx = 400) {
-    // Try Imagick first (cleanest, server-side PDF rendering + composite)
+    $pinSvgPath = __DIR__ . '/../assets/pin.svg';
+    $pinPngPath = __DIR__ . '/../assets/pin.png';
+
+    // Try Imagick first (cleanest, server-side PDF rendering + composite). Prefer the neon SVG pin.
     if (class_exists('Imagick')) {
         try {
             $im = new Imagick();
@@ -131,9 +134,11 @@ function render_pin_thumbnail($planFile, $page, $x_norm, $y_norm, $thumbWidthPx 
             $im->thumbnailImage($thumbWidthPx, 0);
             $w = $im->getImageWidth(); $h = $im->getImageHeight();
 
-            $pinPath = __DIR__ . '/../assets/pin.png';
+            $pinPath = is_file($pinSvgPath) ? $pinSvgPath : $pinPngPath;
             if (!is_file($pinPath)) return null;
-            $pin = new Imagick($pinPath);
+            $pin = new Imagick();
+            $pin->setBackgroundColor(new ImagickPixel('transparent'));
+            $pin->readImage($pinPath);
             $pin->setImageFormat('png');
             $pinHeight = max(24, intval($h * 0.12));
             $pin->thumbnailImage(0, $pinHeight);
@@ -169,31 +174,43 @@ function render_pin_thumbnail($planFile, $page, $x_norm, $y_norm, $thumbWidthPx 
                 imagesavealpha($base, true);
                 imagealphablending($base, true);
                 $w = imagesx($base); $h = imagesy($base);
-                $pinPath = __DIR__ . '/../assets/pin.png';
-                if (is_file($pinPath)) {
-                    $pinSrc = @imagecreatefrompng($pinPath);
-                    if ($pinSrc) {
-                        $pinHeight = max(24, intval($h * 0.12));
-                        $pw = imagesx($pinSrc); $ph = imagesy($pinSrc);
-                        $pw2 = intval($pw * ($pinHeight / $ph));
-                        $ph2 = $pinHeight;
-                        $resPin = imagecreatetruecolor($pw2, $ph2);
-                        imagesavealpha($resPin, true);
-                        $trans_colour = imagecolorallocatealpha($resPin, 0, 0, 0, 127);
-                        imagefill($resPin, 0, 0, $trans_colour);
-                        imagecopyresampled($resPin, $pinSrc, 0, 0, 0, 0, $pw2, $ph2, $pw, $ph);
+                $pinPath = is_file($pinPngPath) ? $pinPngPath : null;
+                $pinSrc = $pinPath ? @imagecreatefrompng($pinPath) : null;
+                if (!$pinSrc) {
+                    // GD fallback: synthesize a neon pin if the PNG is unavailable
+                    $pinHeight = max(24, intval($h * 0.12));
+                    $pinWidth = intval($pinHeight * 0.8);
+                    $pinSrc = imagecreatetruecolor($pinWidth, $pinHeight);
+                    imagesavealpha($pinSrc, true);
+                    $trans = imagecolorallocatealpha($pinSrc, 0, 0, 0, 127);
+                    imagefill($pinSrc, 0, 0, $trans);
+                    $neon = imagecolorallocate($pinSrc, 0, 255, 231);
+                    $shadow = imagecolorallocatealpha($pinSrc, 0, 0, 0, 96);
+                    imagefilledellipse($pinSrc, intval($pinWidth/2), intval($pinWidth/2), $pinWidth, $pinWidth, $neon);
+                    imagefilledrectangle($pinSrc, intval($pinWidth/2)-2, intval($pinWidth/2), intval($pinWidth/2)+2, $pinHeight-1, $neon);
+                    imagefilledellipse($pinSrc, intval($pinWidth/2), $pinHeight-2, $pinWidth/2, 10, $shadow);
+                }
+                if ($pinSrc) {
+                    $pinHeight = max(24, intval($h * 0.12));
+                    $pw = imagesx($pinSrc); $ph = imagesy($pinSrc);
+                    $pw2 = intval($pw * ($pinHeight / $ph));
+                    $ph2 = $pinHeight;
+                    $resPin = imagecreatetruecolor($pw2, $ph2);
+                    imagesavealpha($resPin, true);
+                    $trans_colour = imagecolorallocatealpha($resPin, 0, 0, 0, 127);
+                    imagefill($resPin, 0, 0, $trans_colour);
+                    imagecopyresampled($resPin, $pinSrc, 0, 0, 0, 0, $pw2, $ph2, $pw, $ph);
 
-                        $x = intval($x_norm * $w) - intval($pw2 / 2);
-                        $y = intval($y_norm * $h) - $ph2;
-                        $x = max(0, min($x, $w - $pw2));
-                        $y = max(0, min($y, $h - $ph2));
+                    $x = intval($x_norm * $w) - intval($pw2 / 2);
+                    $y = intval($y_norm * $h) - $ph2;
+                    $x = max(0, min($x, $w - $pw2));
+                    $y = max(0, min($y, $h - $ph2));
 
-                        imagecopy($base, $resPin, $x, $y, 0, 0, $pw2, $ph2);
-                        $tmp = tempnam(sys_get_temp_dir(), 'pinimg_') . '.png';
-                        imagepng($base, $tmp);
-                        imagedestroy($base); imagedestroy($pinSrc); imagedestroy($resPin);
-                        return ['tmp'=>$tmp, 'method'=>'gd_image'];
-                    }
+                    imagecopy($base, $resPin, $x, $y, 0, 0, $pw2, $ph2);
+                    $tmp = tempnam(sys_get_temp_dir(), 'pinimg_') . '.png';
+                    imagepng($base, $tmp);
+                    imagedestroy($base); imagedestroy($pinSrc); imagedestroy($resPin);
+                    return ['tmp'=>$tmp, 'method'=>'gd_image'];
                 }
                 imagedestroy($base);
             }
@@ -215,8 +232,8 @@ function render_pin_thumbnail($planFile, $page, $x_norm, $y_norm, $thumbWidthPx 
                     imagesavealpha($base, true);
                     imagealphablending($base, true);
                     $w = imagesx($base); $h = imagesy($base);
-                    $pinPath = __DIR__ . '/../assets/pin.png';
-                    if (is_file($pinPath)) {
+                    $pinPath = is_file($pinPngPath) ? $pinPngPath : null;
+                    if ($pinPath) {
                         $pinSrc = @imagecreatefrompng($pinPath);
                         if ($pinSrc) {
                             $pinHeight = max(24, intval($h * 0.12));
@@ -265,8 +282,8 @@ function render_pin_thumbnail($planFile, $page, $x_norm, $y_norm, $thumbWidthPx 
                     imagesavealpha($base, true);
                     imagealphablending($base, true);
                     $w = imagesx($base); $h = imagesy($base);
-                    $pinPath = __DIR__ . '/../assets/pin.png';
-                    if (is_file($pinPath)) {
+                    $pinPath = is_file($pinPngPath) ? $pinPngPath : null;
+                    if ($pinPath) {
                         $pinSrc = @imagecreatefrompng($pinPath);
                         if ($pinSrc) {
                             $pinHeight = max(24, intval($h * 0.12));
@@ -740,6 +757,26 @@ if ($fit_a4) {
                     $x += $thumbSize + $hgap;
                 }
             }
+        }
+
+        // Append a concise issues summary (title, notes, status, priority, assignee, created) beneath the grid
+        $pdf->Ln(6);
+        $pdf->SetFont('Arial','B',11);
+        $pdf->Cell(0,6,'Issues Summary',0,1,'L');
+        $pdf->SetFont('Arial','',9);
+        foreach ($issue_list as $iss) {
+            $title = $iss['title'] ?? ('Issue ' . ($iss['id'] ?? ''));
+            $meta = [];
+            if (!empty($iss['status'])) $meta[] = 'Status: ' . $iss['status'];
+            if (!empty($iss['priority'])) $meta[] = 'Priority: ' . $iss['priority'];
+            if (!empty($iss['assigned_to'])) $meta[] = 'Assignee: ' . $iss['assigned_to'];
+            if (!empty($iss['created_at'])) $meta[] = 'Created: ' . date('d/m/Y H:i', strtotime($iss['created_at']));
+            $metaLine = implode(' • ', $meta);
+            $pdf->SetFont('Arial','B',9);
+            $pdf->MultiCell(0,5, 'Issue ' . ($iss['id'] ?? '') . ' (Page ' . ($iss['page'] ?? '') . '): ' . $title, 0, 'L');
+            if ($metaLine) { $pdf->SetFont('Arial','',8); $pdf->MultiCell(0,4, $metaLine, 0, 'L'); }
+            if (!empty($iss['notes'])) { $pdf->SetFont('Arial','',8); $pdf->MultiCell(0,4, 'Notes: ' . $iss['notes'], 0, 'L'); }
+            $pdf->Ln(2);
         }
     }
     // mark to skip per-issue detailed loop below
