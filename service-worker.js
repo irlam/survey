@@ -6,18 +6,18 @@ const ASSETS = [
   '/manifest.json',
   '/assets/ui.css?v=20260125_7',
   '/assets/ui-icons.svg',
-  '/app/app.js?v=20260125_1',      // Updated to match index.html
+  '/app/app.js?v=20260125_1',       // Updated to match index.html
   '/app/router.js',
   '/app/viewer.js?v=20260128_3',
-  '/app/ui.js?v=20260125_2',       // Updated to match index.html
+  '/app/ui.js?v=20260125_2',        // Updated to match index.html
   '/app/idb.js',
   '/app/sync.js',
   '/app/overlay.js',
   '/app/pin-draggable.js',
   '/icons/icon-192-maskable.png',
   '/icons/icon-512-maskable.png',
-  '/vendor/pdfjs/pdf.min.js',      // Local file instead of CDN
-  '/vendor/pdfjs/pdf.worker.min.js' // Local file instead of CDN
+  '/vendor/pdfjs/pdf.min.js',       // Use local file
+  '/vendor/pdfjs/pdf.worker.min.js' // Use local file
 ];
 
 self.addEventListener('install', (e) => {
