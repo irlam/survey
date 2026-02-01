@@ -577,39 +577,46 @@ if ($fit_a4) {
         if (!$planFile) { $cand3 = storage_dir('plans/' . basename($fileRel)); if (is_file($cand3)) $planFile = $cand3; }
     }
     if ($planFile && is_file($planFile)) {
-        // Render a large plan thumbnail to fit page width
+        // Render a large plan thumbnail to fit page width. Prefer a pin-composited image for the primary issue (single-issue export),
+        // falling back to the plain plan thumbnail if pin rendering is unavailable.
         $pageW = $pdf->GetPageWidth(); $pageH = $pdf->GetPageHeight();
         $margin = 12; $gap = 6; // mm
         $availableW = $pageW - ($margin * 2);
         $planPage = (!empty($issue_list) && isset($issue_list[0]['page'])) ? $issue_list[0]['page'] : 1;
+        $primaryIssue = !empty($issue_list) ? $issue_list[0] : null;
+        $planThumb = null;
+        if ($include_pin && $primaryIssue) {
+            $planThumb = render_pin_thumbnail($planFile, $primaryIssue['page'] ?? 1, $primaryIssue['x_norm'] ?? 0.5, $primaryIssue['y_norm'] ?? 0.5, 2000);
+        }
+        if (!$planThumb) {
             $planThumb = render_plan_thumbnail($planFile, $planPage, 2000);
+        }
         if ($planThumb && isset($planThumb['tmp'])) {
             $tempFiles[] = $planThumb['tmp'];
             $imgInfo = @getimagesize($planThumb['tmp']);
             $w_px = $imgInfo ? $imgInfo[0] : ($planThumb['w'] ?? null);
             $h_px = $imgInfo ? $imgInfo[1] : ($planThumb['h'] ?? null);
 
-            // Generate per-issue pin images (raster) to display in grid (do this before placing the plan so we can cap its height)
+            // Build grid from associated issue photos (4-wide). If a photo path is missing/remote, skip it cleanly.
             $gridImgs = [];
             foreach ($issue_list as $iss) {
-                $pinImg = render_pin_thumbnail($planFile, $iss['page'] ?? 1, $iss['x_norm'] ?? 0.5, $iss['y_norm'] ?? 0.5, 1200, ($iss['id'] ?? null));
-                if ($pinImg && is_array($pinImg) && !empty($pinImg['tmp']) && is_file($pinImg['tmp'])) {
-                    $gridImgs[] = ['tmp'=>$pinImg['tmp'],'w'=>null,'h'=>null,'issue_id'=>$iss['id'] ?? null];
-                    $tempFiles[] = $pinImg['tmp'];
-                } else {
-                    // fallback: try to use any issue photo (first photo) as placeholder
-                    $stmtp2 = $pdo->prepare('SELECT * FROM photos WHERE plan_id=? AND issue_id=? LIMIT 1');
-                    $stmtp2->execute([$plan_id, $iss['id']]); $phs2 = $stmtp2->fetchAll();
-                    if (!empty($phs2)) {
-                        $frel = $phs2[0]['file_path'] ?? $phs2[0]['filename'] ?? null;
-                        if ($frel) {
-                            if (preg_match('#^https?://#i', $frel)) continue; // skip remote for grid
-                            if (strpos($frel, 'photos/')===0) $fpath = storage_dir($frel);
-                            else $fpath = storage_dir('photos/' . basename($frel));
-                            if (is_file($fpath)) { $gridImgs[] = ['tmp'=>$fpath,'w'=>null,'h'=>null,'issue_id'=>$iss['id'] ?? null]; }
-                        }
+                $stmtp2 = $pdo->prepare('SELECT * FROM photos WHERE plan_id=? AND issue_id=? ORDER BY id');
+                $stmtp2->execute([$plan_id, $iss['id']]);
+                $phs2 = $stmtp2->fetchAll();
+                foreach ($phs2 as $ph) {
+                    $frel = $ph['file_path'] ?? $ph['filename'] ?? null;
+                    if (!$frel) continue;
+                    if (preg_match('#^https?://#i', $frel)) continue; // skip remote to keep export self-contained
+                    if (strpos($frel, 'photos/')===0) $fpath = storage_dir($frel);
+                    else $fpath = storage_dir('photos/' . basename($frel));
+                    if (is_file($fpath)) {
+                        $gridImgs[] = ['tmp'=>$fpath,'w'=>null,'h'=>null,'issue_id'=>$iss['id'] ?? null];
                     }
                 }
+            }
+            // If no photos exist, fall back to a single pin-composited thumbnail so the plan location is still visible once.
+            if (empty($gridImgs) && $planThumb && isset($planThumb['tmp'])) {
+                $gridImgs[] = ['tmp'=>$planThumb['tmp'], 'w'=>null, 'h'=>null, 'issue_id'=>$primaryIssue['id'] ?? null];
             }
 
             if ($w_px && $h_px) {
