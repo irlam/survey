@@ -22,6 +22,15 @@ function setTitle(text){ const el = qs('#planTitle'); if(el) el.textContent = te
 function setModeBadge(){ const b = qs('#modeBadge'); if(!b) return; b.style.display = addIssueMode ? 'inline-flex' : 'none'; }
 function setBadges(){ const pageBadge = qs('#pageBadge'); if(pageBadge) pageBadge.textContent = totalPages?`Page ${currentPage} / ${totalPages}`:'Page - / -'; const pageInput = qs('#pageInput'); if(pageInput && totalPages) pageInput.value = String(currentPage); const zoomBadge = qs('#zoomBadge'); if(zoomBadge) zoomBadge.textContent = `${Math.round(userZoom*100)}%`; }
 
+// keep UI toggles in sync when add issue mode changes
+function updateAddModeVisuals(){
+  const addBtn = qs('#btnAddIssueMode');
+  const fab = qs('#fabAddIssue');
+  if(addBtn) addBtn.textContent = addIssueMode ? 'Done' : 'Add Issue';
+  if(fab) fab.setAttribute('data-active', addIssueMode ? 'true' : 'false');
+  setModeBadge();
+}
+
 function ensurePdfJsConfigured(){ if(!window.pdfjsLib) throw new Error('PDF.js not loaded'); window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/vendor/pdfjs/pdf.worker.min.js'; }
 // local toast fallback if global not available
 function localShowToast(msg, timeout=2200){ try{ if(window && typeof window.showToast === 'function'){ window.showToast(msg, timeout); return; } }catch(e){} const el = document.createElement('div'); el.textContent = msg; el.style.position='fixed'; el.style.right='20px'; el.style.bottom='20px'; el.style.zIndex=999999; el.style.background='rgba(0,0,0,0.8)'; el.style.color='#fff'; el.style.padding='10px 14px'; el.style.borderRadius='8px'; el.style.boxShadow='0 6px 18px rgba(0,0,0,.4)'; document.body.appendChild(el); setTimeout(()=>{ try{ el.remove(); }catch(e){} }, timeout); }
@@ -53,30 +62,33 @@ function ensureWrapAndOverlay(){
   let wrap = container.querySelector('.pdfWrap'); if(!wrap){ wrap = document.createElement('div'); wrap.className = 'pdfWrap'; container.innerHTML = ''; container.appendChild(wrap); }
   let canvas = wrap.querySelector('canvas'); if(!canvas){ canvas = document.createElement('canvas'); canvas.id = 'pdfCanvas'; wrap.appendChild(canvas); }
   let overlay = wrap.querySelector('.pdfOverlay'); if(!overlay){ overlay = document.createElement('div'); overlay.className = 'pdfOverlay'; wrap.appendChild(overlay);
-    // Long-press (1s) to place an issue pin to avoid accidental taps while navigating
+    overlay.style.touchAction = 'none';
+    // Long-press (1s) to place an issue pin (desktop + touch). Small movement cancels to keep navigation smooth.
     overlay.addEventListener('pointerdown', (e)=>{
-      if(!addIssueMode) return;
-      // don't start long-press if the pointer is on an existing pin (user may want to drag it)
-      if (e.target && e.target.closest && e.target.closest('.pin')) return;
-      // only start hold if pointer is within the canvas area
+      if(e.pointerType === 'mouse' && e.button !== 0) return; // ignore right/middle clicks
+      if (e.target && e.target.closest && e.target.closest('.pin')) return; // let pin drags/clicks through
       const canvasRect = canvas.getBoundingClientRect();
       if(e.clientX < canvasRect.left || e.clientX > canvasRect.right || e.clientY < canvasRect.top || e.clientY > canvasRect.bottom) return;
-      // store initial coordinates on the overlay for use when timer fires
       overlay._issueHold = overlay._issueHold || {};
-      overlay._issueHold.startX = e.clientX;
-      overlay._issueHold.startY = e.clientY;
-      // track current pointer (updated by pointermove to support snapping to crosshair)
-      overlay._issueHold.currentX = overlay._issueHold.currentX || e.clientX;
-      overlay._issueHold.currentY = overlay._issueHold.currentY || e.clientY;
-      // clear any previous timer
+      overlay._issueHold.startX = e.clientX; overlay._issueHold.startY = e.clientY;
+      overlay._issueHold.currentX = e.clientX; overlay._issueHold.currentY = e.clientY;
+      const movementCancelPx = 12;
       if(overlay._issueHold.timer) { clearTimeout(overlay._issueHold.timer); overlay._issueHold.timer = null; }
-      // set timer for 1 second
+      const handleMove = (mv)=>{
+        overlay._issueHold.currentX = mv.clientX; overlay._issueHold.currentY = mv.clientY;
+        if(Math.abs(mv.clientX - overlay._issueHold.startX) > movementCancelPx || Math.abs(mv.clientY - overlay._issueHold.startY) > movementCancelPx){ cancelHold(); }
+      };
+      const cancelHold = ()=>{
+        if(overlay._issueHold && overlay._issueHold.timer){ clearTimeout(overlay._issueHold.timer); overlay._issueHold.timer = null; }
+        overlay.removeEventListener('pointermove', handleMove, true);
+      };
+      overlay.addEventListener('pointermove', handleMove, true);
       overlay._issueHold.timer = setTimeout(()=>{
-        // when timer fires, compute normalized coords and open modal
+        overlay.removeEventListener('pointermove', handleMove, true);
+        if(!addIssueMode){ addIssueMode = true; updateAddModeVisuals(); }
         const overlayRect = overlay.getBoundingClientRect();
-        // prefer the crosshair's visual center if it's present & visible (snap-to-reticle)
-        let cx = (overlay._issueHold.currentX !== undefined) ? overlay._issueHold.currentX : overlay._issueHold.startX;
-        let cy = (overlay._issueHold.currentY !== undefined) ? overlay._issueHold.currentY : overlay._issueHold.startY;
+        let cx = overlay._issueHold.currentX;
+        let cy = overlay._issueHold.currentY;
         try{
           const ch = window && window.__crosshair && window.__crosshair.element;
           if (ch && ch.classList && ch.classList.contains('visible')){
@@ -84,26 +96,22 @@ function ensureWrapAndOverlay(){
             cx = r.left + (r.width/2);
             cy = r.top + (r.height/2);
           }
-        }catch(e){ /* ignore */ }
+        }catch(err){ /* ignore */ }
         const x = cx - overlayRect.left;
         const y = cy - overlayRect.top;
         const w = overlayRect.width; const h = overlayRect.height; if(w<=0||h<=0) return;
         const x_norm = Math.max(0, Math.min(1, x/w));
         const y_norm = Math.max(0, Math.min(1, y/h));
         const label = String(tempPins.filter(p=>p.page===currentPage).length + 1);
+        try{ if(navigator && typeof navigator.vibrate === 'function') navigator.vibrate(10); }catch(err){}
         showIssueModal({page: currentPage, x_norm, y_norm, label});
         overlay._issueHold.timer = null;
       }, 1000);
+      const cancelEvents = ['pointerup','pointercancel','pointerleave'];
+      cancelEvents.forEach(evt=> overlay.addEventListener(evt, cancelHold, {capture:true, once:true}));
     }, {capture:true});
-    // Cancel the hold if the pointer is released/moved/cancelled before 1s
-    const cancelHold = (ev)=>{
-      if(overlay._issueHold && overlay._issueHold.timer){ clearTimeout(overlay._issueHold.timer); overlay._issueHold.timer = null; }
-    };
-    overlay.addEventListener('pointerup', cancelHold, {capture:true});
-    overlay.addEventListener('pointercancel', cancelHold, {capture:true});
-    overlay.addEventListener('pointerleave', cancelHold, {capture:true});
   }
-  overlay.style.pointerEvents = addIssueMode ? 'auto' : 'none';
+  overlay.style.pointerEvents = 'auto';
   return {wrap, canvas, overlay};
 }
 
@@ -285,9 +293,7 @@ function bindUiOnce(){ if(window.__viewerBound) return; window.__viewerBound = t
 
   // Keep add-mode visuals consistent between desktop Add button and mobile FAB
   function setAddModeVisuals(){
-    if(addBtn) addBtn.textContent = addIssueMode ? 'Done' : 'Add Issue';
-    if(fab) fab.setAttribute('data-active', addIssueMode ? 'true' : 'false');
-    setModeBadge();
+    updateAddModeVisuals();
   }
 
   if(addBtn){ addBtn.addEventListener('click', async ()=>{ addIssueMode = !addIssueMode; setAddModeVisuals(); if(pdfDoc) await renderPage(currentPage); }); }
