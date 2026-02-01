@@ -14,7 +14,6 @@
     <button id="menuBtn" class="iconBtn" aria-label="Menu">☰</button>
     <div class="brand">Survey PDF Editor</div>
     <div id="netDot" class="netDot" title="Offline"></div>
-    <div id="pwaStatus" class="muted" style="margin-left:10px;font-size:13px;"></div>
   </header>
 
   <div class="layout">
@@ -118,26 +117,8 @@
       pdfjsLib.GlobalWorkerOptions.workerSrc = "/vendor/pdfjs/pdf.worker.min.js";
     }
   </script>
-  <!-- Ensure PinDraggable is available before viewer init -->
-  <script src="/app/pin-draggable.js"></script>
 
     <script src="/app/viewer.js?v=20260128_3"></script>
-  <script>
-    // Minimal PWA registration + status indicator
-    (function(){
-      const statusEl = document.getElementById('pwaStatus');
-      function setStatus(msg){ if(statusEl) statusEl.textContent = msg||''; }
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/service-worker.js').then((reg)=>{
-          setStatus('✓ Ready offline');
-          reg.onupdatefound = ()=>{ setStatus('Updating offline cache…'); };
-        }).catch(()=> setStatus('Offline cache unavailable'));
-        navigator.serviceWorker.addEventListener('controllerchange', ()=> setStatus('✓ Ready offline'));
-      } else {
-        setStatus('');
-      }
-    })();
-  </script>
   <script>
     // Check server-side capabilities and show Imagick hint only when missing
     (async ()=>{
