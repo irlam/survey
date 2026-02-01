@@ -781,7 +781,7 @@ async function showIssueModal(pin){
         // load PinDraggable on-demand when add issue mode is active
         let pinLibReady = false;
         async function ensurePinLib(){
-          if(!addIssueMode || window.FEATURE_PIN_DRAG === false) return false;
+          if(window.FEATURE_PIN_DRAG === false) return false;
           if(window.PinDraggable){ pinLibReady = true; return true; }
           return new Promise((resolve)=>{
             const s = document.createElement('script'); s.src = '/app/pin-draggable.js';

@@ -230,6 +230,21 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
 .btn:active{ transform: translateY(1px); }
 .btn:focus{ outline:none; box-shadow: 0 0 0 4px rgba(0,255,231,.08); transform: translateY(-1px); }
 
+/* Keep action buttons in the Issues modal legible on neon backgrounds */
+#issuesModal .card .btn,
+#issuesModal .card .btnPrimary{
+  background: linear-gradient(90deg, var(--neon), var(--neon2));
+  color: #041013;
+  font-weight: 900;
+  border: none;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.16);
+  box-shadow: 0 12px 32px rgba(0,255,231,0.18);
+}
+#issuesModal .card .btn:focus,
+#issuesModal .card .btnPrimary:focus{ box-shadow: 0 0 0 4px rgba(0,255,231,.16); transform: translateY(-1px); }
+#issuesModal .card .btn:active,
+#issuesModal .card .btnPrimary:active{ transform: translateY(1px); }
+
 /* Primary accent buttons remain bright neon */
 .btnPrimary{
   min-height:44px;
