@@ -63,7 +63,7 @@ function ensureWrapAndOverlay(){
   let canvas = wrap.querySelector('canvas'); if(!canvas){ canvas = document.createElement('canvas'); canvas.id = 'pdfCanvas'; wrap.appendChild(canvas); }
   let overlay = wrap.querySelector('.pdfOverlay'); if(!overlay){ overlay = document.createElement('div'); overlay.className = 'pdfOverlay'; wrap.appendChild(overlay);
     overlay.style.touchAction = 'none';
-    // Long-press (1s) to place an issue pin (desktop + touch). Small movement cancels to keep navigation smooth.
+      // Long-press (1s) to place an issue pin (desktop + touch). Small movement cancels to keep navigation smooth.
     overlay.addEventListener('pointerdown', (e)=>{
       if(e.pointerType === 'mouse' && e.button !== 0) return; // ignore right/middle clicks
       if (e.target && e.target.closest && e.target.closest('.pin')) return; // let pin drags/clicks through
@@ -97,7 +97,7 @@ function ensureWrapAndOverlay(){
             cy = r.top + (r.height/2);
           }
         }catch(err){ /* ignore */ }
-        const x = cx - overlayRect.left;
+         const x = cx - overlayRect.left;
         const y = cy - overlayRect.top;
         const w = overlayRect.width; const h = overlayRect.height; if(w<=0||h<=0) return;
         const x_norm = Math.max(0, Math.min(1, x/w));
@@ -106,7 +106,7 @@ function ensureWrapAndOverlay(){
         try{ if(navigator && typeof navigator.vibrate === 'function') navigator.vibrate(10); }catch(err){}
         showIssueModal({page: currentPage, x_norm, y_norm, label});
         overlay._issueHold.timer = null;
-      }, 1000);
+      }, 700);
       const cancelEvents = ['pointerup','pointercancel','pointerleave'];
       cancelEvents.forEach(evt=> overlay.addEventListener(evt, cancelHold, {capture:true, once:true}));
     }, {capture:true});

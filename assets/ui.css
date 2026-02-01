@@ -176,8 +176,8 @@ select:focus{ outline:none; box-shadow: 0 0 0 4px rgba(0,255,231,.12); transform
 /* Modal/list specific: make dropdown controls and list items readable in the Issues modal/list */
 #issuesModal .customSelect, #issueModal .customSelect, .card .customSelect{ min-width:120px; }
 #issuesModal .customSelect.small, #issueModal .customSelect.small, .card .customSelect.small{ min-width:100px; }
-#issuesModal .customSelect .selectButton, #issueModal .customSelect .selectButton, .card .customSelect .selectButton{ padding:12px 18px; min-height:44px; color:#FFFFFF !important; border: 1px solid rgba(0,255,231,.22) !important; }
-#issuesModal .customSelect .selectedLabel, #issueModal .customSelect .selectedLabel, .card .customSelect .selectedLabel{ color:#FFFFFF !important; font-weight:900; font-size:1rem; line-height:1; display:block; text-align:center; text-shadow: 0 1px 0 rgba(0,0,0,0.5); }
+#issuesModal .customSelect .selectButton, #issueModal .customSelect .selectButton, .card .customSelect .selectButton{ padding:12px 18px; min-height:44px; color:#000000 !important; border: 1px solid rgba(0,255,231,.22) !important; background: linear-gradient(90deg, var(--neon), var(--neon2)); }
+#issuesModal .customSelect .selectedLabel, #issueModal .customSelect .selectedLabel, .card .customSelect .selectedLabel{ color:#000000 !important; font-weight:900; font-size:1rem; line-height:1; display:block; text-align:center; text-shadow: none; }
 .customSelect.neonSelect .selectedLabel{ color:#000000 !important; }
 #issuesModal .customSelect .selectList, #issueModal .customSelect .selectList, .card .customSelect .selectList{ background: linear-gradient(180deg, rgba(255,255,255,0.15), rgba(255,255,255,0.08)); border-radius:12px; padding:10px; border:1px solid rgba(0,255,231,0.08); box-shadow: 0 12px 30px rgba(0,0,0,0.5); }
 #issuesModal .customSelect .selectList li, #issueModal .customSelect .selectList li, .card .customSelect .selectList li{ color: #041013 !important; font-weight:700; background: transparent; padding:12px 14px; border-radius:8px; }

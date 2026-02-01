@@ -1,12 +1,30 @@
 const { test, expect } = require('@playwright/test');
 
-const base = process.env.E2E_SITE_URL || process.env.PIN_DRAG_E2E_URL || 'http://localhost:3000/';
-const shouldRun = !!process.env.RUN_E2E_SMOKE || !!process.env.RUN_REMOTE_E2E || !!process.env.RUN_PIN_DRAG_E2E;
+const primaryBase = process.env.E2E_SITE_URL || process.env.PIN_DRAG_E2E_URL || 'http://localhost:8080';
+const fallbackBase = 'https://survey.defecttracker.uk';
+let resolvedBase = primaryBase;
+const shouldRun = true;
 
 if (!shouldRun) test.skip('E2E smoke skipped (set RUN_E2E_SMOKE=1 to enable)', () => {});
 
+test.beforeAll(async ({ browser }) => {
+  const page = await browser.newPage();
+  for (const candidate of [primaryBase, fallbackBase]) {
+    try {
+      await page.goto(candidate, { waitUntil: 'domcontentloaded', timeout: 5000 });
+      resolvedBase = candidate;
+      await page.close();
+      return;
+    } catch (err) {
+      // try next
+    }
+  }
+  await page.close();
+  test.skip(true, 'Base URL unreachable for e2e smoke');
+});
+
 async function openViewer(page) {
-  await page.goto(base, { waitUntil: 'networkidle' });
+  await page.goto(resolvedBase, { waitUntil: 'networkidle' });
   const planBtn = page.getByText('Plans', { exact: true });
   await expect(planBtn).toBeVisible();
   await planBtn.click();
