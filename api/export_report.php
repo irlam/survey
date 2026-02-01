@@ -120,6 +120,7 @@ function get_exports_listing($limit = 20) {
 // Render a small thumbnail of the plan page with a pin composited at normalized coordinates.
 // Returns path to a temporary PNG file, or null on failure. Requires Imagick; falls back silently.
 function render_pin_thumbnail($planFile, $page, $x_norm, $y_norm, $thumbWidthPx = 400) {
+    $pdfCropFlag = true; // align with pdf.js crop box to keep pin positions consistent
     $pinSvgPath = __DIR__ . '/../assets/pin.svg';
     $pinPngPath = __DIR__ . '/../assets/pin.png';
     $pinHeightPx = 72; // keep consistent pin scale similar to viewer overlay
@@ -128,6 +129,7 @@ function render_pin_thumbnail($planFile, $page, $x_norm, $y_norm, $thumbWidthPx 
     if (class_exists('Imagick')) {
         try {
             $im = new Imagick();
+            if ($pdfCropFlag) $im->setOption('pdf:use-cropbox','true');
             $im->setResolution(150,150);
             $pageIndex = max(0, (int)$page - 1);
             $im->readImage($planFile . '[' . $pageIndex . ']');
@@ -223,7 +225,7 @@ function render_pin_thumbnail($planFile, $page, $x_norm, $y_norm, $thumbWidthPx 
     if ($pdftoppm) {
         $prefix = sys_get_temp_dir() . '/pinr_' . bin2hex(random_bytes(6));
         $outPng = $prefix . '.png';
-        $cmd = escapeshellcmd($pdftoppm) . ' -png -f ' . (int)$page . ' -singlefile -r 150 ' . escapeshellarg($planFile) . ' ' . escapeshellarg($prefix) . ' 2>&1';
+        $cmd = escapeshellcmd($pdftoppm) . ' -png -f ' . (int)$page . ' -singlefile -r 150 ' . ($pdfCropFlag ? '-cropbox ' : '') . escapeshellarg($planFile) . ' ' . escapeshellarg($prefix) . ' 2>&1';
         @exec($cmd, $out, $rc);
         if ($rc === 0 && is_file($outPng)) {
             // composite using GD
@@ -274,7 +276,7 @@ function render_pin_thumbnail($planFile, $page, $x_norm, $y_norm, $thumbWidthPx 
     if ($gs) {
         $prefix = sys_get_temp_dir() . '/pinr_' . bin2hex(random_bytes(6));
         $outPng = $prefix . '.png';
-        $cmd = escapeshellcmd($gs) . ' -dSAFER -dBATCH -dNOPAUSE -sDEVICE=pngalpha -r150 -dFirstPage=' . (int)$page . ' -dLastPage=' . (int)$page . ' -sOutputFile=' . escapeshellarg($outPng) . ' ' . escapeshellarg($planFile) . ' 2>&1';
+        $cmd = escapeshellcmd($gs) . ' -dSAFER -dBATCH -dNOPAUSE -sDEVICE=pngalpha -r150 -dUseCropBox -dFirstPage=' . (int)$page . ' -dLastPage=' . (int)$page . ' -sOutputFile=' . escapeshellarg($outPng) . ' ' . escapeshellarg($planFile) . ' 2>&1';
         @exec($cmd, $out, $rc);
         if ($rc === 0 && is_file($outPng)) {
             if (function_exists('imagecreatefrompng') && function_exists('imagecopyresampled')) {
@@ -325,11 +327,13 @@ function render_pin_thumbnail($planFile, $page, $x_norm, $y_norm, $thumbWidthPx 
 // Render an entire plan page (PNG) to a temporary file. Returns ['tmp'=>path,'w'=>width_px,'h'=>height_px,'method'=>...]
 // or null on failure. This mirrors render_pin_thumbnail's rendering but without compositing a pin.
 function render_plan_thumbnail($planFile, $page = 1, $thumbWidthPx = 1200) {
+    $pdfCropFlag = true; // align crop with viewer (pdf.js uses crop box)
     if (!is_file($planFile)) return null;
     // Try Imagick first
     if (class_exists('Imagick')) {
         try {
             $im = new Imagick();
+            if ($pdfCropFlag) $im->setOption('pdf:use-cropbox','true');
             $im->setResolution(150,150);
             $pageIndex = max(0, (int)$page - 1);
             $im->readImage($planFile . '[' . $pageIndex . ']');
@@ -379,7 +383,7 @@ function render_plan_thumbnail($planFile, $page = 1, $thumbWidthPx = 1200) {
     if ($pdftoppm) {
         $prefix = sys_get_temp_dir() . '/planr_' . bin2hex(random_bytes(6));
         $outPng = $prefix . '.png';
-        $cmd = escapeshellcmd($pdftoppm) . ' -png -f ' . (int)$page . ' -singlefile -r 150 ' . escapeshellarg($planFile) . ' ' . escapeshellarg($prefix) . ' 2>&1';
+        $cmd = escapeshellcmd($pdftoppm) . ' -png -f ' . (int)$page . ' -singlefile -r 150 ' . ($pdfCropFlag ? '-cropbox ' : '') . escapeshellarg($planFile) . ' ' . escapeshellarg($prefix) . ' 2>&1';
         @exec($cmd, $out, $rc);
         if ($rc === 0 && is_file($outPng)) {
             // optionally resize to target width
@@ -413,7 +417,7 @@ function render_plan_thumbnail($planFile, $page = 1, $thumbWidthPx = 1200) {
     if ($gs) {
         $prefix = sys_get_temp_dir() . '/planr_' . bin2hex(random_bytes(6));
         $outPng = $prefix . '.png';
-        $cmd = escapeshellcmd($gs) . ' -dSAFER -dBATCH -dNOPAUSE -sDEVICE=pngalpha -r150 -dFirstPage=' . (int)$page . ' -dLastPage=' . (int)$page . ' -sOutputFile=' . escapeshellarg($outPng) . ' ' . escapeshellarg($planFile) . ' 2>&1';
+        $cmd = escapeshellcmd($gs) . ' -dSAFER -dBATCH -dNOPAUSE -sDEVICE=pngalpha -r150 -dUseCropBox -dFirstPage=' . (int)$page . ' -dLastPage=' . (int)$page . ' -sOutputFile=' . escapeshellarg($outPng) . ' ' . escapeshellarg($planFile) . ' 2>&1';
         @exec($cmd, $out, $rc);
         if ($rc === 0 && is_file($outPng)) {
             // optionally resize like above
