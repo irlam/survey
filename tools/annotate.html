@@ -220,7 +220,7 @@
   let shapes = []; // undo stack
   let current = null; // current drawing
   let selectedIndex = -1;
-  let dragMode = null; // 'move' | 'rotate'
+  let dragMode = null; // 'move' | 'rotate' | 'scale'
   let dragStart = null;
 
   async function loadPlans(){
@@ -419,7 +419,14 @@ fileUploader.onchange = (e)=>{ const f=e.target.files&&e.target.files[0]; if(!f)
       const hit = hitTest(x,y);
       selectedIndex = hit.index;
       dragMode = hit.handle;
-      dragStart = hit.index>=0 ? {x, y, shape: cloneShape(shapes[hit.index]), rotation: shapes[hit.index].rotation||0} : null;
+      if(hit.index>=0){
+        const sh = shapes[hit.index];
+        const bbox = getBoundingBox(sh);
+        const cx = (bbox.x1+bbox.x2)/2, cy=(bbox.y1+bbox.y2)/2;
+        dragStart = {x, y, shape: cloneShape(sh), rotation: sh.rotation||0, bbox, cx, cy, corner: hit.corner};
+      } else {
+        dragStart = null;
+      }
       redrawAnnotations();
       try{ if(typeof e.pointerId !== 'undefined') aCanvas.setPointerCapture(e.pointerId); }catch(ignore){}
       return;
@@ -440,10 +447,19 @@ fileUploader.onchange = (e)=>{ const f=e.target.files&&e.target.files[0]; if(!f)
       const dx = x - dragStart.x;
       const dy = y - dragStart.y;
       if(dragMode==='rotate'){
-        const {cx, cy} = getShapeCenter(s);
-        const a1 = Math.atan2(dragStart.y - cy, dragStart.x - cx);
-        const a2 = Math.atan2(y - cy, x - cx);
+        const a1 = Math.atan2(dragStart.y - dragStart.cy, dragStart.x - dragStart.cx);
+        const a2 = Math.atan2(y - dragStart.cy, x - dragStart.cx);
         s.rotation = (dragStart.rotation||0) + (a2 - a1);
+      } else if(dragMode==='scale'){
+        const halfW = Math.max(4, (dragStart.bbox.x2 - dragStart.bbox.x1)/2);
+        const halfH = Math.max(4, (dragStart.bbox.y2 - dragStart.bbox.y1)/2);
+        const localX = x - dragStart.cx;
+        const localY = y - dragStart.cy;
+        const sx = Math.max(0.2, Math.min(5, Math.abs(localX) / halfW));
+        const sy = Math.max(0.2, Math.min(5, Math.abs(localY) / halfH));
+        const signX = dragStart.corner.includes('e') ? 1 : dragStart.corner.includes('w') ? -1 : Math.sign(localX)||1;
+        const signY = dragStart.corner.includes('s') ? 1 : dragStart.corner.includes('n') ? -1 : Math.sign(localY)||1;
+        scaleShapeAroundCenter(s, dragStart.shape, dragStart.cx, dragStart.cy, sx*signX, sy*signY);
       } else { // move
         applyDelta(s, dragStart.shape, dx, dy);
       }
@@ -638,6 +654,21 @@ function drawSelectionOverlay(){
   aCtx.strokeStyle='rgba(0,255,231,1)';
   aCtx.arc(0, handleY, 8, 0, Math.PI*2);
   aCtx.fill();
+  // corner resize handles
+  const handles = [
+    {x:-w/2, y:-h/2, c:'nw'},
+    {x:w/2, y:-h/2, c:'ne'},
+    {x:w/2, y:h/2, c:'se'},
+    {x:-w/2, y:h/2, c:'sw'},
+  ];
+  for(const hd of handles){
+    aCtx.beginPath();
+    aCtx.fillStyle='rgba(0,255,231,0.95)';
+    aCtx.strokeStyle='rgba(0,255,231,1)';
+    aCtx.rect(hd.x-6, hd.y-6, 12, 12);
+    aCtx.fill();
+    aCtx.stroke();
+  }
   aCtx.restore();
 }
 
@@ -646,15 +677,28 @@ function hitTest(x, y){
     const s = shapes[i];
     const rot = s.rotation||0;
     const {cx, cy} = getShapeCenter(s);
-    const localX = Math.cos(-rot)*(x-cx) - Math.sin(-rot)*(y-cy) + cx;
-    const localY = Math.sin(-rot)*(x-cx) + Math.cos(-rot)*(y-cy) + cy;
+    const dx = x - cx, dy = y - cy;
+    const localX = Math.cos(-rot)*dx - Math.sin(-rot)*dy + cx;
+    const localY = Math.sin(-rot)*dx + Math.cos(-rot)*dy + cy;
     const b = getBoundingBox(s);
+    // rotate handle hit
+    const handleY = b.y1 - 24;
+    const distHandle = Math.hypot(localX - cx, localY - handleY);
+    if(distHandle < 12) return {index:i, handle:'rotate', corner:null};
+    // corner handles
+    const corners = [
+      {x:b.x1, y:b.y1, c:'nw'},
+      {x:b.x2, y:b.y1, c:'ne'},
+      {x:b.x2, y:b.y2, c:'se'},
+      {x:b.x1, y:b.y2, c:'sw'},
+    ];
+    for(const c of corners){
+      if(Math.abs(localX - c.x) <= 8 && Math.abs(localY - c.y) <= 8){
+        return {index:i, handle:'scale', corner:c.c};
+      }
+    }
     if(localX>=b.x1 && localX<=b.x2 && localY>=b.y1 && localY<=b.y2){
-      // check rotate handle proximity
-      const handleY = b.y1 - 24;
-      const distHandle = Math.hypot(localX - cx, localY - handleY);
-      if(distHandle < 12) return {index:i, handle:'rotate'};
-      return {index:i, handle:'move'};
+      return {index:i, handle:'move', corner:null};
     }
   }
   return {index:-1, handle:null};
@@ -681,6 +725,27 @@ function scaleShape(s, factor){
   c.stroke = (c.stroke||3)*factor;
   if(c.rotation) c.rotation = c.rotation; // keep rotation unchanged
   return c;
+}
+
+function scaleShapeAroundCenter(target, original, cx, cy, sx, sy){
+  const uni = Math.max(0.05, Math.min(5, Math.max(Math.abs(sx), Math.abs(sy))));
+  const applyPoint = (px, py)=>({x: cx + (px - cx) * sx, y: cy + (py - cy) * sy});
+  Object.assign(target, cloneShape(original));
+  if(target.type==='free'){
+    target.points = original.points.map(p=> applyPoint(p.x, p.y));
+  } else if(target.type==='text'){
+    const p = applyPoint(original.x, original.y);
+    target.x = p.x; target.y = p.y; target.size = (original.size||16) * uni;
+  } else if(target.type==='icon'){
+    const p = applyPoint(original.startX, original.startY);
+    target.startX = p.x; target.startY = p.y; target.size = (original.size||24) * uni;
+  } else {
+    const p1 = applyPoint(original.startX, original.startY);
+    const p2 = applyPoint(original.endX||original.startX, original.endY||original.startY);
+    target.startX = p1.x; target.startY = p1.y; target.endX = p2.x; target.endY = p2.y;
+  }
+  target.stroke = (original.stroke||3) * uni;
+  target.rotation = original.rotation || 0;
 }
 
   document.getElementById('btnUndo').onclick = ()=>{ shapes.pop(); redrawAnnotations(); };
