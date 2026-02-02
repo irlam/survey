@@ -17,6 +17,10 @@ let dbPins = [];
 // Helpers
 function qs(sel){ return document.querySelector(sel); }
 function getPlanIdFromUrl(){ const u = new URL(window.location.href); const v = u.searchParams.get('plan_id'); const n = parseInt(v||'0',10); return Number.isFinite(n) && n>0 ? n : null; }
+function getActivePlanId(fallback){
+  const id = getPlanIdFromUrl() || window.__currentPlanId || (fallback && fallback.plan_id) || null;
+  return id && Number.isFinite(Number(id)) ? Number(id) : null;
+}
 function setStatus(text){ const el = qs('#viewerMsg'); if(el) el.textContent = text||''; }
 function setTitle(text){ const el = qs('#planTitle'); if(el) el.textContent = text||'Plan'; }
 function setModeBadge(){ const b = qs('#modeBadge'); if(!b) return; b.style.display = addIssueMode ? 'inline-flex' : 'none'; }
@@ -104,7 +108,7 @@ function ensureWrapAndOverlay(){
         const y_norm = Math.max(0, Math.min(1, y/h));
         const label = String(tempPins.filter(p=>p.page===currentPage).length + 1);
         try{ if(navigator && typeof navigator.vibrate === 'function') navigator.vibrate(10); }catch(err){}
-        showIssueModal({page: currentPage, x_norm, y_norm, label});
+        showIssueModal({page: currentPage, x_norm, y_norm, label, plan_id: getActivePlanId()});
         overlay._issueHold.timer = null;
       }, 700);
       const cancelEvents = ['pointerup','pointercancel','pointerleave'];
@@ -121,7 +125,7 @@ async function apiListIssues(planId){ const res = await fetch(`/api/list_issues.
 async function apiSaveIssue(issue){ const res = await fetch('/api/save_issue.php',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(issue)}); const txt = await res.text(); let data; try{ data = JSON.parse(txt); }catch{ throw new Error(`save_issue invalid JSON: ${txt}`); } if(!res.ok || !data.ok) throw new Error(data.error || `save_issue failed: HTTP ${res.status}`); return data; }
 
 // fetch issue details by id via list_issues (safe fallback if no dedicated endpoint)
-async function fetchIssueDetails(issueId){ const planId = getPlanIdFromUrl(); if(!planId || !issueId) return null; try{ const issues = await apiListIssues(planId); return issues.find(i=>String(i.id)===String(issueId)) || null; }catch(e){ console.warn('fetchIssueDetails failed', e); return null; } }
+async function fetchIssueDetails(issueId){ const planId = getActivePlanId(); if(!planId || !issueId) return null; try{ const issues = await apiListIssues(planId); return issues.find(i=>String(i.id)===String(issueId)) || null; }catch(e){ console.warn('fetchIssueDetails failed', e); return null; } }
 
 // resize/compress image file (returns Blob)
 function resizeImageFile(file, maxWidth=1600, maxHeight=1600, quality=0.8){ return new Promise((resolve,reject)=>{
@@ -205,7 +209,7 @@ async function renderPinsForPage(overlay, viewportWidth, viewportHeight){ clearO
         elPin.style.touchAction = 'none';
         elPin.style.cursor = 'grab';
         let dragging = false, moved = false;
-        async function savePin(){ if(!pinObj || !pinObj.id) return; try{ const issue = { id: pinObj.id, plan_id: getPlanIdFromUrl(), page: pinObj.page, x_norm: pinObj.x_norm, y_norm: pinObj.y_norm }; await apiSaveIssue(issue); localShowToast('Pin saved'); await reloadDbPins(); await renderPage(currentPage); try{ document.dispatchEvent(new CustomEvent('issueUpdated', { detail: { issueId: pinObj.id } })); }catch(e){} }catch(e){ localShowToast('Pin save failed'); console.warn('Pin save failed', e); } }
+        async function savePin(){ if(!pinObj || !pinObj.id) return; try{ const issue = { id: pinObj.id, plan_id: getActivePlanId(pinObj), page: pinObj.page, x_norm: pinObj.x_norm, y_norm: pinObj.y_norm }; await apiSaveIssue(issue); localShowToast('Pin saved'); await reloadDbPins(); await renderPage(currentPage); try{ document.dispatchEvent(new CustomEvent('issueUpdated', { detail: { issueId: pinObj.id } })); }catch(e){} }catch(e){ localShowToast('Pin save failed'); console.warn('Pin save failed', e); } }
         function onPointerDown(ev){ ev.preventDefault(); ev.stopPropagation(); try{ elPin.setPointerCapture(ev.pointerId); }catch(e){} dragging = true; moved = false; elPin.style.cursor = 'grabbing'; window.addEventListener('pointermove', onPointerMove); window.addEventListener('pointerup', onPointerUp); if(overlay._issueHold && overlay._issueHold.timer){ clearTimeout(overlay._issueHold.timer); overlay._issueHold.timer = null; } // analytics & haptic
           try{ trackEvent('pin_drag_start', { id: pinObj.id || null, page: pinObj.page, x: pinObj.x_norm, y: pinObj.y_norm }); }catch(e){}
           try{ if(navigator && typeof navigator.vibrate === 'function') navigator.vibrate(10); }catch(e){}
@@ -582,7 +586,7 @@ async function showIssueModal(pin){
     }
 
     async function loadPhotoThumbs(){
-    const planId = getPlanIdFromUrl(); if(!planId || !pin.id) return;
+    const planId = getActivePlanId(pin); if(!planId || !pin.id) return;
     try{
       const res = await fetch(`/api/list_photos.php?plan_id=${planId}`);
       const txt = await res.text(); let data; try{ data = JSON.parse(txt);}catch{return;} if(!data.ok || !Array.isArray(data.photos)) return;
@@ -725,7 +729,7 @@ async function showIssueModal(pin){
     function uploadProcessedFile(blobOrFile, targetIssueId, onProgress, opts){
       opts = opts || {};
       return new Promise((resolve, reject)=>{
-        const planId = getPlanIdFromUrl(); const issueId = targetIssueId || pin.id;
+        const planId = getActivePlanId(pin); const issueId = targetIssueId || pin.id;
         if(!planId || !issueId){ // queue for upload after save
           try{
             const f = (blobOrFile instanceof File) ? blobOrFile : new File([blobOrFile], (blobOrFile.name||'photo.jpg'), {type: blobOrFile.type||'image/jpeg'});
@@ -768,6 +772,7 @@ async function showIssueModal(pin){
     function handleSelectedFile(file){ if(!file) return; const previewWrap = modal.querySelector('#photoPreview'); const imgEl = modal.querySelector('#photoPreviewImg'); const infoEl = modal.querySelector('#photoPreviewInfo'); previewWrap.style.display='flex'; const url = URL.createObjectURL(file); imgEl.src = url; infoEl.textContent = `${Math.round(file.size/1024)} KB — ${file.type}`;
       // set confirm handler to resize then upload
       const confirmBtn = modal.querySelector('#issueUploadConfirmBtn'); const cancelBtn = modal.querySelector('#issueUploadCancelBtn'); confirmBtn.disabled = false; confirmBtn.onclick = async ()=>{ confirmBtn.disabled = true; try{ 
+        const planId = getActivePlanId(pin);
         if(!pin.id){
           const title = modal.querySelector('#issueTitle').value.trim();
           const notes = modal.querySelector('#issueNotes').value.trim();
@@ -910,7 +915,7 @@ async function showIssueModal(pin){
               function onDown(ev){ ev.preventDefault(); try{ el.setPointerCapture(ev.pointerId); }catch(ignore){} dragging=true; el.style.cursor='grabbing'; window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp); }
               function onMove(ev){ if(!dragging) return; moved=true; const r = previewWrap.getBoundingClientRect(); const x = ev.clientX - r.left; const y = ev.clientY - r.top; const nx = Math.max(0, Math.min(1, x / r.width)); const ny = Math.max(0, Math.min(1, y / r.height)); pin.x_norm = nx; pin.y_norm = ny; el.style.left = (nx * r.width) + 'px'; el.style.top = (ny * r.height) + 'px'; const coordEl = modal.querySelector('#issueCoords'); if(coordEl) coordEl.textContent = `x:${nx.toFixed(2)} y:${ny.toFixed(2)}`; }
               function onUp(ev){ try{ el.releasePointerCapture(ev.pointerId); }catch(ignore){} dragging=false; el.style.cursor='grab'; window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); // persist if saved
-                if(pin && pin.id){ const issue = { id: pin.id, plan_id: getPlanIdFromUrl(), page: pin.page, x_norm: pin.x_norm, y_norm: pin.y_norm }; apiSaveIssue(issue).then(()=>{ localShowToast('Pin saved'); reloadDbPins(); renderPage(currentPage); }).catch(()=>{}); }
+                if(pin && pin.id){ const issue = { id: pin.id, plan_id: getActivePlanId(pin), page: pin.page, x_norm: pin.x_norm, y_norm: pin.y_norm }; apiSaveIssue(issue).then(()=>{ localShowToast('Pin saved'); reloadDbPins(); renderPage(currentPage); }).catch(()=>{}); }
               }
               el.addEventListener('pointerdown', onDown);
             }
@@ -1040,7 +1045,7 @@ async function showIssueModal(pin){
     })();
 
     modal.querySelector('#issueSaveBtn').onclick = async ()=>{
-    const planId = getPlanIdFromUrl();
+    const planId = getActivePlanId(pin);
     const title = modal.querySelector('#issueTitle').value.trim();
     const notes = modal.querySelector('#issueNotes').value.trim();
     const status = modal.querySelector('#issueStatusSelect') ? modal.querySelector('#issueStatusSelect').value : (pin.status||'Open');
@@ -1084,7 +1089,7 @@ async function showIssueModal(pin){
 }
 
 async function reloadDbPins() {
-  const planId = getPlanIdFromUrl();
+  const planId = getActivePlanId();
   if (!planId) return;
   try {
     const issues = await apiListIssues(planId);
@@ -1113,6 +1118,7 @@ async function openPlanInApp(planId) {
   const u = new URL(window.location.href);
   u.searchParams.set('plan_id', String(planId));
   history.pushState({}, '', u.toString());
+  window.__currentPlanId = Number(planId);
   await startViewer();
 }
 window.openPlanInApp = openPlanInApp;
@@ -1139,6 +1145,7 @@ async function startViewer() {
     setBadges();
     return;
   }
+  window.__currentPlanId = Number(planId);
   document.body.classList.add('has-viewer');
   try {
     const data = await apiGetPlan(planId);
