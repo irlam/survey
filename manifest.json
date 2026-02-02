@@ -2,6 +2,7 @@
   "name": "Survey PDF Editor",
   "short_name": "Survey",
   "description": "Mobile-first construction plan survey tool (PDF viewer, issues, photos, exports).",
+  "id": "/?source=pwa",
   "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",

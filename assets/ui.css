@@ -42,8 +42,20 @@ body{
   cursor:pointer;
 }
 
-.netDot{
+.topbarRight{
   margin-left:auto;
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.installBtn{
+  min-height:36px;
+  padding:6px 12px;
+  font-weight:800;
+}
+
+.netDot{
   width:10px; height:10px; border-radius:50%;
   background:#555;
   box-shadow:none;

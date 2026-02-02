@@ -4,7 +4,12 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Survey PDF Editor</title>
+  <meta name="description" content="Mobile-first construction plan survey tool (PDF viewer, issues, photos, exports)." />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Survey">
   <link rel="stylesheet" href="/assets/ui.css?v=20260125_7">
+  <link rel="manifest" href="/manifest.json">
   <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512-maskable.png">
   <link rel="apple-touch-icon" href="/icons/icon-512-maskable.png">
   <meta name="theme-color" content="#39FF14">
@@ -13,7 +18,10 @@
   <header class="topbar">
     <button id="menuBtn" class="iconBtn" aria-label="Menu">☰</button>
     <div class="brand">Survey PDF Editor</div>
-    <div id="netDot" class="netDot" title="Offline"></div>
+    <div class="topbarRight">
+      <button id="installPwaBtn" class="btn installBtn" style="display:none;">Install</button>
+      <div id="netDot" class="netDot" title="Offline"></div>
+    </div>
   </header>
 
   <div class="layout">
