@@ -3,6 +3,7 @@ const RUNTIME_CACHE = 'survey-pwa-runtime-v5';
 const ASSETS = [
   '/',
   '/index.html',
+  '/offline.html',
   '/manifest.json',
   '/assets/ui.css?v=20260125_7',
   '/app/app.js?v=20260125_1',
@@ -74,7 +75,7 @@ self.addEventListener('fetch', (e) => {
         return res;
       }catch(err){
         const cached = await caches.match(req);
-        return cached || caches.match('/index.html');
+        return cached || caches.match('/offline.html') || caches.match('/index.html');
       }
     })());
     return;

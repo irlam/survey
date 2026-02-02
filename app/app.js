@@ -47,3 +47,21 @@ window.addEventListener('DOMContentLoaded', async () => {
     });
   });
 })();
+
+// iOS install banner (Safari doesn't fire beforeinstallprompt)
+(function initIosInstallBanner(){
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent || '');
+  const isStandalone = window.navigator.standalone === true;
+  if (!isIos || isStandalone) return;
+
+  const dismissed = localStorage.getItem('iosInstallDismissed');
+  const banner = document.getElementById('iosInstallBanner');
+  const closeBtn = document.getElementById('iosBannerClose');
+  if (!banner || !closeBtn) return;
+
+  if (!dismissed) banner.style.display = 'flex';
+  closeBtn.addEventListener('click', () => {
+    banner.style.display = 'none';
+    try { localStorage.setItem('iosInstallDismissed', '1'); } catch (e) {}
+  });
+})();
