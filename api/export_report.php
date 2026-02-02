@@ -1018,6 +1018,9 @@ if (!$skip_issue_loop) foreach ($issue_list as $issue) {
         }
         foreach ($ips as $ph) {
             $fileRel = $ph['file_path'] ?? ($ph['filename'] ?? null);
+            $thumbRel = $ph['thumb_path'] ?? ($ph['thumb'] ?? null);
+            // Fallback: if no primary file path, try thumb
+            if (!$fileRel && $thumbRel) $fileRel = $thumbRel;
             if (!$fileRel) continue;
             // Resolve file path: prefer explicit paths, otherwise assume photos/<filename>
             if (preg_match('#^https?://#i', $fileRel)) {
@@ -1102,8 +1105,22 @@ if (!$skip_issue_loop) foreach ($issue_list as $issue) {
                 if (is_file($alt)) {
                     $file = $alt;
                 } else {
-                    if ($debug) $skippedPhotos[] = ['issue_id'=>$issue['id']??null,'photo'=>$ph,'reason'=>'file_missing','tried'=>$file,'alt'=>$alt];
-                    continue;
+                    // fallback to thumb if available
+                    $thumbFile = null;
+                    if ($thumbRel) {
+                        if (strpos($thumbRel, '/storage/') === 0) $thumbFile = realpath(__DIR__ . '/..' . $thumbRel);
+                        elseif (strpos($thumbRel, 'photos/') === 0 || strpos($thumbRel, 'files/') === 0) $thumbFile = storage_dir($thumbRel);
+                        elseif (strpos($thumbRel, '/') === false) $thumbFile = storage_dir('photos/' . $thumbRel);
+                        else $thumbFile = storage_dir($thumbRel);
+                        if ($thumbFile && !is_file($thumbFile)) $thumbFile = null;
+                    }
+                    if ($thumbFile && is_file($thumbFile)) {
+                        $file = $thumbFile;
+                        if ($debug) $skippedPhotos[] = ['issue_id'=>$issue['id']??null,'photo'=>$ph,'reason'=>'primary_missing_used_thumb','thumb'=>$thumbFile];
+                    } else {
+                        if ($debug) $skippedPhotos[] = ['issue_id'=>$issue['id']??null,'photo'=>$ph,'reason'=>'file_missing','tried'=>$file,'alt'=>$alt,'thumb'=>$thumbRel];
+                        continue;
+                    }
                 }
             }
 

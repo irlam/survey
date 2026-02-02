@@ -501,7 +501,66 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
 
 /* Site footer shown inside the viewer (neon accent, centered) */
 .siteFooter{
-  position: absolute; 
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  z-index: 20;
+  pointer-events: none; /* non-interactive */
+  color: var(--neon2);
+  font-weight: 800;
+  text-shadow: 0 0 10px rgba(57,255,20,.45), 0 0 24px rgba(57,255,20,.08);
+  background: linear-gradient(180deg, rgba(0,0,0,0.36), rgba(0,0,0,0.14));
+  padding: 6px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  letter-spacing: .2px;
+}
+.issueListItem{
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.issueListItemLeft{
+  flex: 1 1 320px;
+  min-width: 240px;
+}
+.issueListItemRight{
+  flex: 0 1 300px;
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+.issueListItemMeta{
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.issueListItemButtons{
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+@media (max-width: 760px){
+  .issueListItemRight{
+    align-items: stretch;
+    width: 100%;
+  }
+  .issueListItemMeta,
+  .issueListItemButtons{
+    justify-content: flex-start;
+  }
 }
 
 /* queued photos badge in issue modal */
@@ -510,24 +569,6 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
 /* queued upload progress bar */
 .photoQueue .progress{ width:100%; height:8px; background: rgba(255,255,255,0.03); border-radius:6px; overflow:hidden; }
 .photoQueue .bar{ height:100%; background: linear-gradient(90deg,var(--neon2),var(--neon)); width:0%; transition: width .12s ease; }
-
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: 12px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:10px;
-  z-index: 20;
-  pointer-events: none; /* non-interactive */
-  color: var(--neon2);
-  font-weight: 900;
-  text-shadow: 0 0 10px rgba(57,255,20,.45), 0 0 24px rgba(57,255,20,.08);
-  background: linear-gradient(180deg, rgba(0,0,0,0.36), rgba(0,0,0,0.14));
-  padding:6px 12px; border-radius:10px;
-  font-size: 13px;
-  letter-spacing: .2px;
-}
 .siteFooterIcon{ width:20px; height:20px; border-radius:4px; box-shadow: 0 6px 18px rgba(0,0,0,0.6), 0 0 16px rgba(255,255,255,0.02) inset; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.6)); }
 
 @media (max-width: 520px){

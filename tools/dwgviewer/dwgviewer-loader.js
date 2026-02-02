@@ -46,6 +46,16 @@ export async function loadDWGBundle(){
     console.warn('Bundle does not contain export default uB; appending safe assignment');
     repaired = txt + '\n\n// Appended by dwgviewer-loader.js to repair potentially truncated bundle\nwindow.__dwg_bundle = uB();\n';
   }
+  // Expose internal AcApDocManager class (ln) and keep a handle to the viewer instance (bv)
+  try {
+    if (repaired.includes('class ln') && repaired.includes('const sB=')) {
+      repaired = repaired.replace(/\}\s*const sB=/, '}\nwindow.AcApDocManager = ln;\nconst sB=');
+    }
+    // Capture the viewer instance if the bundle auto-instantiates it
+    repaired = repaired.replace(/document\.readyState==="loading"\?document\.addEventListener\("DOMContentLoaded",\(\)=>\{new bv\}\):new bv/, 'document.readyState==="loading"?document.addEventListener("DOMContentLoaded",()=>{window.__dwg_viewer=new bv}):window.__dwg_viewer=new bv');
+  } catch (e) {
+    console.warn('Bundle export patch failed', e);
+  }
 
   try{
     const blob = new Blob([repaired], { type: 'application/javascript' });

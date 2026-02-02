@@ -21,7 +21,20 @@ if (!in_array($mime, $allowed)) {
 }
 $plan_id = safe_int($_POST['plan_id'] ?? null);
 $issue_id = safe_int($_POST['issue_id'] ?? null);
+$pdo = db();
+// If plan_id not provided, try to infer it from issue_id
+if (!$plan_id && $issue_id) {
+    $stmtPlan = $pdo->prepare('SELECT plan_id FROM issues WHERE id=?');
+    $stmtPlan->execute([$issue_id]);
+    $plan_id = safe_int($stmtPlan->fetchColumn());
+}
 if (!$plan_id) error_response('Missing plan_id', 400);
+// If issue_id provided, ensure it belongs to the plan
+if ($issue_id) {
+    $stmtIssue = $pdo->prepare('SELECT id FROM issues WHERE id=? AND plan_id=?');
+    $stmtIssue->execute([$issue_id, $plan_id]);
+    if (!$stmtIssue->fetch()) error_response('Issue not found for this plan', 404);
+}
 $ext = $mime === 'image/png' ? '.png' : '.jpg';
 $rand = bin2hex(random_bytes(8));
 $filename = $rand . $ext;
@@ -81,7 +94,6 @@ try {
     // thumbnail generation failed; continue without blocking upload
 }
 
-$pdo = db();
 // Store paths in DB columns `file_path` and `thumb_path` (supports both schemas)
 $fileRel = 'photos/' . $filename;
 $thumbDbValue = $thumbCreated ? ('photos/thumbs/' . $thumbFilename) : null;

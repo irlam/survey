@@ -4,6 +4,12 @@
         "setasign/fpdi": "^2.3",
         "setasign/fpdi-fpdf": "^2.0"
     },
+    "suggest": {
+        "ext-imagick": "Improves PDF/image rendering for pin thumbnails and reports",
+        "ext-gd": "Enables server-side thumbnail generation for uploaded photos",
+        "ext-curl": "Allows remote image fetching for exports when needed",
+        "ext-fileinfo": "Ensures reliable MIME detection for uploads"
+    },
     "config": {
         "platform": {
             "php": "8.0"

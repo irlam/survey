@@ -290,7 +290,6 @@ function bindUiOnce(){ if(window.__viewerBound) return; window.__viewerBound = t
   if(zoomOut) zoomOut.onclick = async ()=>{ userZoom = Math.max(0.25, userZoom-0.25); await renderPage(currentPage); };
   if(zoomIn) zoomIn.onclick = async ()=>{ userZoom = Math.min(5.0, userZoom+0.25); await renderPage(currentPage); };
   if(fitBtn) fitBtn.onclick = async ()=>{ fitMode = true; userZoom = 1.0; await renderPage(currentPage); };
-
   // Keep add-mode visuals consistent between desktop Add button and mobile FAB
   function setAddModeVisuals(){
     updateAddModeVisuals();
@@ -306,6 +305,71 @@ function bindUiOnce(){ if(window.__viewerBound) return; window.__viewerBound = t
     }
   }); }
 
+  // Touch pinch-to-zoom on mobile
+  const stage = qs('#pdfStage');
+  if (stage && !stage.__pinchBound) {
+    stage.__pinchBound = true;
+    stage.style.touchAction = 'none';
+    const pointers = new Map();
+    let startDist = 0;
+    let startZoom = userZoom;
+    let pinchActive = false;
+    let renderTimer = null;
+    const scheduleRender = () => {
+      if (renderTimer) return;
+      renderTimer = setTimeout(async () => {
+        renderTimer = null;
+        if (pdfDoc) await renderPage(currentPage);
+      }, 80);
+    };
+    const getDist = () => {
+      const pts = Array.from(pointers.values());
+      if (pts.length < 2) return 0;
+      const dx = pts[0].x - pts[1].x;
+      const dy = pts[0].y - pts[1].y;
+      return Math.hypot(dx, dy);
+    };
+    stage.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'touch') return;
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pointers.size === 2) {
+        pinchActive = true;
+        startDist = getDist();
+        startZoom = userZoom;
+        fitMode = false;
+      }
+    });
+    stage.addEventListener('pointermove', (e) => {
+      if (e.pointerType !== 'touch') return;
+      if (!pointers.has(e.pointerId)) return;
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pinchActive && pointers.size === 2) {
+        const dist = getDist();
+        if (startDist > 0) {
+          const scale = dist / startDist;
+          const nextZoom = Math.max(0.25, Math.min(5.0, startZoom * scale));
+          if (Math.abs(nextZoom - userZoom) > 0.01) {
+            userZoom = nextZoom;
+            fitMode = false;
+            setBadges();
+            scheduleRender();
+          }
+        }
+      }
+    });
+    const endPinch = (e) => {
+      if (e.pointerType !== 'touch') return;
+      pointers.delete(e.pointerId);
+      if (pointers.size < 2) {
+        pinchActive = false;
+        startDist = 0;
+        startZoom = userZoom;
+        if (pdfDoc) renderPage(currentPage);
+      }
+    };
+    stage.addEventListener('pointerup', endPinch);
+    stage.addEventListener('pointercancel', endPinch);
+  }
   if(closeBtn){ closeBtn.onclick = ()=>{ const u = new URL(window.location.href); u.searchParams.delete('plan_id'); history.pushState({},'',u.pathname); setTitle('Select a plan'); setStatus(''); const c = qs('#pdfContainer'); if(c) c.innerHTML = ''; pdfDoc = null; totalPages = 0; currentPage = 1; userZoom = 1.0; addIssueMode = false; setModeBadge(); setBadges(); document.body.classList.remove('has-viewer'); }; }
   window.addEventListener('resize', ()=>{ if(pdfDoc) renderPage(currentPage); });
 
@@ -316,7 +380,22 @@ function bindUiOnce(){ if(window.__viewerBound) return; window.__viewerBound = t
 
 // Issue modal with photo upload
 async function showIssueModal(pin){
-  try{ console.log('[DEBUG] showIssueModal pin:', JSON.stringify(pin)); }catch(e){}
+  const normalizeStatusLabel = (val)=>{
+    if(!val) return 'Open';
+    const norm = String(val).toLowerCase().replace(/[_\s]+/g,' ');
+    if (norm === 'in progress') return 'In Progress';
+    if (norm === 'closed') return 'Closed';
+    return 'Open';
+  };
+  const normalizePriorityLabel = (val)=>{
+    if(!val) return 'Medium';
+    const norm = String(val).toLowerCase().replace(/[_\s]+/g,' ');
+    if (norm === 'low') return 'Low';
+    if (norm === 'high') return 'High';
+    return 'Medium';
+  };
+  pin.status = normalizeStatusLabel(pin.status);
+  pin.priority = normalizePriorityLabel(pin.priority);
   let modal = document.getElementById('issueModal');
   if(!modal){
     modal = document.createElement('div');
@@ -337,23 +416,22 @@ async function showIssueModal(pin){
             <div style="flex:1;">
               <label style="display:block;margin-bottom:4px;">Status:</label>
               <div id="issueStatusSelect" class="customSelect neonSelect selectLike" role="combobox" aria-haspopup="listbox" aria-expanded="false" tabindex="0">
-                <button class="selectButton" aria-label="Status"><span class="selectedLabel">${pin.status === 'in_progress' ? 'In Progress' : pin.status ? pin.status.charAt(0).toUpperCase() + pin.status.slice(1) : 'Open'}</span></button>
+                <button class="selectButton" aria-label="Status"><span class="selectedLabel">${pin.status ? pin.status : 'Open'}</span></button>
                 <ul class="selectList" role="listbox" tabindex="-1">
-                  <li role="option" data-value="open">Open</li>
-                  <li role="option" data-value="in_progress">In Progress</li>
-                  <li role="option" data-value="resolved">Resolved</li>
-                  <li role="option" data-value="closed">Closed</li>
+                  <li role="option" data-value="Open">Open</li>
+                  <li role="option" data-value="In Progress">In Progress</li>
+                  <li role="option" data-value="Closed">Closed</li>
                 </ul>
               </div>
             </div>
             <div style="width:140px;">
               <label style="display:block;margin-bottom:4px;">Priority:</label>
               <div id="issuePrioritySelect" class="customSelect neonSelect selectLike" role="combobox" aria-haspopup="listbox" aria-expanded="false" tabindex="0">
-                <button class="selectButton" aria-label="Priority"><span class="selectedLabel">${pin.priority ? pin.priority.charAt(0).toUpperCase() + pin.priority.slice(1) : 'Medium'}</span></button>
+                <button class="selectButton" aria-label="Priority"><span class="selectedLabel">${pin.priority ? pin.priority : 'Medium'}</span></button>
                 <ul class="selectList" role="listbox" tabindex="-1">
-                  <li role="option" data-value="low">Low</li>
-                  <li role="option" data-value="medium">Medium</li>
-                  <li role="option" data-value="high">High</li>
+                  <li role="option" data-value="Low">Low</li>
+                  <li role="option" data-value="Medium">Medium</li>
+                  <li role="option" data-value="High">High</li>
                 </ul>
               </div>
             </div>
@@ -742,13 +820,22 @@ async function showIssueModal(pin){
     await loadPhotoThumbs();
 
     // helper to initialize and set values on customSelect widgets
+    function normalizeSelectValue(val, opts){
+      if (!val) return (opts[0] && opts[0].value) || '';
+      const raw = String(val).trim();
+      const norm = raw.toLowerCase().replace(/[_\s]+/g, ' ');
+      const match = opts.find(o => String(o.value).toLowerCase().replace(/[_\s]+/g, ' ') === norm)
+        || opts.find(o => String(o.label).toLowerCase().replace(/[_\s]+/g, ' ') === norm);
+      return (match && match.value) || (opts[0] && opts[0].value) || raw;
+    }
     function initCustomSelect(wrapper){
       if(!wrapper) return;
       const btn = wrapper.querySelector('.selectButton'); const ul = wrapper.querySelector('.selectList');
       // set initial selected label if any aria-selected exists
       const pre = ul.querySelector('li[aria-selected="true"]') || ul.querySelector('li[data-value]');
       if(pre) wrapper.querySelector('.selectedLabel').textContent = pre.textContent;
-      wrapper.value = (pre && pre.dataset.value) || '';
+      const opts = Array.from(ul.querySelectorAll('li')).map(li => ({ value: li.dataset.value || li.textContent, label: li.textContent }));
+      wrapper.value = normalizeSelectValue((pre && pre.dataset.value) || '', opts);
       const setSelected = (v)=>{ const sel = Array.from(ul.children).find(li=>li.dataset.value==v); if(sel){ wrapper.querySelector('.selectedLabel').textContent = sel.textContent; wrapper.value = v; ul.querySelectorAll('li').forEach(li=> li.setAttribute('aria-selected', li.dataset.value==v ? 'true' : 'false')); wrapper.dispatchEvent(new Event('change')); }};
       ul.querySelectorAll('li').forEach(li=>{ li.tabIndex=0; li.onclick = (ev)=>{ ev.stopPropagation(); setSelected(li.dataset.value); ul.classList.remove('open'); wrapper.setAttribute('aria-expanded','false'); }; li.onkeydown = (ev)=>{ if(ev.key==='Enter' || ev.key===' '){ ev.preventDefault(); li.click(); } }; });
       btn.onclick = (e)=>{ e.stopPropagation(); const open = ul.classList.toggle('open'); wrapper.setAttribute('aria-expanded', open? 'true':'false'); if(open) ul.focus(); };
@@ -767,7 +854,9 @@ async function showIssueModal(pin){
       const statusSelect = modal.querySelector('#issueStatusSelect'); const prioSelect = modal.querySelector('#issuePrioritySelect'); const assigneeInput = modal.querySelector('#issueAssignee');
       if(statusSelect) initCustomSelect(statusSelect);
       if(prioSelect) initCustomSelect(prioSelect);
-      if(statusSelect) statusSelect.setValue(details.status || 'open'); if(prioSelect) prioSelect.setValue(details.priority || 'medium'); if(assigneeInput) assigneeInput.value = details.assignee || '';
+      if(statusSelect) statusSelect.setValue(normalizeSelectValue(details.status || 'Open', [{value:'Open',label:'Open'},{value:'In Progress',label:'In Progress'},{value:'Closed',label:'Closed'}]));
+      if(prioSelect) prioSelect.setValue(normalizeSelectValue(details.priority || 'Medium', [{value:'Low',label:'Low'},{value:'Medium',label:'Medium'},{value:'High',label:'High'}]));
+      if(assigneeInput) assigneeInput.value = details.assignee || '';
       const createdByEl = modal.querySelector('#issueCreatedBy'); if(createdByEl) createdByEl.textContent = details.created_by||details.author||'';
       const createdVal = details.created_at || details.created || details.createdAt || details.ts;
       const createdEl = modal.querySelector('#issueCreated'); if(createdEl){ if(createdVal){ if (typeof createdVal === 'string' && createdVal.indexOf('/') !== -1) { createdEl.textContent = createdVal; } else { const d = new Date(createdVal); const pad=(n)=>n.toString().padStart(2,'0'); createdEl.textContent = `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; } createdEl.style.display='block'; } else createdEl.style.display='none'; }
@@ -954,7 +1043,7 @@ async function showIssueModal(pin){
     const planId = getPlanIdFromUrl();
     const title = modal.querySelector('#issueTitle').value.trim();
     const notes = modal.querySelector('#issueNotes').value.trim();
-    const status = modal.querySelector('#issueStatusSelect') ? modal.querySelector('#issueStatusSelect').value : (pin.status||'open');
+    const status = modal.querySelector('#issueStatusSelect') ? modal.querySelector('#issueStatusSelect').value : (pin.status||'Open');
     const priority = modal.querySelector('#issuePrioritySelect') ? modal.querySelector('#issuePrioritySelect').value : (pin.priority||null);
     const assignee = modal.querySelector('#issueAssignee') ? modal.querySelector('#issueAssignee').value.trim() : (pin.assignee||null);
     if(!title){ localShowToast('Title is required'); return; }
@@ -1009,7 +1098,7 @@ async function reloadDbPins() {
       label: issue.label || issue.id,
       created_at: issue.created_at || issue.created || issue.createdAt || issue.ts,
       created_by: issue.created_by || issue.author || issue.user || null,
-      status: issue.status || 'open',
+      status: issue.status || 'Open',
       priority: issue.priority || null,
       assignee: issue.assignee || null
     }));

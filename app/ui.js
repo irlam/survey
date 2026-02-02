@@ -334,9 +334,17 @@ function showIssuesModal(planId) {
         item.style.display = 'flex'; item.style.alignItems = 'center'; item.style.justifyContent = 'space-between';
         const left = document.createElement('div'); left.style.flex = '1';
         left.innerHTML = `\n          <div style="font-weight:800;">${escapeHtml(issue.title || ('Issue #' + issue.id))}</div>\n          <div style="font-size:13px;color:var(--muted);margin-top:4px;">${escapeHtml(issue.notes||issue.description||'')}</div>\n          <div style="margin-top:6px;font-size:13px;color:var(--muted);">\n            <strong>ID:</strong> ${escapeHtml(String(issue.id||''))} &nbsp; \n            <strong>Page:</strong> ${escapeHtml(String(issue.page||''))} &nbsp; \n\n          </div>\n        `;
-        const right = document.createElement('div'); right.style.display = 'flex'; right.style.flexDirection = 'column'; right.style.alignItems = 'flex-start'; right.style.gap = '6px'; right.style.flex = '0 0 260px'; right.style.minWidth = '220px'; right.style.alignSelf = 'flex-start';
-        const metaRow = document.createElement('div'); metaRow.style.display = 'flex'; metaRow.style.gap = '8px'; metaRow.style.alignItems = 'center'; metaRow.style.justifyContent = 'flex-start';
+        const right = document.createElement('div'); right.className = 'issueListItemRight';
+        const metaRow = document.createElement('div'); metaRow.className = 'issueListItemMeta';
         // Create custom-styled select widgets (neon / customSelect) so dropdown list is styled consistently
+        function normalizeSelectValue(val, opts){
+          if (!val) return (opts[0] && opts[0].value) || '';
+          const raw = String(val).trim();
+          const norm = raw.toLowerCase().replace(/[_\s]+/g, ' ');
+          const match = opts.find(o => String(o.value).toLowerCase().replace(/[_\s]+/g, ' ') === norm)
+            || opts.find(o => String(o.label).toLowerCase().replace(/[_\s]+/g, ' ') === norm);
+          return (match && match.value) || (opts[0] && opts[0].value) || raw;
+        }
         function createCustomSelect(opts, val, extraClass){
           const wrap = document.createElement('div'); wrap.className = (extraClass ? extraClass + ' ' : '') + 'customSelect neonSelect';
           wrap.tabIndex = 0; wrap.setAttribute('role','combobox');
@@ -345,7 +353,7 @@ function showIssuesModal(planId) {
           for(const o of opts){ const li = document.createElement('li'); li.setAttribute('role','option'); li.dataset.value = o.value; li.textContent = o.label; if(o.value===val) li.setAttribute('aria-selected','true'); ul.appendChild(li); }
           wrap.appendChild(btn); wrap.appendChild(ul);
           // hidden value storage
-          wrap.value = val || (opts[0] && opts[0].value) || '';
+          wrap.value = normalizeSelectValue(val, opts);
           const setSelected = (v)=>{ const sel = Array.from(ul.children).find(li=>li.dataset.value==v); if(sel){ wrap.querySelector('.selectedLabel').textContent = sel.textContent; wrap.value = v; ul.querySelectorAll('li').forEach(li=> li.setAttribute('aria-selected', li.dataset.value==v ? 'true' : 'false')); }};
           const labelEl = wrap.querySelector('.selectedLabel'); labelEl.style.color = '#041013'; labelEl.style.fontWeight = '900';
           btn.style.color = '#041013';
@@ -356,12 +364,12 @@ function showIssuesModal(planId) {
           return wrap;
         }
         const statusSelect = createCustomSelect([
-          {value:'open',label:'Open'},{value:'in_progress',label:'In Progress'},{value:'resolved',label:'Resolved'},{value:'closed',label:'Closed'}
-        ], issue.status || 'open');
+          {value:'Open',label:'Open'},{value:'In Progress',label:'In Progress'},{value:'Closed',label:'Closed'}
+        ], issue.status || 'Open');
         statusSelect.style.minWidth='110px'; statusSelect.title='Status'; statusSelect.setAttribute('aria-label','Issue status');
         const prioSelect = createCustomSelect([
-          {value:'low',label:'Low'},{value:'medium',label:'Medium'},{value:'high',label:'High'}
-        ], issue.priority || 'medium', 'small');
+          {value:'Low',label:'Low'},{value:'Medium',label:'Medium'},{value:'High',label:'High'}
+        ], issue.priority || 'Medium', 'small');
         prioSelect.style.minWidth='90px'; prioSelect.title='Priority'; prioSelect.setAttribute('aria-label','Issue priority');
 
         metaRow.appendChild(statusSelect); metaRow.appendChild(prioSelect);
@@ -435,7 +443,7 @@ function showIssuesModal(planId) {
         const createdDiv = document.createElement('div'); createdDiv.style.fontSize = '12px'; createdDiv.style.color = 'var(--muted)'; if (issue.created_at) { const val = issue.created_at; // API may return UK formatted string 'd/m/Y H:i' or ISO; if string contains '/' assume UK and display as-is
         if (typeof val === 'string' && val.indexOf('/') !== -1) { createdDiv.textContent = val + (issue.created_by ? (' — ' + issue.created_by) : ''); }
         else { const d = new Date(val); const pad = (n) => n.toString().padStart(2,'0'); createdDiv.textContent = `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}` + (issue.created_by ? (' — ' + issue.created_by) : ''); } } else if (issue.created_by) { createdDiv.textContent = issue.created_by; }
-        const btnRow = document.createElement('div'); btnRow.style.display='flex'; btnRow.style.gap='8px';
+        const btnRow = document.createElement('div'); btnRow.className = 'issueListItemButtons';
         const viewBtn = document.createElement('button'); viewBtn.className='btn'; viewBtn.textContent='View'; viewBtn.onclick = ()=>{ try{ if(window.showIssueModal) window.showIssueModal(issue); else showToast('Viewer not loaded'); }catch(e){ console.error(e); showToast('Unable to open issue'); } };
         const jumpBtn = document.createElement('button'); jumpBtn.className='btn'; jumpBtn.textContent='Jump to page'; jumpBtn.onclick = ()=>{ try{ const u = new URL(window.location.href); u.searchParams.set('plan_id', String(planId)); history.pushState({},'',u.toString()); if(window.startViewer){ window.startViewer().then(()=>{ if(window.viewerGoToPage) window.viewerGoToPage(Number(issue.page||1)); // open modal after short delay
               setTimeout(()=>{ if(window.showIssueModal) window.showIssueModal(issue); }, 600);
@@ -498,6 +506,8 @@ function showIssuesModal(planId) {
         const saveBtn = document.createElement('button'); saveBtn.className='btnPrimary'; saveBtn.textContent='Save'; saveBtn.onclick = async ()=>{ saveBtn.disabled = true; try{ const payload = { id: issue.id, plan_id: planId, title: issue.title, notes: issue.notes, page: issue.page, x_norm: issue.x_norm, y_norm: issue.y_norm, status: statusSelect.value, priority: prioSelect.value }; const r = await fetch('/api/save_issue.php',{method:'POST',headers:{'Content-Type':'application/json'},body: JSON.stringify(payload), credentials:'same-origin'}); const txt = await r.text(); let resp; try{ resp = JSON.parse(txt); }catch{ resp = null; } if(!r.ok || !resp || !resp.ok) throw new Error((resp && resp.error) ? resp.error : 'Save failed'); showToast('Saved'); issue.status = statusSelect.value; issue.priority = prioSelect.value; }catch(err){ showToast('Save error: ' + err.message); } saveBtn.disabled = false; };
         btnRow.appendChild(viewBtn); btnRow.appendChild(jumpBtn); btnRow.appendChild(exportBtn); btnRow.appendChild(delIssueBtn); btnRow.appendChild(saveBtn);
         right.appendChild(metaRow); right.appendChild(assigneeSpan); right.appendChild(createdDiv); right.appendChild(btnRow);
+        left.className = 'issueListItemLeft';
+        item.className = 'card issueListItem';
         item.appendChild(left); item.appendChild(right); container.appendChild(item);
       }
       issuesList.appendChild(container);
