@@ -36,8 +36,10 @@
           const el = document.getElementById('probeOut');
           if(!j || !j.ok){ el.textContent = 'Unable to probe server.'; return; }
           const parts = [];
-          if(j.dwgs && j.dwgs.length) parts.push('Converters: ' + j.dwgs.join(', ')); else parts.push('No DWG converters found');
-          if(j.imagemagick) parts.push('ImageMagick: available'); else parts.push('ImageMagick: not found');
+          const dwg = j.dwg || {};
+          const converters = Array.isArray(dwg.found) ? dwg.found : [];
+          if(converters.length) parts.push('Converters: ' + converters.join(', ')); else parts.push('No DWG converters found');
+          if(dwg.imagemagick) parts.push('ImageMagick: available'); else parts.push('ImageMagick: not found');
           el.innerHTML = parts.join(' — ');
         }
         probe();
