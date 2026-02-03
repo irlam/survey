@@ -130,12 +130,14 @@
         overflow: hidden;
         width: 100vw;
         height: 100vh;
+        touch-action: none;
       }
 
       #cad-container {
         width: 100%;
         height: 100%;
         display: block;
+        touch-action: none;
       }
 
       .dwg-toolbar {
@@ -290,6 +292,30 @@
         }catch(e){ console.warn('ensureViewerInstance failed', e); }
         return false;
       }
+      function activateCadInteraction(){
+        try{
+          const container = document.getElementById('cad-container');
+          if (container){
+            container.setAttribute('tabindex','0');
+            container.style.touchAction = 'none';
+            container.style.userSelect = 'none';
+            container.style.pointerEvents = 'auto';
+            container.focus({ preventScroll: true });
+            const canv = container.querySelector('canvas');
+            if (canv){
+              canv.style.touchAction = 'none';
+              canv.style.pointerEvents = 'auto';
+            }
+          }
+          document.body.style.overscrollBehavior = 'none';
+        }catch(e){}
+        // Default to pan so drag works immediately
+        try{
+          if (window.AcApDocManager && window.AcApDocManager.instance && typeof window.AcApDocManager.instance.sendStringToExecute === 'function') {
+            window.AcApDocManager.instance.sendStringToExecute('pan');
+          }
+        }catch(e){}
+      }
       // Message listener for loading files from other windows
       window.addEventListener('message', async (event) => {
         if (event.origin !== window.location.origin) return; // Security check
@@ -302,6 +328,7 @@
             } else {
               throw new Error('Viewer not initialized');
             }
+            activateCadInteraction();
             // Hide UI after successful load
             const fileInputContainer = document.getElementById('fileInputContainer');
             if (fileInputContainer) {
@@ -475,6 +502,7 @@
               } else {
                 throw new Error('Viewer not initialized');
               }
+              activateCadInteraction();
               // Hide UI after successful load
               const fileInputContainer = document.getElementById('fileInputContainer');
               if (fileInputContainer) {
