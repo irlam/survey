@@ -107,13 +107,13 @@ function ensureWrapAndOverlay(){
         const y = cy - overlayRect.top;
         const w = overlayRect.width;
         const h = overlayRect.height;
-        const FALLBACK_X = 0.5;
-        const FALLBACK_Y = 0.5;
+        const fallbackX = 0.5;
+        const fallbackY = 0.5;
         let x_norm, y_norm;
         if(w<=0||h<=0){
-          console.warn(`[VIEWER] Overlay has invalid dimensions, using fallback coordinates (${FALLBACK_X}, ${FALLBACK_Y})`);
-          x_norm = FALLBACK_X;
-          y_norm = FALLBACK_Y;
+          console.warn(`[VIEWER] Overlay has invalid dimensions (w=${w}, h=${h}), using fallback coordinates (${fallbackX}, ${fallbackY})`);
+          x_norm = fallbackX;
+          y_norm = fallbackY;
         } else {
           x_norm = Math.max(0, Math.min(1, x/w));
           y_norm = Math.max(0, Math.min(1, y/h));
