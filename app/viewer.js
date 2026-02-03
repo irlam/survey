@@ -15,8 +15,6 @@ let tempPins = [];
 let dbPins = [];
 let panX = 0;
 let panY = 0;
-let panX = 0;
-let panY = 0;
 
 // Helpers
 function qs(sel){ return document.querySelector(sel); }
