@@ -23,6 +23,34 @@ function escapeHtml(s) {
   }[m]));
 }
 
+function parseIssueDate(issue){
+  const v = issue.created_at || issue.created || issue.createdAt || issue.ts;
+  if (!v) return 0;
+  if (typeof v === 'string' && v.indexOf('/') !== -1) {
+    const m = v.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+    if (m) return new Date(`${m[3]}-${m[2]}-${m[1]}`).getTime();
+  }
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? 0 : d.getTime();
+}
+
+function setupLazyImages(container){
+  if(!container || !('IntersectionObserver' in window)) return;
+  const imgs = Array.from(container.querySelectorAll('img[data-src]'));
+  if(!imgs.length) return;
+  const obs = new IntersectionObserver((entries)=>{
+    entries.forEach((entry)=>{
+      if(entry.isIntersecting){
+        const img = entry.target;
+        img.src = img.dataset.src;
+        img.removeAttribute('data-src');
+        obs.unobserve(img);
+      }
+    });
+  }, { root: container, rootMargin: '80px' });
+  imgs.forEach(img => obs.observe(img));
+}
+
 // Simple toast helper
 function showToast(msg, timeout=2200){
   let stack = document.getElementById('toastStack');
@@ -271,6 +299,11 @@ function showIssuesModal(planId) {
   const downloadBtn = document.getElementById('btnDownloadPdf');
   const pdfOut = document.getElementById('pdfReportOut');
   const modalTitle = modal ? modal.querySelector('h2') : null;
+  const searchInput = document.getElementById('issuesSearch');
+  const statusFilter = document.getElementById('issuesStatusFilter');
+  const priorityFilter = document.getElementById('issuesPriorityFilter');
+  const addIssueBtn = document.getElementById('issuesAddBtn');
+  const recentBox = document.getElementById('recentIssues');
   if (!modal || !issuesList || !pdfBtn || !pdfOut) return;
 
   // Ensure close button is visible so the modal can be dismissed
@@ -279,6 +312,9 @@ function showIssuesModal(planId) {
   modal.style.display = 'block';
   issuesList.innerHTML = '<div class="muted">Loading…</div>';
   pdfOut.textContent = '';
+  if (addIssueBtn) {
+    addIssueBtn.onclick = ()=>{ try{ modal.style.display='none'; const add = document.getElementById('btnAddIssueMode'); if(add) add.click(); }catch(e){} };
+  }
   if (downloadBtn) { downloadBtn.style.display = 'none'; downloadBtn.disabled = true; downloadBtn.onclick = null; }
   // Wire full-plan export button
   if (pdfBtn) {
@@ -340,7 +376,39 @@ function showIssuesModal(planId) {
       const res = await fetch(`/api/list_issues.php?plan_id=${encodeURIComponent(planId)}`);
       const data = await res.json();
       if(!data.ok) throw new Error(data.error || 'Failed to load issues');
-      if(!data.issues.length){
+      const allIssues = Array.isArray(data.issues) ? data.issues.slice() : [];
+      const q = (searchInput && searchInput.value || '').trim().toLowerCase();
+      const sVal = statusFilter ? statusFilter.value : '';
+      const pVal = priorityFilter ? priorityFilter.value : '';
+      let filtered = allIssues.filter(i=>{
+        if (sVal && String(i.status||'') !== sVal) return false;
+        if (pVal && String(i.priority||'') !== pVal) return false;
+        if (q) {
+          const hay = `${i.title||''} ${i.notes||i.description||''} ${i.id||''}`.toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      });
+      // recent issues (top 3 by date)
+      if (recentBox) {
+        const recent = allIssues.slice().sort((a,b)=> parseIssueDate(b) - parseIssueDate(a)).slice(0,3);
+        if (recent.length) {
+          recentBox.style.display = '';
+          recentBox.innerHTML = '';
+          for (const r of recent) {
+            const card = document.createElement('div'); card.className='recentIssueCard';
+            const left = document.createElement('div');
+            left.innerHTML = `<div class="recentIssueTitle">${escapeHtml(r.title || ('Issue #' + r.id))}</div><div class="recentIssueMeta">Page ${escapeHtml(String(r.page||''))}</div>`;
+            const btn = document.createElement('button'); btn.className='btn'; btn.textContent='Jump';
+            btn.onclick = ()=>{ const go = ()=>{ if(window.viewerJumpToIssue) window.viewerJumpToIssue(r); }; if(window.startViewer) window.startViewer().then(go).catch(()=>go()); else go(); };
+            card.appendChild(left); card.appendChild(btn);
+            recentBox.appendChild(card);
+          }
+        } else {
+          recentBox.style.display = 'none';
+        }
+      }
+      if(!filtered.length){
         issuesList.innerHTML = `
           <div class="card" style="display:flex;flex-direction:column;gap:10px;align-items:flex-start;">
             <div style="font-weight:800;">No issues yet</div>
@@ -370,7 +438,7 @@ function showIssuesModal(planId) {
       issuesList.innerHTML = '';
       const container = document.createElement('div');
       container.style.display = 'flex'; container.style.flexDirection = 'column'; container.style.gap = '8px';
-      for (const issue of data.issues) {
+      for (const issue of filtered) {
         const item = document.createElement('div'); item.className = 'card'; item.dataset.issueId = String(issue.id||'');
         item.style.display = 'flex'; item.style.alignItems = 'center'; item.style.justifyContent = 'space-between';
         const left = document.createElement('div'); left.style.flex = '1';
@@ -453,7 +521,7 @@ function showIssuesModal(planId) {
         metaRow.appendChild(statusSelect); metaRow.appendChild(prioSelect);
         const assigneeSpan = document.createElement('div'); assigneeSpan.style.fontSize='12px'; assigneeSpan.style.color='var(--muted)'; assigneeSpan.textContent = issue.assignee || '';
         const phs = photosMap[String(issue.id)] || [];
-        if(phs.length){ const thumbsWrap = document.createElement('div'); thumbsWrap.style.display='flex'; thumbsWrap.style.gap='6px'; thumbsWrap.style.marginTop='6px'; for(let i=0;i<Math.min(3, phs.length); i++){ const p = phs[i]; const img = document.createElement('img'); img.src = p.thumb_url || p.url; img.style.width='48px'; img.style.height='48px'; img.style.objectFit='cover'; img.style.borderRadius='6px'; img.style.cursor='pointer'; img.onclick = ()=>{ window.open(p.url || p.thumb_url, '_blank'); }; thumbsWrap.appendChild(img); }
+        if(phs.length){ const thumbsWrap = document.createElement('div'); thumbsWrap.style.display='flex'; thumbsWrap.style.gap='6px'; thumbsWrap.style.marginTop='6px'; for(let i=0;i<Math.min(3, phs.length); i++){ const p = phs[i]; const img = document.createElement('img'); img.dataset.src = p.thumb_url || p.url; img.style.width='48px'; img.style.height='48px'; img.style.objectFit='cover'; img.style.borderRadius='6px'; img.style.cursor='pointer'; img.onclick = ()=>{ window.open(p.url || p.thumb_url, '_blank'); }; thumbsWrap.appendChild(img); }
           // pin location preview (small thumbnail) — must be requested separately
           const pinPreview = document.createElement('div'); pinPreview.style.marginLeft = '8px'; pinPreview.style.display = 'inline-block';
           const pinImg = document.createElement('img'); pinImg.style.width = '80px'; pinImg.style.height = 'auto'; pinImg.style.borderRadius = '6px'; pinImg.style.boxShadow = '0 6px 18px rgba(0,0,0,.4)'; pinImg.style.display = 'none'; pinImg.alt = 'Pin location preview';
@@ -602,9 +670,20 @@ function showIssuesModal(planId) {
           if (window.startViewer) window.startViewer().then(go).catch(()=>go());
           else go();
         });
+        item.addEventListener('mouseenter', ()=>{
+          if (window.viewerPreviewIssue) window.viewerPreviewIssue(issue);
+        });
       }
       issuesList.appendChild(container);
+      setupLazyImages(container);
     }catch(e){ issuesList.innerHTML = `<div class="error">${escapeHtml(e.message)}</div>`; }
+  }
+  if (!modal._filtersBound) {
+    const triggerReload = ()=>{ loadIssuesList(); };
+    if (searchInput) searchInput.addEventListener('input', triggerReload);
+    if (statusFilter) statusFilter.addEventListener('change', triggerReload);
+    if (priorityFilter) priorityFilter.addEventListener('change', triggerReload);
+    modal._filtersBound = true;
   }
   // initial load
   loadIssuesList();

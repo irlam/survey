@@ -445,6 +445,28 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
 }
 .pdfStage.dragging{cursor: grabbing}
 
+/* Mobile sticky toolbar */
+.mobileToolbar{
+  display:none;
+  position: sticky;
+  bottom: 8px;
+  z-index: 60;
+  background: rgba(7,10,15,.82);
+  border:1px solid var(--border);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+  border-radius: 999px;
+  padding: 8px;
+  gap:8px;
+  align-items:center;
+  justify-content:center;
+  margin: 0 auto 10px auto;
+  width: fit-content;
+}
+@media (max-width: 900px){
+  .mobileToolbar{ display:flex; }
+}
+
 /* Mobile FAB for quick Add Issue entry (visible only on small screens) */
 .fab{ display:none; position: fixed; right: 18px; bottom: 18px; width:56px; height:56px; border-radius: 50%; font-size:28px; line-height:1; border:none; background: linear-gradient(90deg, var(--neon), var(--neon2)); color:#041013; box-shadow: 0 12px 36px rgba(0,255,231,.16); align-items:center; justify-content:center; z-index:3000; cursor:pointer; }
 .fab:active{ transform: translateY(1px); }
@@ -507,6 +529,24 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
   padding: 0;
 }
 
+.pinBadge{
+  position:absolute;
+  right:-4px;
+  top:6px;
+  min-width:18px;
+  height:18px;
+  padding:0 5px;
+  border-radius:999px;
+  background: var(--neon2);
+  color:#041013;
+  font-size:11px;
+  font-weight:900;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  box-shadow: 0 6px 16px rgba(57,255,20,.35);
+}
+
 @keyframes pinPulse {
   0% { transform: translate(-50%, -100%) scale(1); filter: drop-shadow(0 0 0 rgba(0,255,231,0.0)); }
   35% { transform: translate(-50%, -100%) scale(1.08); filter: drop-shadow(0 0 14px rgba(0,255,231,0.55)); }
@@ -514,6 +554,26 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
 }
 .pin-highlight{
   animation: pinPulse 1.2s ease-out 1;
+}
+
+/* Pin trail when jumping */
+.pinTrail{
+  position:absolute;
+  height:2px;
+  background: linear-gradient(90deg, rgba(0,255,231,0.0), rgba(0,255,231,0.9));
+  box-shadow: 0 0 16px rgba(0,255,231,.4);
+  transform-origin: left center;
+  animation: trailFade 900ms ease-out 1;
+  pointer-events:none;
+}
+@keyframes trailFade{
+  0% { opacity: 0; transform: scaleX(0.2); }
+  25% { opacity: 1; }
+  100% { opacity: 0; transform: scaleX(1); }
+}
+@media (prefers-reduced-motion: reduce){
+  .pin-highlight{ animation: none; }
+  .pinTrail{ animation: none; }
 }
 
 /* For legacy span labels (if any remain) make them black and centered */
@@ -562,6 +622,57 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
   box-shadow: 0 0 32px rgba(0,255,231,.18);
   position: relative;
 }
+.issuesControls{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  align-items:center;
+  margin: 8px 0 12px 0;
+}
+.issuesControls input,
+.issuesControls select{ min-height:40px; }
+.recentIssues{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  margin: 6px 0 12px 0;
+}
+.recentIssueCard{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:10px 12px;
+  border-radius:12px;
+  border:1px solid rgba(0,255,231,0.08);
+  background: rgba(11,18,32,.6);
+}
+.recentIssueTitle{
+  font-weight:800;
+  font-size:14px;
+}
+.recentIssueMeta{
+  font-size:12px;
+  color: var(--muted);
+}
+
+/* Long-press hint bubble */
+.hintBubble{
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  background: rgba(7,10,15,.9);
+  border:1px solid var(--border);
+  color: var(--text);
+  padding:8px 12px;
+  border-radius:999px;
+  font-size:12px;
+  box-shadow: var(--shadow);
+  z-index: 5000;
+  display:none;
+}
+.hintBubble.show{ display:block; animation: toastIn 220ms ease-out; }
 /* Make issue cards inside modals wrap better on narrow screens */
 .modal .card{ flex-wrap: wrap; align-items: flex-start; }
 .modal .card > div{ min-width:0; }

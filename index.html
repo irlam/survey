@@ -93,6 +93,14 @@
 
         <div id="viewerMsg" class="muted" style="margin:6px 2px 10px 2px;"></div>
 
+        <!-- Mobile sticky mini toolbar -->
+        <div id="mobileToolbar" class="mobileToolbar" aria-label="Quick actions">
+          <button id="mBtnPrev" class="btn" aria-label="Previous page">◀</button>
+          <button id="mBtnNext" class="btn" aria-label="Next page">▶</button>
+          <button id="mBtnAdd" class="btnPrimary" aria-label="Add issue">Add</button>
+          <button id="mBtnIssues" class="btn" aria-label="View issues">Issues</button>
+        </div>
+
         <div id="pdfStage" class="pdfStage">
           <div id="pdfContainer" class="pdfContainer"></div>
         </div>
@@ -110,6 +118,23 @@
     <div class="modal-content">
       <span id="closeIssuesModal" class="close">&times;</span>
       <h2>Issues for this Plan</h2>
+      <div class="issuesControls">
+        <input id="issuesSearch" type="text" placeholder="Search issues…" />
+        <select id="issuesStatusFilter">
+          <option value="">All status</option>
+          <option value="Open">Open</option>
+          <option value="In Progress">In Progress</option>
+          <option value="Closed">Closed</option>
+        </select>
+        <select id="issuesPriorityFilter">
+          <option value="">All priority</option>
+          <option value="Low">Low</option>
+          <option value="Medium">Medium</option>
+          <option value="High">High</option>
+        </select>
+        <button id="issuesAddBtn" class="btnPrimary" type="button">Add Issue</button>
+      </div>
+      <div id="recentIssues" class="recentIssues" style="display:none;"></div>
       <div id="issuesList"></div>
       <div style="display:flex;gap:8px;align-items:center;margin-top:16px;">
         <button id="btnGeneratePdf" class="btnPrimary">Generate PDF Report</button>

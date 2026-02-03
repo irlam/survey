@@ -16,6 +16,7 @@ let dbPins = [];
 let panX = 0;
 let panY = 0;
 let pendingHighlightIssueId = null;
+let photoCounts = {};
 
 // Helpers
 function qs(sel){ return document.querySelector(sel); }
@@ -171,6 +172,42 @@ function highlightPinById(issueId){
   return true;
 }
 
+function showPinTrail(targetX, targetY, overlay){
+  if(!overlay) return;
+  const rect = overlay.getBoundingClientRect();
+  const cx = rect.width / 2;
+  const cy = rect.height / 2;
+  const dx = targetX - cx;
+  const dy = targetY - cy;
+  const len = Math.max(20, Math.hypot(dx, dy));
+  const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+  const trail = document.createElement('div');
+  trail.className = 'pinTrail';
+  trail.style.width = `${len}px`;
+  trail.style.left = `${cx}px`;
+  trail.style.top = `${cy}px`;
+  trail.style.transform = `rotate(${angle}deg)`;
+  overlay.appendChild(trail);
+  setTimeout(()=>{ try{ trail.remove(); }catch(e){} }, 1000);
+}
+
+function ensureLongPressHint(){
+  if (!('ontouchstart' in window)) return;
+  if (localStorage.getItem('survey_long_press_hint') === '1') return;
+  const stage = qs('#pdfStage');
+  if(!stage) return;
+  let hint = stage.querySelector('.hintBubble');
+  if(!hint){
+    hint = document.createElement('div');
+    hint.className = 'hintBubble';
+    hint.textContent = 'Tip: long‑press to drop a pin';
+    stage.appendChild(hint);
+  }
+  hint.classList.add('show');
+  setTimeout(()=>{ try{ hint.classList.remove('show'); }catch(e){} }, 2800);
+  localStorage.setItem('survey_long_press_hint', '1');
+}
+
 // Crosshair / reticle helper
 function initCrosshair(){
   const allowFeature = () => { try{ const u = new URL(window.location.href); if (u.searchParams.get('f') === 'crosshair') return true; }catch(e){} return (window.innerWidth || 0) < 700; };
@@ -215,6 +252,13 @@ async function renderPinsForPage(overlay, viewportWidth, viewportHeight){ clearO
     el.dataset.issueId = String(p.id || '');
     el.style.left = `${p.x_norm * viewportWidth}px`;
     el.style.top = `${p.y_norm * viewportHeight}px`;
+    const count = photoCounts[String(p.id || '')] || 0;
+    if (count > 0) {
+      const badge = document.createElement('div');
+      badge.className = 'pinBadge';
+      badge.textContent = String(count);
+      el.appendChild(badge);
+    }
     const labelText = String(p.id || p.label || p.title || '!');
     const fontSize = labelText.length <= 2 ? 12 : (labelText.length === 3 ? 10 : 9);
     if(_pinSvgText){
@@ -332,12 +376,28 @@ window.viewerJumpToIssue = async function(issue){
     pendingHighlightIssueId = String(issue.id || '');
     await goToPage(Number(issue.page || 1));
     // try immediate highlight in case render finished before pending set
+    const overlay = qs('#pdfContainer .pdfOverlay');
+    const pin = dbPins.find(p=>String(p.id)===String(issue.id));
+    if (overlay && pin) {
+      showPinTrail(pin.x_norm * overlay.clientWidth, pin.y_norm * overlay.clientHeight, overlay);
+    }
     highlightPinById(pendingHighlightIssueId);
   }catch(e){ console.warn('viewerJumpToIssue failed', e); }
 };
 
+// Preview highlight only (no page jump)
+window.viewerPreviewIssue = function(issue){
+  try{
+    if(!issue || !issue.page) return;
+    if (Number(issue.page) !== Number(currentPage)) return;
+    pendingHighlightIssueId = String(issue.id || '');
+    highlightPinById(pendingHighlightIssueId);
+  }catch(e){ /* ignore */ }
+};
+
 function bindUiOnce(){ if(window.__viewerBound) return; window.__viewerBound = true;
   const prevBtn = qs('#btnPrev'); const nextBtn = qs('#btnNext'); const goBtn = qs('#btnGo'); const pageInput = qs('#pageInput'); const zoomOut = qs('#btnZoomOut'); const zoomIn = qs('#btnZoomIn'); const fitBtn = qs('#btnFit'); const closeBtn = qs('#btnCloseViewer'); const addBtn = qs('#btnAddIssueMode'); const fab = qs('#fabAddIssue');
+  const mPrev = qs('#mBtnPrev'); const mNext = qs('#mBtnNext'); const mAdd = qs('#mBtnAdd'); const mIssues = qs('#mBtnIssues');
   if(prevBtn) prevBtn.onclick = ()=> goToPage(currentPage-1); if(nextBtn) nextBtn.onclick = ()=> goToPage(currentPage+1);
   if(goBtn){ goBtn.onclick = ()=>{ const v = parseInt(pageInput? pageInput.value:'1',10); goToPage(Number.isFinite(v)?v:1); }; }
   if(pageInput){ pageInput.addEventListener('keydown',(e)=>{ if(e.key==='Enter'){ const v = parseInt(pageInput.value||'1',10); goToPage(Number.isFinite(v)?v:1); } }); }
@@ -358,6 +418,10 @@ function bindUiOnce(){ if(window.__viewerBound) return; window.__viewerBound = t
       addIssueMode = !addIssueMode; setAddModeVisuals(); if(pdfDoc) await renderPage(currentPage);
     }
   }); }
+  if(mPrev) mPrev.onclick = ()=> goToPage(currentPage-1);
+  if(mNext) mNext.onclick = ()=> goToPage(currentPage+1);
+  if(mAdd) mAdd.onclick = ()=>{ if(addBtn) addBtn.click(); };
+  if(mIssues) mIssues.onclick = ()=>{ const btn = qs('#btnViewIssues'); if(btn) btn.click(); };
 
   // Touch pinch-to-zoom on mobile
   const stage = qs('#pdfStage');
@@ -372,6 +436,7 @@ function bindUiOnce(){ if(window.__viewerBound) return; window.__viewerBound = t
     let panActive = false;
     let panLastX = 0;
     let panLastY = 0;
+    let lastCenter = null;
     const scheduleRender = () => {
       if (renderTimer) return;
       renderTimer = setTimeout(async () => {
@@ -389,7 +454,7 @@ function bindUiOnce(){ if(window.__viewerBound) return; window.__viewerBound = t
     stage.addEventListener('pointerdown', (e) => {
       if (e.pointerType !== 'touch') return;
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      if (pointers.size === 1) {
+      if (pointers.size === 1 && !addIssueMode) {
         panActive = true;
         panLastX = e.clientX;
         panLastY = e.clientY;
@@ -400,6 +465,8 @@ function bindUiOnce(){ if(window.__viewerBound) return; window.__viewerBound = t
         startDist = getDist();
         startZoom = userZoom;
         fitMode = false;
+        const pts = Array.from(pointers.values());
+        lastCenter = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
       }
     });
     stage.addEventListener('pointermove', (e) => {
@@ -417,6 +484,14 @@ function bindUiOnce(){ if(window.__viewerBound) return; window.__viewerBound = t
         e.preventDefault();
       }
       if (pinchActive && pointers.size === 2) {
+        const pts = Array.from(pointers.values());
+        const center = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+        if (lastCenter) {
+          panX += center.x - lastCenter.x;
+          panY += center.y - lastCenter.y;
+          applyPanTransform();
+        }
+        lastCenter = center;
         const dist = getDist();
         if (startDist > 0) {
           const scale = dist / startDist;
@@ -441,6 +516,7 @@ function bindUiOnce(){ if(window.__viewerBound) return; window.__viewerBound = t
         pinchActive = false;
         startDist = 0;
         startZoom = userZoom;
+        lastCenter = null;
         if (pdfDoc) renderPage(currentPage);
       }
     };
@@ -452,6 +528,18 @@ function bindUiOnce(){ if(window.__viewerBound) return; window.__viewerBound = t
 
   // initialize crosshair helper (mobile-gated)
   try{ initCrosshair(); }catch(e){}
+
+  // Keyboard shortcuts (avoid when typing)
+  document.addEventListener('keydown', (e)=>{
+    const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+    if (tag === 'input' || tag === 'textarea' || e.target.isContentEditable) return;
+    if (e.key === 'a' || e.key === 'A'){ if(addBtn) addBtn.click(); }
+    if (e.key === 'Escape'){ const modal = document.getElementById('issueModal'); if(modal && modal.style.display === 'block'){ modal.style.display='none'; } }
+    if (e.key === '['){ goToPage(currentPage-1); }
+    if (e.key === ']'){ goToPage(currentPage+1); }
+    if (e.key === '+' || e.key === '='){ userZoom = Math.min(5.0, userZoom+0.25); renderPage(currentPage); }
+    if (e.key === '-' || e.key === '_'){ userZoom = Math.max(0.25, userZoom-0.25); renderPage(currentPage); }
+  });
 
 }
 
@@ -666,6 +754,10 @@ async function showIssueModal(pin){
       const thumbs = data.photos.filter(p=>p.issue_id==pin.id);
       const thumbsDiv = modal.querySelector('#photoThumbs');
       thumbsDiv.innerHTML='';
+      if (!thumbs.length) {
+        thumbsDiv.innerHTML = '<div class="muted">No photos yet. Use Upload or Take Photo.</div>';
+        return;
+      }
       for(const t of thumbs){
         const img = document.createElement('img');
         const src = t.thumb_url ? t.thumb_url : t.url;
@@ -830,6 +922,7 @@ async function showIssueModal(pin){
                 if(!data.ok) throw new Error(data.error || 'Photo upload failed');
                 await loadPhotoThumbs();
                 try{ document.dispatchEvent(new CustomEvent('photosUpdated', { detail: { issueId } })); }catch(e){}
+                try{ if(navigator && typeof navigator.vibrate === 'function') navigator.vibrate(30); }catch(e){}
                 localShowToast(opts.replace_photo_id ? 'Photo replaced' : 'Photo uploaded');
                 resolve(data);
               }catch(err){ reject(err); }
@@ -1131,6 +1224,9 @@ async function showIssueModal(pin){
       const saved = await apiSaveIssue(issue);
       try{ trackEvent('pin_save_success', { id: saved.id || null, x: issue.x_norm, y: issue.y_norm }); }catch(e){}
       try{ if(navigator && typeof navigator.vibrate === 'function') navigator.vibrate(50); }catch(e){}
+      addIssueMode = true;
+      updateAddModeVisuals();
+      localShowToast('Saved — long‑press to add another');
       // after saving, upload any queued photos that were added before save
       if(pendingPhotos && pendingPhotos.length){
         pin.id = saved.id || pin.id;
@@ -1180,10 +1276,27 @@ async function reloadDbPins() {
       priority: issue.priority || null,
       assignee: issue.assignee || null
     }));
+    await loadPhotoCounts(planId);
   } catch (e) {
     dbPins = [];
     console.error('Failed to load issues:', e);
   }
+}
+
+async function loadPhotoCounts(planId){
+  try{
+    const res = await fetch(`/api/list_photos.php?plan_id=${planId}`, {credentials:'same-origin'});
+    const txt = await res.text();
+    let data; try{ data = JSON.parse(txt); }catch{ return; }
+    if(!data.ok || !Array.isArray(data.photos)) return;
+    const counts = {};
+    for(const p of data.photos){
+      const key = String(p.issue_id || '');
+      if(!key) continue;
+      counts[key] = (counts[key] || 0) + 1;
+    }
+    photoCounts = counts;
+  }catch(e){ /* ignore */ }
 }
 
 // Public: open a plan from the sidebar button
@@ -1230,6 +1343,7 @@ async function startViewer() {
     await loadPdf(pdfUrl);
     await reloadDbPins();
     await renderPage(1);
+    ensureLongPressHint();
     // Notify other UI code that a plan has been opened
     try { document.dispatchEvent(new CustomEvent('planOpened', { detail: { planId } })); } catch (e) { console.warn('planOpened event failed', e); }
   } catch (e) {
