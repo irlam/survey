@@ -22,7 +22,7 @@ const ASSETS = [
   '/icons/icon-512-maskable.png'
 ];
 
-function isCacheable(response){
+function isCacheable(response) {
   return response && response.ok && response.status !== 206;
 }
 
