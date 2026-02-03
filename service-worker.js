@@ -27,7 +27,7 @@ async function cacheFirst(request, cacheName){
   const cached = await cache.match(request);
   if (cached) return cached;
   const res = await fetch(request);
-  if (res && res.ok) cache.put(request, res.clone());
+  if (res && res.ok && res.status !== 206) cache.put(request, res.clone());
   return res;
 }
 
@@ -35,7 +35,7 @@ async function networkFirst(request, cacheName){
   const cache = await caches.open(cacheName);
   try{
     const res = await fetch(request);
-    if (res && res.ok) cache.put(request, res.clone());
+    if (res && res.ok && res.status !== 206) cache.put(request, res.clone());
     return res;
   }catch(err){
     const cached = await cache.match(request);
@@ -71,7 +71,9 @@ self.addEventListener('fetch', (e) => {
       try{
         const res = await fetch(req);
         const cache = await caches.open(RUNTIME_CACHE);
-        cache.put(req, res.clone());
+        if (res.ok && res.status !== 206) {
+          cache.put(req, res.clone());
+        }
         return res;
       }catch(err){
         const cached = await caches.match(req);
