@@ -310,12 +310,16 @@
 
       function getViewerInstance(){
         try{
+          if (window.__dwg_docmgr && window.__dwg_docmgr.instance) return window.__dwg_docmgr.instance;
           if (window.AcApDocManager && window.AcApDocManager.instance) return window.AcApDocManager.instance;
+          if (window.__dwg_docmgr && typeof window.__dwg_docmgr.createInstance === 'function') {
+            window.__dwg_docmgr.createInstance({ container: document.getElementById('cad-container'), autoResize: true, baseUrl: 'https://cdn.jsdelivr.net/gh/mlightcad/cad-data@main/' });
+            return window.__dwg_docmgr.instance || null;
+          }
           if (window.AcApDocManager && typeof window.AcApDocManager.createInstance === 'function') {
             window.AcApDocManager.createInstance({ container: document.getElementById('cad-container'), autoResize: true, baseUrl: 'https://cdn.jsdelivr.net/gh/mlightcad/cad-data@main/' });
             return window.AcApDocManager.instance || null;
           }
-          if (window.ln && window.ln.instance) return window.ln.instance;
           if (window.__dwg_bundle && window.__dwg_bundle.instance) return window.__dwg_bundle.instance;
         }catch(e){ console.warn('getViewerInstance failed', e); }
         return null;

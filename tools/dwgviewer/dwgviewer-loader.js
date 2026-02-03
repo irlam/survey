@@ -49,7 +49,7 @@ export async function loadDWGBundle(){
   // Expose internal AcApDocManager class (ln) and keep a handle to the viewer instance (bv)
   try {
     if (repaired.includes('class ln') && repaired.includes('const sB=')) {
-      repaired = repaired.replace(/\}\s*const sB=/, '}\nwindow.AcApDocManager = ln;\nconst sB=');
+      repaired = repaired.replace(/\}\s*const sB=/, '}\nwindow.__dwg_docmgr = ln;\nwindow.AcApDocManager = ln;\nconst sB=');
     }
     // Capture the viewer instance if the bundle auto-instantiates it
     repaired = repaired.replace(/document\.readyState==="loading"\?document\.addEventListener\("DOMContentLoaded",\(\)=>\{new bv\}\):new bv/, 'document.readyState==="loading"?document.addEventListener("DOMContentLoaded",()=>{window.__dwg_viewer=new bv}):window.__dwg_viewer=new bv');
@@ -62,7 +62,9 @@ export async function loadDWGBundle(){
     const blobUrl = URL.createObjectURL(blob);
     try{
       await import(blobUrl);
-      window.AcApDocManager = window.__dwg_bundle;
+      if (!window.AcApDocManager && window.__dwg_docmgr) {
+        window.AcApDocManager = window.__dwg_docmgr;
+      }
       console.log('Imported repaired bundle via blob URL');
       URL.revokeObjectURL(blobUrl);
       return;
@@ -78,7 +80,9 @@ export async function loadDWGBundle(){
           const blob2 = new Blob([trimmed], { type: 'application/javascript' });
           const blobUrl2 = URL.createObjectURL(blob2);
           await import(blobUrl2);
-          window.AcApDocManager = window.__dwg_bundle;
+          if (!window.AcApDocManager && window.__dwg_docmgr) {
+            window.AcApDocManager = window.__dwg_docmgr;
+          }
           console.log('Imported trimmed repaired bundle via blob URL');
           URL.revokeObjectURL(blobUrl2);
           return;
