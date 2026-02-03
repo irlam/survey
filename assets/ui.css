@@ -673,6 +673,88 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
   display:none;
 }
 .hintBubble.show{ display:block; animation: toastIn 220ms ease-out; }
+
+/* Annotator modal */
+.annotatorModal{
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.86);
+  z-index: 200500;
+}
+.annotatorWrap{
+  width: min(96vw, 980px);
+  max-height: 92vh;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: 10px;
+  background: linear-gradient(180deg,#011014,#021417);
+  border: 1px solid rgba(0,255,231,0.08);
+  border-radius: 14px;
+  padding: 12px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+}
+.annotatorHeader{
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+.annotatorTitle{
+  font-weight: 900;
+  color: var(--neon);
+}
+.annotatorHint{
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 2px;
+}
+.annotatorToolbar{
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+.annotatorToolGroup{
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 140px;
+}
+.annotatorToolGroup label{
+  font-size: 11px;
+  color: var(--muted);
+}
+.annotatorCanvasWrap{
+  background: rgba(0,0,0,0.3);
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.06);
+  padding: 8px;
+  overflow: auto;
+}
+.annotatorCanvas{
+  display: block;
+  max-width: 100%;
+  border-radius: 10px;
+  background: #111;
+  touch-action: none;
+}
+.annotatorFooter{
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+@media (max-width: 760px){
+  .annotatorWrap{
+    width: 96vw;
+    max-height: 94vh;
+  }
+  .annotatorToolGroup{ min-width: 120px; }
+  .annotatorFooter{ justify-content: space-between; }
+}
 /* Make issue cards inside modals wrap better on narrow screens */
 .modal .card{ flex-wrap: wrap; align-items: flex-start; }
 .modal .card > div{ min-width:0; }

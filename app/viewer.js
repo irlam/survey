@@ -816,16 +816,23 @@ async function showIssueModal(pin){
         let ann = document.getElementById('annotatorModal');
         if(!ann){
           ann = document.createElement('div'); ann.id='annotatorModal';
-          ann.style.position='fixed'; ann.style.left=0; ann.style.top=0; ann.style.width='100%'; ann.style.height='100%'; ann.style.background='rgba(0,0,0,0.85)'; ann.style.display='flex'; ann.style.flexDirection='column'; ann.style.alignItems='center'; ann.style.justifyContent='center'; ann.style.zIndex=200500;
-          const wrap = document.createElement('div'); wrap.style.width='min(90%,1000px)'; wrap.style.maxHeight='90%'; wrap.style.background='linear-gradient(180deg,#011014,#021417)'; wrap.style.padding='12px'; wrap.style.borderRadius='10px'; wrap.style.boxShadow='0 18px 60px rgba(0,0,0,0.6)'; wrap.style.display='flex'; wrap.style.flexDirection='column';
-          const canvas = document.createElement('canvas'); canvas.id = 'annotatorCanvas'; canvas.style.maxWidth = '100%'; canvas.style.border = '1px solid rgba(255,255,255,0.04)'; canvas.style.borderRadius='6px'; canvas.style.background = '#111'; canvas.style.touchAction = 'none';
-          const controls = document.createElement('div'); controls.style.display='flex'; controls.style.gap='8px'; controls.style.marginTop='8px';
-          const saveBtn = document.createElement('button'); saveBtn.className='btnPrimary'; saveBtn.textContent='Save Annotation';
+          ann.className = 'annotatorModal';
+          const wrap = document.createElement('div'); wrap.className = 'annotatorWrap';
+          const header = document.createElement('div'); header.className = 'annotatorHeader';
+          header.innerHTML = `<div><div class="annotatorTitle">Annotate Photo</div><div class="annotatorHint">Draw with finger or mouse. Pinch to zoom the page outside this dialog if needed.</div></div>`;
+          const closeBtn = document.createElement('button'); closeBtn.className='btn'; closeBtn.textContent='Close';
+          header.appendChild(closeBtn);
+          const toolbar = document.createElement('div'); toolbar.className = 'annotatorToolbar';
+          const canvasWrap = document.createElement('div'); canvasWrap.className = 'annotatorCanvasWrap';
+          const canvas = document.createElement('canvas'); canvas.id = 'annotatorCanvas'; canvas.className = 'annotatorCanvas';
+          canvasWrap.appendChild(canvas);
+          const footer = document.createElement('div'); footer.className = 'annotatorFooter';
+          const saveBtn = document.createElement('button'); saveBtn.className='btnPrimary'; saveBtn.textContent='Save';
           const undoBtn = document.createElement('button'); undoBtn.className='btn'; undoBtn.textContent='Undo';
           const clearBtn = document.createElement('button'); clearBtn.className='btn'; clearBtn.textContent='Clear';
-          const closeBtn = document.createElement('button'); closeBtn.className='btn'; closeBtn.textContent='Close';
-          controls.appendChild(saveBtn); controls.appendChild(undoBtn); controls.appendChild(clearBtn); controls.appendChild(closeBtn);
-          wrap.appendChild(canvas); wrap.appendChild(controls); ann.appendChild(wrap); document.body.appendChild(ann);
+          footer.appendChild(undoBtn); footer.appendChild(clearBtn); footer.appendChild(saveBtn);
+          wrap.appendChild(header); wrap.appendChild(toolbar); wrap.appendChild(canvasWrap); wrap.appendChild(footer);
+          ann.appendChild(wrap); document.body.appendChild(ann);
 
           // drawing state with tools, colors and undo stack
           let ctx = canvas.getContext('2d'); let drawing=false; let strokes=[]; let current=null; let toolMode='free'; let drawColor='rgba(255,80,80,0.95)'; let drawWidth=4;
@@ -845,14 +852,17 @@ async function showIssueModal(pin){
           function drawArrowHead(ctx, sx, sy, ex, ey, width, color){ const angle = Math.atan2(ey - sy, ex - sx); const len = Math.max(10, width*4); ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex - len * Math.cos(angle - Math.PI/8), ey - len * Math.sin(angle - Math.PI/8)); ctx.lineTo(ex - len * Math.cos(angle + Math.PI/8), ey - len * Math.sin(angle + Math.PI/8)); ctx.closePath(); ctx.fill(); }
 
           // controls: add tool selector, color input and width slider
-          const toolSelect = document.createElement('select'); toolSelect.style.marginRight='8px'; const opt1=document.createElement('option'); opt1.value='free'; opt1.textContent='Freehand'; const opt2=document.createElement('option'); opt2.value='arrow'; opt2.textContent='Arrow'; toolSelect.appendChild(opt1); toolSelect.appendChild(opt2); toolSelect.value = toolMode; toolSelect.onchange = ()=>{ toolMode = toolSelect.value; };
-          const colorInput = document.createElement('input'); colorInput.type='color'; colorInput.value = '#ff5050'; colorInput.style.marginRight='8px'; colorInput.onchange = ()=>{ const v = colorInput.value; // convert hex to rgba
+          const toolSelect = document.createElement('select'); const opt1=document.createElement('option'); opt1.value='free'; opt1.textContent='Freehand'; const opt2=document.createElement('option'); opt2.value='arrow'; opt2.textContent='Arrow'; toolSelect.appendChild(opt1); toolSelect.appendChild(opt2); toolSelect.value = toolMode; toolSelect.onchange = ()=>{ toolMode = toolSelect.value; };
+          const colorInput = document.createElement('input'); colorInput.type='color'; colorInput.value = '#ff5050'; colorInput.onchange = ()=>{ const v = colorInput.value; // convert hex to rgba
             drawColor = hexToRgba(v, 0.95); };
-          const widthInput = document.createElement('input'); widthInput.type='range'; widthInput.min=1; widthInput.max=24; widthInput.value = drawWidth; widthInput.style.width='120px'; widthInput.oninput = ()=>{ drawWidth = Number(widthInput.value); };
-          // insert controls near buttons
-          controls.insertBefore(toolSelect, saveBtn);
-          controls.insertBefore(colorInput, saveBtn);
-          controls.insertBefore(widthInput, saveBtn);
+          const widthInput = document.createElement('input'); widthInput.type='range'; widthInput.min=1; widthInput.max=24; widthInput.value = drawWidth; widthInput.oninput = ()=>{ drawWidth = Number(widthInput.value); };
+          const toolGroup = document.createElement('div'); toolGroup.className = 'annotatorToolGroup';
+          const colorGroup = document.createElement('div'); colorGroup.className = 'annotatorToolGroup';
+          const widthGroup = document.createElement('div'); widthGroup.className = 'annotatorToolGroup';
+          toolGroup.innerHTML = '<label>Tool</label>'; toolGroup.appendChild(toolSelect);
+          colorGroup.innerHTML = '<label>Color</label>'; colorGroup.appendChild(colorInput);
+          widthGroup.innerHTML = '<label>Width</label>'; widthGroup.appendChild(widthInput);
+          toolbar.appendChild(toolGroup); toolbar.appendChild(colorGroup); toolbar.appendChild(widthGroup);
 
           function hexToRgba(hex, a){ const bigint = parseInt(hex.replace('#',''), 16); const r = (bigint >> 16) & 255; const g = (bigint >> 8) & 255; const b = bigint & 255; return `rgba(${r},${g},${b},${a})`; }
 
