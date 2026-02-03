@@ -22,11 +22,20 @@ const ASSETS = [
   '/icons/icon-512-maskable.png'
 ];
 
+/**
+ * Checks if a response can be safely cached.
+ * @param {Response} response - The fetch response to check
+ * @returns {boolean} True if the response can be cached, false otherwise
+ * 
+ * Note: HTTP 206 (Partial Content) responses are excluded because the Cache API
+ * does not support caching partial responses. Attempting to cache them will throw:
+ * "Failed to execute 'put' on 'Cache': Partial response (status code 206) is unsupported"
+ */
 function isCacheable(response) {
   return response && response.ok && response.status !== 206;
 }
 
-async function cacheFirst(request, cacheName){
+async function cacheFirst(request, cacheName) {
   const cache = await caches.open(cacheName);
   const cached = await cache.match(request);
   if (cached) return cached;
@@ -35,7 +44,7 @@ async function cacheFirst(request, cacheName){
   return res;
 }
 
-async function networkFirst(request, cacheName){
+async function networkFirst(request, cacheName) {
   const cache = await caches.open(cacheName);
   try{
     const res = await fetch(request);
