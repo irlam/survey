@@ -25,10 +25,35 @@ function escapeHtml(s) {
 
 // Simple toast helper
 function showToast(msg, timeout=2200){
-  try{
-    if(window && window.__toast){ clearTimeout(window.__toast.timer); window.__toast.remove(); window.__toast = null; }
-  }catch(e){}
-  const el = document.createElement('div'); el.textContent = msg; el.style.position='fixed'; el.style.right='20px'; el.style.bottom='20px'; el.style.zIndex=999999; el.style.background='rgba(0,0,0,0.8)'; el.style.color='#fff'; el.style.padding='10px 14px'; el.style.borderRadius='8px'; el.style.boxShadow='0 6px 18px rgba(0,0,0,.4)'; document.body.appendChild(el); window.__toast = el; window.__toast.timer = setTimeout(()=>{ try{ el.remove(); window.__toast = null; }catch(e){} }, timeout);
+  let stack = document.getElementById('toastStack');
+  if(!stack){
+    stack = document.createElement('div');
+    stack.id = 'toastStack';
+    stack.style.position = 'fixed';
+    stack.style.right = '20px';
+    stack.style.bottom = '20px';
+    stack.style.zIndex = 999999;
+    stack.style.display = 'flex';
+    stack.style.flexDirection = 'column';
+    stack.style.gap = '8px';
+    stack.style.pointerEvents = 'none';
+    document.body.appendChild(stack);
+  }
+  const el = document.createElement('div');
+  el.textContent = msg;
+  el.style.background='rgba(0,0,0,0.8)';
+  el.style.color='#fff';
+  el.style.padding='10px 14px';
+  el.style.borderRadius='8px';
+  el.style.boxShadow='0 6px 18px rgba(0,0,0,.4)';
+  el.style.pointerEvents = 'auto';
+  stack.appendChild(el);
+  // keep stack small
+  while (stack.children.length > 3) {
+    try{ stack.removeChild(stack.firstChild); }catch(e){ break; }
+  }
+  const timer = setTimeout(()=>{ try{ el.remove(); }catch(e){} }, timeout);
+  el.addEventListener('click', ()=>{ clearTimeout(timer); try{ el.remove(); }catch(e){} });
   return el;
 }
 
