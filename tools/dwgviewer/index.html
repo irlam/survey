@@ -195,6 +195,16 @@
         margin-left: 6px;
         white-space: nowrap;
       }
+      .dwg-toolbar .debug-badge {
+        font-size: 11px;
+        color: #d9e6ff;
+        background: rgba(8, 12, 18, 0.6);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 999px;
+        padding: 4px 8px;
+        letter-spacing: 0.2px;
+        white-space: nowrap;
+      }
       .pan-hint {
         position: absolute;
         right: 16px;
@@ -324,6 +334,30 @@
         }catch(e){ console.warn('getViewerInstance failed', e); }
         return null;
       }
+      function getDebugSummary(){
+        try{
+          const instance = getViewerInstance();
+          const kind = instance ? (instance.constructor && instance.constructor.name ? instance.constructor.name : 'instance') : 'none';
+          const hasCmd = !!(instance && instance.commandManager && typeof instance.commandManager.lookupGlobalCmd === 'function');
+          const hasSend = !!(instance && typeof instance.sendStringToExecute === 'function');
+          const view = getViewerView();
+          const hasView = !!view;
+          const fallback = !!window.__dwg_use_fallback_pan;
+          return `viewer:${kind} cmd:${hasCmd ? 'y' : 'n'} send:${hasSend ? 'y' : 'n'} view:${hasView ? 'y' : 'n'} pan:${fallback ? 'fallback' : 'native'}`;
+        }catch(e){
+          return 'viewer:error';
+        }
+      }
+      function startDebugBadge(){
+        try{
+          const badge = document.getElementById('dwgDebugBadge');
+          if (!badge || badge.dataset.started === '1') return;
+          badge.dataset.started = '1';
+          const tick = ()=>{ badge.textContent = getDebugSummary(); };
+          tick();
+          setInterval(tick, 800);
+        }catch(e){}
+      }
       function ensureViewerInstance(){
         return !!getViewerInstance();
       }
@@ -439,6 +473,7 @@
           installFallbackPan();
           wirePanCursor();
           showPanHint();
+          startDebugBadge();
         }catch(e){}
         // Default to pan so drag works immediately
         try{
@@ -508,6 +543,7 @@
         <button id="dwgResetBtn" title="Reset view">Reset</button>
       </div>
       <span class="hint">Command box accepts CAD commands (e.g. pan, zoom, line)</span>
+      <span class="debug-badge" id="dwgDebugBadge">viewer:...</span>
     </div>
     <div class="viewer-container">
       <div class="file-input-container" id="fileInputContainer">
@@ -786,6 +822,7 @@
       });
 
       document.addEventListener('DOMContentLoaded', () => {
+        startDebugBadge();
         const exportPdfBtn = document.getElementById('exportPdfBtn');
         if (exportPdfBtn) {
           exportPdfBtn.addEventListener('click', async () => {
