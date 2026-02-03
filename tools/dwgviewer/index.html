@@ -138,6 +138,10 @@
         height: 100%;
         display: block;
         touch-action: none;
+        cursor: grab;
+      }
+      #cad-container.drag-pan {
+        cursor: grabbing;
       }
 
       .dwg-toolbar {
@@ -282,15 +286,54 @@
         }
       });
 
-      function ensureViewerInstance(){
+      function getViewerInstance(){
         try{
-          if (window.AcApDocManager && window.AcApDocManager.instance) return true;
+          if (window.AcApDocManager && window.AcApDocManager.instance) return window.AcApDocManager.instance;
           if (window.AcApDocManager && typeof window.AcApDocManager.createInstance === 'function') {
             window.AcApDocManager.createInstance({ container: document.getElementById('cad-container'), autoResize: true, baseUrl: 'https://cdn.jsdelivr.net/gh/mlightcad/cad-data@main/' });
-            return true;
+            return window.AcApDocManager.instance || null;
           }
-        }catch(e){ console.warn('ensureViewerInstance failed', e); }
+          if (window.ln && window.ln.instance) return window.ln.instance;
+          if (window.__dwg_bundle && window.__dwg_bundle.instance) return window.__dwg_bundle.instance;
+        }catch(e){ console.warn('getViewerInstance failed', e); }
+        return null;
+      }
+      function ensureViewerInstance(){
+        return !!getViewerInstance();
+      }
+      function enableLeftDragPan(){
+        try{
+          const instance = getViewerInstance();
+          if (!instance) return false;
+          const view = instance.curView || (instance.context && instance.context.view) || (instance._context && instance._context.view);
+          const controls = view && (view.cameraControls || view._cameraControls || view.controls);
+          if (!controls || !controls.mouseButtons) return false;
+          const mb = controls.mouseButtons;
+          const middle = mb.MIDDLE ?? mb.MIDDLE_BUTTON ?? mb.PAN ?? null;
+          if (middle == null) return false;
+          if (mb.LEFT !== middle) {
+            mb.LEFT = middle;
+            if (typeof controls.update === 'function') controls.update();
+          }
+          if (controls.touches && controls.touches.ONE == null && controls.touches.TWO != null) {
+            controls.touches.ONE = controls.touches.TWO;
+          }
+          return true;
+        }catch(e){
+          console.warn('enableLeftDragPan failed', e);
+        }
         return false;
+      }
+      function wirePanCursor(){
+        try{
+          const container = document.getElementById('cad-container');
+          if (!container || container.dataset.panCursor === '1') return;
+          container.dataset.panCursor = '1';
+          const set = (on)=>{ if(on) container.classList.add('drag-pan'); else container.classList.remove('drag-pan'); };
+          container.addEventListener('pointerdown', (e)=>{ if (e.button === 0) set(true); });
+          window.addEventListener('pointerup', ()=> set(false));
+          window.addEventListener('pointercancel', ()=> set(false));
+        }catch(e){}
       }
       function activateCadInteraction(){
         try{
@@ -308,11 +351,14 @@
             }
           }
           document.body.style.overscrollBehavior = 'none';
+          enableLeftDragPan();
+          wirePanCursor();
         }catch(e){}
         // Default to pan so drag works immediately
         try{
-          if (window.AcApDocManager && window.AcApDocManager.instance && typeof window.AcApDocManager.instance.sendStringToExecute === 'function') {
-            window.AcApDocManager.instance.sendStringToExecute('pan');
+          const instance = getViewerInstance();
+          if (instance && typeof instance.sendStringToExecute === 'function') {
+            instance.sendStringToExecute('pan');
           }
         }catch(e){}
       }
@@ -322,12 +368,10 @@
         if (event.data && event.data.type === 'loadFile') {
           const { file, filename } = event.data;
           try {
-            if (!ensureViewerInstance()) throw new Error('Viewer not initialized');
-            if (window.AcApDocManager && window.AcApDocManager.instance) {
-              await window.AcApDocManager.instance.openDocument(filename, file, { minimumChunkSize: 1000, readOnly: true, mouseControls: true });
-            } else {
-              throw new Error('Viewer not initialized');
-            }
+            const instance = getViewerInstance();
+            if (!instance) throw new Error('Viewer not initialized');
+            if (typeof instance.openDocument !== 'function') throw new Error('Viewer not initialized');
+            await instance.openDocument(filename, file, { minimumChunkSize: 1000, readOnly: true, mouseControls: true });
             activateCadInteraction();
             // Hide UI after successful load
             const fileInputContainer = document.getElementById('fileInputContainer');
@@ -438,8 +482,9 @@
         // Removed redundant click handler to prevent double file dialog
         const runCmd = (cmd) => {
           try{
-            if (window.AcApDocManager && window.AcApDocManager.instance && typeof window.AcApDocManager.instance.sendStringToExecute === 'function') {
-              window.AcApDocManager.instance.sendStringToExecute(cmd);
+            const instance = getViewerInstance();
+            if (instance && typeof instance.sendStringToExecute === 'function') {
+              instance.sendStringToExecute(cmd);
               return true;
             }
           }catch(e){ console.warn('Command failed', e); }
@@ -497,11 +542,9 @@
               if (!response.ok) throw new Error('Failed to fetch sample');
               const arrayBuffer = await response.arrayBuffer();
               // Use AcApDocManager like in loadFile
-              if (window.AcApDocManager && window.AcApDocManager.instance) {
-                await window.AcApDocManager.instance.openDocument('arc_2000.dwg', arrayBuffer, { minimumChunkSize: 1000, readOnly: true, mouseControls: true });
-              } else {
-                throw new Error('Viewer not initialized');
-              }
+              const instance = getViewerInstance();
+              if (!instance || typeof instance.openDocument !== 'function') throw new Error('Viewer not initialized');
+              await instance.openDocument('arc_2000.dwg', arrayBuffer, { minimumChunkSize: 1000, readOnly: true, mouseControls: true });
               activateCadInteraction();
               // Hide UI after successful load
               const fileInputContainer = document.getElementById('fileInputContainer');
