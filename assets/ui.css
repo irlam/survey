@@ -633,6 +633,8 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
 .issuesControls select{ min-height:40px; }
 .issuesSelectAll{ display:flex; align-items:center; gap:6px; font-size:12px; color: var(--muted); }
 .issuesSelectAll input{ width:16px; height:16px; }
+.issuesCompactToggle{ display:flex; align-items:center; gap:6px; font-size:12px; color: var(--muted); }
+.issuesCompactToggle input{ width:16px; height:16px; }
 .recentIssues{
   display:flex;
   flex-direction:column;
@@ -910,6 +912,21 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
   box-shadow: 0 16px 40px rgba(0,0,0,0.45);
   position: relative;
 }
+.issueCard::after{
+  content:'';
+  position:absolute;
+  inset: -1px;
+  border-radius: 14px;
+  opacity: 0;
+  transition: opacity .18s ease;
+  pointer-events:none;
+}
+.issueCard:hover::after{
+  opacity: 1;
+}
+.issueCard[data-status="Open"]::after{ box-shadow: 0 0 28px rgba(57,255,20,0.25); }
+.issueCard[data-status="In Progress"]::after{ box-shadow: 0 0 28px rgba(0,229,255,0.25); }
+.issueCard[data-status="Closed"]::after{ box-shadow: 0 0 28px rgba(176,38,255,0.25); }
 .issueCard::before{
   content:'';
   position:absolute;
@@ -923,6 +940,7 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
 .issueCard[data-status="In Progress"]::before{ background:#00e5ff; }
 .issueCard[data-status="Closed"]::before{ background:#b026ff; }
 .issueCard.dragging{ opacity:0.8; transform: scale(0.99); box-shadow: 0 8px 20px rgba(0,0,0,0.35); }
+.issueDropTarget{ outline: 2px dashed rgba(0,255,231,0.6); outline-offset: 4px; }
 .issueHeader{
   display:flex;
   gap:12px;
@@ -1048,6 +1066,14 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
 .issueActionsSecondary .btn{
   min-width:100px;
 }
+/* Compact view */
+#issuesList.compact .issueCard{
+  gap:8px;
+  padding:12px;
+}
+#issuesList.compact .issuePreviews,
+#issuesList.compact .issueNotesText{ display:none; }
+#issuesList.compact .issueActionsSecondary .btn{ min-width:84px; }
 @media (max-width: 760px){
   .issueActions{ flex-direction:column; align-items:stretch; }
   .issueActionsPrimary,

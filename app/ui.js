@@ -306,6 +306,7 @@ function showIssuesModal(planId) {
   const selectAll = document.getElementById('issuesSelectAll');
   const exportSelectedBtn = document.getElementById('issuesExportSelected');
   const selectedCount = document.getElementById('issuesSelectedCount');
+  const compactToggle = document.getElementById('issuesCompactToggle');
   const recentBox = document.getElementById('recentIssues');
   if (!modal || !issuesList || !pdfBtn || !pdfOut) return;
   const selectedIds = modal._selectedIds || new Set();
@@ -352,6 +353,14 @@ function showIssuesModal(planId) {
       }catch(e){ showToast('Export failed: ' + e.message); }
       removeSpinner(exportSelectedBtn); exportSelectedBtn.disabled = false;
     };
+  }
+  if (compactToggle) {
+    compactToggle.checked = localStorage.getItem('issues_compact') === '1';
+    compactToggle.onchange = ()=>{ 
+      localStorage.setItem('issues_compact', compactToggle.checked ? '1' : '0');
+      issuesList.classList.toggle('compact', compactToggle.checked);
+    };
+    issuesList.classList.toggle('compact', compactToggle.checked);
   }
   if (downloadBtn) { downloadBtn.style.display = 'none'; downloadBtn.disabled = true; downloadBtn.onclick = null; }
   // Wire full-plan export button
@@ -723,6 +732,11 @@ function showIssuesModal(planId) {
       if (!container._dragBound) {
         container._dragBound = true;
         let dragging = null;
+        let dropTarget = null;
+        const clearDrop = ()=>{
+          if (dropTarget) dropTarget.classList.remove('issueDropTarget');
+          dropTarget = null;
+        };
         const onMove = (ev)=>{
           if (!dragging) return;
           const el = document.elementFromPoint(ev.clientX, ev.clientY);
@@ -730,12 +744,16 @@ function showIssuesModal(planId) {
           if (card && card !== dragging) {
             const rect = card.getBoundingClientRect();
             const before = (ev.clientY < rect.top + rect.height / 2);
+            if (dropTarget && dropTarget !== card) dropTarget.classList.remove('issueDropTarget');
+            dropTarget = card;
+            dropTarget.classList.add('issueDropTarget');
             container.insertBefore(dragging, before ? card : card.nextSibling);
           }
         };
         const onUp = ()=>{
           if (!dragging) return;
           dragging.classList.remove('dragging');
+          clearDrop();
           document.removeEventListener('pointermove', onMove);
           document.removeEventListener('pointerup', onUp);
           dragging = null;
