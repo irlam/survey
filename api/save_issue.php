@@ -4,6 +4,8 @@ require_once __DIR__ . '/db.php';
 
 require_method('POST');
 $data = read_json_body();
+$cfg = load_config();
+$debug = !empty($cfg['debug']);
 
 $plan_id = safe_int($data['plan_id'] ?? null);
 $id      = safe_int($data['id'] ?? null);
@@ -94,21 +96,30 @@ if ($id) {
   json_response(['ok' => true, 'issue' => $issue, 'updated' => true], 200);
 
 } else {
-  // Create new issue — allocate next issue_no per plan
-  $stmtNo = $pdo->prepare('SELECT COALESCE(MAX(issue_no),0)+1 AS next_no FROM issues WHERE plan_id=?');
-  $stmtNo->execute([$plan_id]);
-  $next_no = (int)($stmtNo->fetch()['next_no'] ?? 1);
+  // Create new issue — allocate next issue_no per plan (transaction + row lock)
+  try {
+    $pdo->beginTransaction();
+    $stmtNo = $pdo->prepare('SELECT issue_no FROM issues WHERE plan_id=? ORDER BY issue_no DESC LIMIT 1 FOR UPDATE');
+    $stmtNo->execute([$plan_id]);
+    $row = $stmtNo->fetch();
+    $next_no = $row ? ((int)$row['issue_no'] + 1) : 1;
 
-  $stmt = $pdo->prepare('
-    INSERT INTO issues
-      (plan_id, issue_no, page, x_norm, y_norm, title, notes, category, status, priority, trade, assigned_to, due_date)
-    VALUES
-      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  ');
-  $stmt->execute([
-    $plan_id, $next_no, $page, $x_norm, $y_norm, $title, $notes, $category, $status, $priority,
-    $trade, $assigned_to, $due_date
-  ]);
+    $stmt = $pdo->prepare('
+      INSERT INTO issues
+        (plan_id, issue_no, page, x_norm, y_norm, title, notes, category, status, priority, trade, assigned_to, due_date)
+      VALUES
+        (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ');
+    $stmt->execute([
+      $plan_id, $next_no, $page, $x_norm, $y_norm, $title, $notes, $category, $status, $priority,
+      $trade, $assigned_to, $due_date
+    ]);
+    $pdo->commit();
+  } catch (Throwable $e) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
+    $extra = $debug ? ['detail' => $e->getMessage()] : [];
+    error_response('Failed to save issue', 500, $extra);
+  }
 
   $new_id = (int)$pdo->lastInsertId();
   $out = $pdo->prepare('SELECT * FROM issues WHERE id=?');

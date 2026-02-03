@@ -13,8 +13,7 @@ export async function processQueue() {
 	req.onsuccess = async e => {
 		const cursor = e.target.result;
 		if (cursor) {
-			// TODO: send to server, then delete
-			cursor.delete();
+			// TODO: send to server, then delete on success
 			cursor.continue();
 		}
 	};

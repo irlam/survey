@@ -22,9 +22,12 @@ function json_response(array $data, int $status = 200): void {
   // NOTE: this makes responses include captured raw output which is useful
   // for debugging in development environments. Remove or guard this in
   // production if it leaks sensitive info.
-  if ($rawOutput !== '') {
-    $data['_raw_output'] = $rawOutput;
+  $includeRaw = false;
+  if (function_exists('load_config')) {
+    $cfg = load_config();
+    $includeRaw = !empty($cfg['debug']);
   }
+  if ($rawOutput !== '' && $includeRaw) $data['_raw_output'] = $rawOutput;
 
   http_response_code($status);
   header('Content-Type: application/json; charset=utf-8');

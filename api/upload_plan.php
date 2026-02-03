@@ -7,6 +7,7 @@ require_method('POST');
 $cfg = load_config();
 $max_mb = (int)($cfg['max_upload_mb'] ?? 128);
 $max_bytes = $max_mb * 1024 * 1024;
+$debug = !empty($cfg['debug']);
 
 if (!isset($_FILES['file'])) {
   error_response('Missing file field (expected name="file")', 400);
@@ -55,10 +56,12 @@ $plansDir = storage_dir('plans/.keep');
 $plansRoot = dirname($plansDir);
 
 if (!is_dir($plansRoot)) {
-  error_response('Storage plans directory missing: ' . $plansRoot, 500);
+  $extra = $debug ? ['detail' => $plansRoot] : [];
+  error_response('Storage plans directory missing', 500, $extra);
 }
 if (!is_writable($plansRoot)) {
-  error_response('Storage plans directory not writable: ' . $plansRoot, 500);
+  $extra = $debug ? ['detail' => $plansRoot] : [];
+  error_response('Storage plans directory not writable', 500, $extra);
 }
 
 $sha1 = sha1_file($f['tmp_name']);

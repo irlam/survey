@@ -8,6 +8,7 @@ return [
     'db_charset' => 'utf8mb4',
     'storage_path' => '../storage',
     'max_upload_mb' => 25,
+    'debug' => false,
 
     // Optional DWG converter configuration. Ideally install system converters (dwg2pdf, dwg2svg, dwg2dxf, pdf2svg, ImageMagick) on the server.
     // If you cannot install system packages, you may provide a Docker image that bundles conversion utilities.
