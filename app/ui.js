@@ -303,8 +303,13 @@ function showIssuesModal(planId) {
   const statusFilter = document.getElementById('issuesStatusFilter');
   const priorityFilter = document.getElementById('issuesPriorityFilter');
   const addIssueBtn = document.getElementById('issuesAddBtn');
+  const selectAll = document.getElementById('issuesSelectAll');
+  const exportSelectedBtn = document.getElementById('issuesExportSelected');
+  const selectedCount = document.getElementById('issuesSelectedCount');
   const recentBox = document.getElementById('recentIssues');
   if (!modal || !issuesList || !pdfBtn || !pdfOut) return;
+  const selectedIds = modal._selectedIds || new Set();
+  modal._selectedIds = selectedIds;
 
   // Ensure close button is visible so the modal can be dismissed
   if (closeBtn) closeBtn.style.display = '';
@@ -314,6 +319,39 @@ function showIssuesModal(planId) {
   pdfOut.textContent = '';
   if (addIssueBtn) {
     addIssueBtn.onclick = ()=>{ try{ modal.style.display='none'; const add = document.getElementById('btnAddIssueMode'); if(add) add.click(); }catch(e){} };
+  }
+  const updateSelectedUi = ()=>{
+    if (selectedCount) selectedCount.textContent = `${selectedIds.size} selected`;
+    if (exportSelectedBtn) exportSelectedBtn.disabled = selectedIds.size === 0;
+  };
+  updateSelectedUi();
+  if (selectAll) {
+    selectAll.onchange = ()=>{ 
+      const checks = issuesList.querySelectorAll('input.issueSelect');
+      checks.forEach(ch=>{ ch.checked = selectAll.checked; if (ch.checked) selectedIds.add(ch.value); else selectedIds.delete(ch.value); });
+      updateSelectedUi();
+    };
+  }
+  if (exportSelectedBtn) {
+    exportSelectedBtn.onclick = async ()=>{
+      if (selectedIds.size === 0) return;
+      exportSelectedBtn.disabled = true; addSpinner(exportSelectedBtn);
+      try{
+        const ids = Array.from(selectedIds);
+        const body = new URLSearchParams();
+        body.set('plan_id', String(planId));
+        body.set('issue_ids', ids.join(','));
+        const chk = document.getElementById('chkIncludePin');
+        body.set('include_pin', (chk && chk.checked) ? '1' : '0');
+        const r = await fetch('/api/export_report.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() });
+        const data = await r.json();
+        if (!r.ok || !data || !data.ok) throw new Error((data && data.error) ? data.error : 'Export failed');
+        const url = '/storage/exports/' + encodeURIComponent(data.filename);
+        const a = document.createElement('a'); a.href = url; a.download = data.filename; a.target = '_blank'; document.body.appendChild(a); a.click(); a.remove();
+        pdfOut.textContent = 'Ready: ' + data.filename;
+      }catch(e){ showToast('Export failed: ' + e.message); }
+      removeSpinner(exportSelectedBtn); exportSelectedBtn.disabled = false;
+    };
   }
   if (downloadBtn) { downloadBtn.style.display = 'none'; downloadBtn.disabled = true; downloadBtn.onclick = null; }
   // Wire full-plan export button
@@ -440,8 +478,17 @@ function showIssuesModal(planId) {
       container.style.display = 'flex'; container.style.flexDirection = 'column'; container.style.gap = '8px';
       for (const issue of filtered) {
         const item = document.createElement('div'); item.className = 'card issueCard'; item.dataset.issueId = String(issue.id||'');
+        item.dataset.status = (issue.status || 'Open');
+        item.dataset.priority = (issue.priority || 'Medium');
+        item.dataset.category = (issue.category || 'Other');
         const header = document.createElement('div'); header.className = 'issueHeader';
         const titleWrap = document.createElement('div'); titleWrap.className = 'issueTitleWrap';
+        const selectWrap = document.createElement('label'); selectWrap.className = 'issueSelectWrap';
+        const selectBox = document.createElement('input'); selectBox.type='checkbox'; selectBox.className='issueSelect'; selectBox.value = String(issue.id||'');
+        selectBox.checked = selectedIds.has(selectBox.value);
+        selectBox.onchange = ()=>{ if(selectBox.checked) selectedIds.add(selectBox.value); else selectedIds.delete(selectBox.value); updateSelectedUi(); };
+        selectWrap.appendChild(selectBox);
+        const dragHandle = document.createElement('button'); dragHandle.className='issueDragHandle'; dragHandle.type='button'; dragHandle.textContent='⋮⋮';
         const title = document.createElement('div'); title.className = 'issueTitleText'; title.textContent = issue.title || ('Issue #' + issue.id);
         const sub = document.createElement('div'); sub.className = 'issueSubText';
         sub.textContent = `#${issue.id || ''} · Page ${issue.page || ''}`;
@@ -520,8 +567,9 @@ function showIssuesModal(planId) {
         statusSelect.addEventListener('change', scheduleQuickSave);
         prioSelect.addEventListener('change', scheduleQuickSave);
 
-        badges.appendChild(statusSelect); badges.appendChild(prioSelect);
-        header.appendChild(titleWrap); header.appendChild(badges);
+        const catChip = document.createElement('span'); catChip.className='issueChip'; catChip.textContent = issue.category || 'Other';
+        badges.appendChild(statusSelect); badges.appendChild(prioSelect); badges.appendChild(catChip);
+        header.appendChild(selectWrap); header.appendChild(dragHandle); header.appendChild(titleWrap); header.appendChild(badges);
 
         const body = document.createElement('div'); body.className = 'issueBody';
         const notes = document.createElement('div'); notes.className = 'issueNotesText'; notes.textContent = issue.notes || issue.description || 'No notes';
@@ -612,16 +660,9 @@ function showIssuesModal(planId) {
             let data = null;
             try{ data = await r.json(); }catch(parseErr){ const txt = await r.text().catch(()=>null); console.error('export parse error, response text:', txt, parseErr); throw new Error(txt || 'Export failed (invalid JSON)'); }
             if (!r.ok || !data || !data.ok) throw new Error((data && data.error) ? data.error : (`Export failed (HTTP ${r.status})`));
-            if (downloadBtn) {
-              downloadBtn.textContent = 'Download PDF';
-              downloadBtn.style.display = '';
-              downloadBtn.disabled = false;
-              const url = '/storage/exports/' + encodeURIComponent(data.filename);
-              downloadBtn.onclick = () => { window.open(url, '_blank'); };
-              pdfOut.textContent = 'Ready: ' + data.filename;
-            } else {
-              pdfOut.innerHTML = `<a href="/storage/exports/${encodeURIComponent(data.filename)}" target="_blank">Download PDF</a>`;
-            }
+            const url = '/storage/exports/' + encodeURIComponent(data.filename);
+            const a = document.createElement('a'); a.href = url; a.download = data.filename; a.target = '_blank'; document.body.appendChild(a); a.click(); a.remove();
+            pdfOut.textContent = 'Ready: ' + data.filename;
           }catch(e){
             console.error('Export failed', e); pdfOut.textContent = e.message || 'Export failed';
             try{
@@ -674,6 +715,41 @@ function showIssuesModal(planId) {
       }
       issuesList.appendChild(container);
       setupLazyImages(container);
+      if (selectAll) {
+        const checks = issuesList.querySelectorAll('input.issueSelect');
+        selectAll.checked = checks.length > 0 && Array.from(checks).every(ch=>ch.checked);
+      }
+      // drag-reorder (touch + desktop)
+      if (!container._dragBound) {
+        container._dragBound = true;
+        let dragging = null;
+        const onMove = (ev)=>{
+          if (!dragging) return;
+          const el = document.elementFromPoint(ev.clientX, ev.clientY);
+          const card = el && el.closest ? el.closest('.issueCard') : null;
+          if (card && card !== dragging) {
+            const rect = card.getBoundingClientRect();
+            const before = (ev.clientY < rect.top + rect.height / 2);
+            container.insertBefore(dragging, before ? card : card.nextSibling);
+          }
+        };
+        const onUp = ()=>{
+          if (!dragging) return;
+          dragging.classList.remove('dragging');
+          document.removeEventListener('pointermove', onMove);
+          document.removeEventListener('pointerup', onUp);
+          dragging = null;
+        };
+        container.addEventListener('pointerdown', (ev)=>{
+          const handle = ev.target.closest && ev.target.closest('.issueDragHandle');
+          if (!handle) return;
+          dragging = handle.closest('.issueCard');
+          if (!dragging) return;
+          dragging.classList.add('dragging');
+          document.addEventListener('pointermove', onMove);
+          document.addEventListener('pointerup', onUp);
+        });
+      }
     }catch(e){ issuesList.innerHTML = `<div class="error">${escapeHtml(e.message)}</div>`; }
   }
   if (!modal._filtersBound) {

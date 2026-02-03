@@ -86,6 +86,19 @@ $plan_revision_tag = !empty($plan['revision']) ? ('_' . slugify_filename($plan['
 
 // Optional single-issue export
 $issue_id = safe_int($_POST['issue_id'] ?? null);
+$issue_ids = [];
+if (!empty($_POST['issue_ids'])) {
+    if (is_array($_POST['issue_ids'])) {
+        foreach ($_POST['issue_ids'] as $v) { $iv = safe_int($v); if ($iv) $issue_ids[] = $iv; }
+    } else {
+        $parts = preg_split('/[,\s]+/', (string)$_POST['issue_ids']);
+        foreach ($parts as $p) { $iv = safe_int($p); if ($iv) $issue_ids[] = $iv; }
+    }
+    $issue_ids = array_values(array_unique($issue_ids));
+}
+if (!$issue_id && count($issue_ids) === 1) {
+    $issue_id = (int)$issue_ids[0];
+}
 
 // debug mode optionally enabled by POST param debug=1 or GET debug=1 (for troubleshooting only)
 $debug = !empty($_POST['debug']) || !empty($_GET['debug']);
@@ -561,7 +574,14 @@ if ($format === 'csv') {
 }
 
 // Build issue list to include in PDF
-if ($issue_id) {
+if (!empty($issue_ids)) {
+    $placeholders = implode(',', array_fill(0, count($issue_ids), '?'));
+    $params = $issue_ids; $params[] = $plan_id;
+    $order = implode(',', array_map('intval', $issue_ids));
+    $stmt = $pdo->prepare('SELECT * FROM issues WHERE id IN (' . $placeholders . ') AND plan_id=? ORDER BY FIELD(id,' . $order . ')');
+    $stmt->execute($params);
+    $issue_list = $stmt->fetchAll();
+} elseif ($issue_id) {
     $stmt = $pdo->prepare('SELECT * FROM issues WHERE id=? AND plan_id=?');
     $stmt->execute([$issue_id, $plan_id]);
     $issue_list = $stmt->fetchAll();
@@ -598,6 +618,180 @@ if (isset($_POST['fit_a4']) || isset($_GET['fit_a4'])) {
 } 
 $skip_issue_loop = false;
 if ($fit_a4) {
+    // For multi-issue selection, render each issue using the same single-issue layout on its own page.
+    if (!empty($issue_ids) && count($issue_list) > 1) {
+        foreach ($issue_list as $idx => $single) {
+            if ($pdf->PageNo() > 0) $pdf->AddPage();
+            $issue_list = [$single];
+            // Render the single-issue A4 layout (same as normal fit_a4 block)
+            // Resolve plan file once
+            $planFile = null; $fileRel = $plan['file_path'] ?? null;
+            if ($fileRel) {
+                $cand1 = realpath(__DIR__ . '/../' . ltrim($fileRel, '/'));
+                if ($cand1 && is_file($cand1)) $planFile = $cand1;
+                if (!$planFile) { $cand2 = storage_dir($fileRel); if (is_file($cand2)) $planFile = $cand2; }
+                if (!$planFile) { $cand3 = storage_dir('plans/' . basename($fileRel)); if (is_file($cand3)) $planFile = $cand3; }
+            }
+            if ($planFile && is_file($planFile)) {
+                $pageW = $pdf->GetPageWidth(); $pageH = $pdf->GetPageHeight();
+                $margin = 12; $gap = 6; // mm
+                $availableW = $pageW - ($margin * 2);
+                $planPage = (!empty($issue_list) && isset($issue_list[0]['page'])) ? $issue_list[0]['page'] : 1;
+                $primaryIssue = !empty($issue_list) ? $issue_list[0] : null;
+                $planThumb = null;
+                if ($include_pin && $primaryIssue) {
+                    $planThumb = render_pin_thumbnail($planFile, $primaryIssue['page'] ?? 1, $primaryIssue['x_norm'] ?? 0.5, $primaryIssue['y_norm'] ?? 0.5, 2000);
+                }
+                if (!$planThumb) {
+                    $planThumb = render_plan_thumbnail($planFile, $planPage, 2000);
+                }
+                if ($planThumb && isset($planThumb['tmp'])) {
+                    $tempFiles[] = $planThumb['tmp'];
+                    $imgInfo = @getimagesize($planThumb['tmp']);
+                    $w_px = $imgInfo ? $imgInfo[0] : ($planThumb['w'] ?? null);
+                    $h_px = $imgInfo ? $imgInfo[1] : ($planThumb['h'] ?? null);
+
+                    $gridImgs = [];
+                    foreach ($issue_list as $iss) {
+                        $stmtp2 = $pdo->prepare('SELECT * FROM photos WHERE plan_id=? AND issue_id=? ORDER BY id');
+                        $stmtp2->execute([$plan_id, $iss['id']]);
+                        $phs2 = $stmtp2->fetchAll();
+                        foreach ($phs2 as $ph) {
+                            $frel = $ph['file_path'] ?? $ph['filename'] ?? null;
+                            if (!$frel) continue;
+                            if (preg_match('#^https?://#i', $frel)) continue;
+                            if (strpos($frel, 'photos/')===0) $fpath = storage_dir($frel);
+                            else $fpath = storage_dir('photos/' . basename($frel));
+                            if (is_file($fpath)) {
+                                $gridImgs[] = ['tmp'=>$fpath,'w'=>null,'h'=>null,'issue_id'=>$iss['id'] ?? null];
+                            }
+                        }
+                    }
+                    if (empty($gridImgs) && $planThumb && isset($planThumb['tmp'])) {
+                        $gridImgs[] = ['tmp'=>$planThumb['tmp'], 'w'=>null, 'h'=>null, 'issue_id'=>$primaryIssue['id'] ?? null];
+                    }
+
+                    if ($w_px && $h_px) {
+                        $planWidthMM = $availableW;
+                        $planHeightMM = $planWidthMM * ($h_px / $w_px);
+                        $n = count($gridImgs);
+                        if ($n > 0) {
+                            $hgap = 4; $vgap = 4; $minThumb = 12; $captionH = 3;
+                            $colsForCalc = 4;
+                            $rows = (int)ceil($n / $colsForCalc);
+                            $minGridHeight = $rows * ($minThumb + $captionH) + max(0, ($rows - 1) * $vgap) + 6;
+                            $availableForContent = $pageH - 2 * $margin - $gap;
+                            $planHeightCap = max(40, (int)floor($availableForContent * 0.75));
+                            $desiredPlanHeight = min($planHeightCap, $availableForContent - $minGridHeight);
+                            if ($planHeightMM < $desiredPlanHeight) {
+                                $planHeightMM = $desiredPlanHeight;
+                                $planWidthMM = $planHeightMM * ($w_px / $h_px);
+                                if ($planWidthMM > $availableW) {
+                                    $scale = $availableW / $planWidthMM;
+                                    $planWidthMM *= $scale;
+                                    $planHeightMM *= $scale;
+                                }
+                            } elseif ($planHeightMM > $desiredPlanHeight) {
+                                $planHeightMM = $desiredPlanHeight;
+                                $planWidthMM = $planHeightMM * ($w_px / $h_px);
+                            }
+                        }
+                        $x = $margin; $y = $margin;
+                        $pdf->Image($planThumb['tmp'], $x, $y, $planWidthMM, 0);
+                        $currentY = $y + $planHeightMM + $gap;
+                    } else {
+                        $planWidthMM = $availableW; $planHeightMM = 160;
+                        $n = count($gridImgs);
+                        if ($n > 0) {
+                            $availableForContent = $pageH - 2 * $margin - $gap;
+                            $planHeightCap = max(40, (int)floor($availableForContent * 0.75));
+                            if ($planHeightMM > $planHeightCap) $planHeightMM = $planHeightCap;
+                        }
+                        $x = $margin; $y = $margin; $pdf->Image($planThumb['tmp'], $x, $y, $planWidthMM, 0);
+                        $currentY = $y + $planHeightMM + $gap;
+                    }
+                } else {
+                    $gridImgs = [];
+                    foreach ($issue_list as $iss) {
+                        $stmtp2 = $pdo->prepare('SELECT * FROM photos WHERE plan_id=? AND issue_id=? LIMIT 1');
+                        $stmtp2->execute([$plan_id, $iss['id']]); $phs2 = $stmtp2->fetchAll();
+                        if (!empty($phs2)) {
+                            $frel = $phs2[0]['file_path'] ?? $phs2[0]['filename'] ?? null;
+                            if ($frel && !preg_match('#^https?://#i', $frel)) {
+                                if (strpos($frel, 'photos/')===0) $fpath = storage_dir($frel);
+                                else $fpath = storage_dir('photos/' . basename($frel));
+                                if (is_file($fpath)) { $gridImgs[] = ['tmp'=>$fpath,'w'=>null,'h'=>null,'issue_id'=>$iss['id'] ?? null]; }
+                            }
+                        }
+                    }
+                    $currentY = 30;
+                }
+
+                $pdf->SetXY($margin, max($currentY, $pdf->GetY()) + 2);
+                $pdf->Ln(2);
+                $pdf->SetFont('Arial','B',11);
+                $pdf->Cell(0,6,'Issues Summary',0,1,'L');
+                $pdf->SetFont('Arial','',9);
+                foreach ($issue_list as $iss) {
+                    $title = $iss['title'] ?? ('Issue ' . ($iss['id'] ?? ''));
+                    $meta = [];
+                    if (!empty($iss['status'])) $meta[] = 'Status: ' . $iss['status'];
+                    if (!empty($iss['priority'])) $meta[] = 'Priority: ' . $iss['priority'];
+                    if (!empty($iss['assigned_to'])) $meta[] = 'Assignee: ' . $iss['assigned_to'];
+                    if (!empty($iss['created_at'])) $meta[] = 'Created: ' . date('d/m/Y H:i', strtotime($iss['created_at']));
+                    $metaLine = implode(' • ', $meta);
+                    $pdf->SetFont('Arial','B',9);
+                    $pdf->MultiCell(0,5, safe_pdf_text('Issue ' . ($iss['id'] ?? '') . ': ' . $title), 0, 'L');
+                    if ($metaLine) { $pdf->SetFont('Arial','',8); $pdf->MultiCell(0,4, safe_pdf_text($metaLine), 0, 'L'); }
+                    if (!empty($iss['notes'])) { $pdf->SetFont('Arial','',8); $pdf->MultiCell(0,4, safe_pdf_text('Notes: ' . $iss['notes']), 0, 'L'); }
+                    $pdf->Ln(2);
+                }
+
+                $currentY = $pdf->GetY() + 2;
+                $left = $margin; $right = $pageW - $margin; $bottomY = $pageH - $margin;
+                $availH = $bottomY - $currentY;
+                $n = count($gridImgs);
+                if ($n > 0 && $availH > 10) {
+                    $hgap = 4; $vgap = 4; $minThumb = 12;
+                    $cols = 4;
+                    $thumbW = floor((($pageW - 2*$margin) - ($cols-1)*$hgap) / $cols);
+                    $rows = ceil($n / $cols);
+                    $thumbH = floor(($availH - ($rows-1)*$vgap) / $rows);
+                    $sq = min($thumbW, $thumbH);
+                    if ($sq < $minThumb) {
+                        $chosen = null;
+                        for ($c = 3; $c >= 1; $c--) {
+                            $tw = floor((($pageW - 2*$margin) - ($c-1)*$hgap) / $c);
+                            $r = ceil($n / $c);
+                            $th = floor(($availH - ($r-1)*$vgap) / $r);
+                            $s = min($tw, $th);
+                            if ($s >= $minThumb) { $chosen = ['cols'=>$c,'thumb'=>$s,'rows'=>$r]; break; }
+                        }
+                        if ($chosen) { $cols = $chosen['cols']; $thumbSize = $chosen['thumb']; $rows = $chosen['rows']; }
+                        else { $cols = 1; $rows = $n; $thumbSize = max(8, floor(($availH - ($rows-1)*$vgap) / $rows)); }
+                    } else {
+                        $thumbSize = $sq;
+                    }
+                    $x = $left; $y = $currentY; $col = 0;
+                    foreach ($gridImgs as $gi) {
+                        if ($y + $thumbSize > $bottomY) break;
+                        $pdf->Image($gi['tmp'], $x, $y, $thumbSize, 0);
+                        $pdf->SetFont('Arial','',8);
+                        $pdf->SetXY($x, $y + $thumbSize + 1);
+                        $txt = 'Issue ' . ($gi['issue_id'] ?? '');
+                        $pdf->Cell($thumbSize, 4, $txt, 0, 0, 'C');
+                        $col++;
+                        if ($col >= $cols) {
+                            $col = 0; $x = $left; $y += $thumbSize + $vgap + 6;
+                        } else {
+                            $x += $thumbSize + $hgap;
+                        }
+                    }
+                }
+            }
+        }
+        $skip_issue_loop = true;
+    }
     // Resolve plan file once
     $planFile = null; $fileRel = $plan['file_path'] ?? null;
     if ($fileRel) {
@@ -1151,7 +1345,8 @@ if (!$skip_issue_loop) foreach ($issue_list as $issue) {
     $pdf->Ln(8);
 }
 
-$filename = $safe_plan_name . $plan_revision_tag . '_plan_' . ($issue_id ? 'issue_' . $issue_id . '_' : '') . date('Ymd_His') . '.pdf';
+$multi_tag = (!empty($issue_ids) && count($issue_ids) > 1) ? 'issues_multi_' : '';
+$filename = $safe_plan_name . $plan_revision_tag . '_plan_' . ($issue_id ? 'issue_' . $issue_id . '_' : $multi_tag) . date('Ymd_His') . '.pdf';
 $path = storage_dir('exports/' . $filename);
 $pdf->Output('F', $path);
 // ensure file was written
@@ -1169,7 +1364,7 @@ error_log('export_report: wrote ' . $path . ' size:' . filesize($path) . ' plan:
 try {
     ensure_exports_table_columns($pdo);
     $stmtExp = $pdo->prepare('INSERT INTO exports (plan_id, filename, type) VALUES (?, ?, ?)');
-    $etype = $issue_id ? 'issue' : 'pdf';
+    $etype = $issue_id ? 'issue' : (!empty($issue_ids) && count($issue_ids) > 1 ? 'issues' : 'pdf');
     $stmtExp->execute([$plan_id, $filename, $etype]);
     $expId = (int)$pdo->lastInsertId();
     $extra = $debug ? array_merge(['exports'=>get_exports_listing()], ['export_id'=>$expId]) : ['export_id'=>$expId];
