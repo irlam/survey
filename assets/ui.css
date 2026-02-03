@@ -344,6 +344,19 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
 .muted{color: var(--muted)}
 .error{color:#ff7b7b}
 
+/* Toast stack micro-animations */
+#toastStack > div{
+  animation: toastIn 220ms ease-out;
+  transform-origin: bottom right;
+}
+@keyframes toastIn{
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (prefers-reduced-motion: reduce){
+  #toastStack > div{ animation: none; }
+}
+
 .list{margin-top:12px; display:flex; flex-direction:column; gap:10px}
 
 .planRow{
