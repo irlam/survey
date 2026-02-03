@@ -105,9 +105,16 @@ function ensureWrapAndOverlay(){
         }catch(err){ /* ignore */ }
          const x = cx - overlayRect.left;
         const y = cy - overlayRect.top;
-        const w = overlayRect.width; const h = overlayRect.height; if(w<=0||h<=0) return;
-        const x_norm = Math.max(0, Math.min(1, x/w));
-        const y_norm = Math.max(0, Math.min(1, y/h));
+        const w = overlayRect.width; const h = overlayRect.height;
+        let x_norm, y_norm;
+        if(w<=0||h<=0){
+          console.warn('[VIEWER] Overlay has invalid dimensions, using fallback coordinates (0.5, 0.5)');
+          x_norm = 0.5;
+          y_norm = 0.5;
+        } else {
+          x_norm = Math.max(0, Math.min(1, x/w));
+          y_norm = Math.max(0, Math.min(1, y/h));
+        }
         const label = String(tempPins.filter(p=>p.page===currentPage).length + 1);
         try{ if(navigator && typeof navigator.vibrate === 'function') navigator.vibrate(10); }catch(err){}
         showIssueModal({page: currentPage, x_norm, y_norm, label, plan_id: getActivePlanId()});
