@@ -399,6 +399,7 @@
           container.dataset.fallbackPan = '1';
           let isDragging = false;
           let last = null;
+          const getCanvas = ()=> container.querySelector('canvas');
           const onDown = (e)=>{
             if (e.button !== 0) return;
             if (!window.__dwg_use_fallback_pan) return;
@@ -407,6 +408,9 @@
             isDragging = true;
             last = { x: e.clientX, y: e.clientY };
             container.classList.add('drag-pan');
+            const canv = getCanvas();
+            if (canv) canv.dataset.prevPointerEvents = canv.style.pointerEvents || '';
+            if (canv) canv.style.pointerEvents = 'none';
           };
           const onMove = (e)=>{
             if (!isDragging || !last) return;
@@ -425,8 +429,14 @@
             isDragging = false;
             last = null;
             container.classList.remove('drag-pan');
+            const canv = getCanvas();
+            if (canv) {
+              const prev = canv.dataset.prevPointerEvents ?? '';
+              canv.style.pointerEvents = prev;
+              delete canv.dataset.prevPointerEvents;
+            }
           };
-          container.addEventListener('pointerdown', onDown);
+          container.addEventListener('pointerdown', onDown, true);
           window.addEventListener('pointermove', onMove);
           window.addEventListener('pointerup', onUp);
           window.addEventListener('pointercancel', onUp);
@@ -470,6 +480,8 @@
           document.body.style.overscrollBehavior = 'none';
           const leftPanOk = enableLeftDragPan();
           if (!leftPanOk) window.__dwg_use_fallback_pan = true;
+          // Force fallback pan so drag works even if native bindings are unreliable
+          if (window.__dwg_use_fallback_pan !== true) window.__dwg_use_fallback_pan = true;
           installFallbackPan();
           wirePanCursor();
           showPanHint();
