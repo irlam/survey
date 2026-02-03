@@ -327,11 +327,19 @@
       function ensureViewerInstance(){
         return !!getViewerInstance();
       }
+      function getViewerView(){
+        try{
+          const instance = getViewerInstance();
+          if (!instance) return null;
+          return instance.curView || (instance.context && instance.context.view) || (instance._context && instance._context.view) || null;
+        }catch(e){}
+        return null;
+      }
       function enableLeftDragPan(){
         try{
           const instance = getViewerInstance();
           if (!instance) return false;
-          const view = instance.curView || (instance.context && instance.context.view) || (instance._context && instance._context.view);
+          const view = getViewerView();
           const controls = view && (view.cameraControls || view._cameraControls || view.controls);
           if (!controls || !controls.mouseButtons) return false;
           const mb = controls.mouseButtons;
@@ -349,6 +357,46 @@
           console.warn('enableLeftDragPan failed', e);
         }
         return false;
+      }
+      function installFallbackPan(){
+        try{
+          const container = document.getElementById('cad-container');
+          if (!container || container.dataset.fallbackPan === '1') return;
+          container.dataset.fallbackPan = '1';
+          let isDragging = false;
+          let last = null;
+          const onDown = (e)=>{
+            if (e.button !== 0) return;
+            if (!window.__dwg_use_fallback_pan) return;
+            const view = getViewerView();
+            if (!view || typeof view.screenToWorld !== 'function') return;
+            isDragging = true;
+            last = { x: e.clientX, y: e.clientY };
+            container.classList.add('drag-pan');
+          };
+          const onMove = (e)=>{
+            if (!isDragging || !last) return;
+            const view = getViewerView();
+            if (!view || typeof view.screenToWorld !== 'function') return;
+            const a = view.screenToWorld({ x: last.x, y: last.y });
+            const b = view.screenToWorld({ x: e.clientX, y: e.clientY });
+            if (!a || !b || !view.center) return;
+            const center = view.center;
+            const dx = a.x - b.x;
+            const dy = a.y - b.y;
+            view.center = { x: center.x + dx, y: center.y + dy };
+            last = { x: e.clientX, y: e.clientY };
+          };
+          const onUp = ()=>{
+            isDragging = false;
+            last = null;
+            container.classList.remove('drag-pan');
+          };
+          container.addEventListener('pointerdown', onDown);
+          window.addEventListener('pointermove', onMove);
+          window.addEventListener('pointerup', onUp);
+          window.addEventListener('pointercancel', onUp);
+        }catch(e){}
       }
       function wirePanCursor(){
         try{
@@ -386,7 +434,9 @@
             }
           }
           document.body.style.overscrollBehavior = 'none';
-          enableLeftDragPan();
+          const leftPanOk = enableLeftDragPan();
+          if (!leftPanOk) window.__dwg_use_fallback_pan = true;
+          installFallbackPan();
           wirePanCursor();
           showPanHint();
         }catch(e){}
@@ -520,25 +570,61 @@
         const runCmd = (cmd) => {
           try{
             const instance = getViewerInstance();
-            if (instance && typeof instance.sendStringToExecute === 'function') {
+            if (!instance) return false;
+            if (instance.commandManager && typeof instance.commandManager.lookupGlobalCmd === 'function') {
+              const c = instance.commandManager.lookupGlobalCmd(cmd);
+              if (c && typeof c.execute === 'function') {
+                c.execute(instance.context || instance._context);
+                return true;
+              }
+            }
+            if (typeof instance.sendStringToExecute === 'function') {
               instance.sendStringToExecute(cmd);
               return true;
             }
           }catch(e){ console.warn('Command failed', e); }
           return false;
         };
+        const zoomStep = (dir = 1)=>{
+          const view = getViewerView();
+          if (!view || !view._camera) return false;
+          const cam = view._camera;
+          const next = Math.max(0.1, (cam.zoom || 1) * (dir > 0 ? 1.2 : 0.85));
+          cam.zoom = next;
+          if (typeof cam.updateProjectionMatrix === 'function') cam.updateProjectionMatrix();
+          return true;
+        };
         const toggleBtn = (btn) => {
           if (!btn) return;
           btn.classList.toggle('on');
         };
         const panBtn = document.getElementById('dwgPanBtn');
-        if (panBtn) panBtn.addEventListener('click', () => runCmd('pan'));
+        if (panBtn) panBtn.addEventListener('click', () => {
+          window.__dwg_use_fallback_pan = true;
+          runCmd('pan');
+        });
         const zoomBtn = document.getElementById('dwgZoomBtn');
-        if (zoomBtn) zoomBtn.addEventListener('click', () => runCmd('zoom'));
+        if (zoomBtn) zoomBtn.addEventListener('click', () => {
+          if (!runCmd('zoom')) zoomStep(1);
+        });
         const zoomFitBtn = document.getElementById('dwgZoomFitBtn');
-        if (zoomFitBtn) zoomFitBtn.addEventListener('click', () => runCmd('zoom'));
+        if (zoomFitBtn) zoomFitBtn.addEventListener('click', () => {
+          const instance = getViewerInstance();
+          if (instance && instance.curView && typeof instance.curView.zoomToFitDrawing === 'function') {
+            instance.curView.zoomToFitDrawing();
+            return;
+          }
+          runCmd('zoom');
+        });
         const regenBtn = document.getElementById('dwgRegenBtn');
-        if (regenBtn) regenBtn.addEventListener('click', () => runCmd('regen'));
+        if (regenBtn) regenBtn.addEventListener('click', () => {
+          const instance = getViewerInstance();
+          if (instance && typeof instance.regen === 'function') {
+            instance.regen();
+            return;
+          }
+          runCmd('regen');
+        });
         const gridBtn = document.getElementById('dwgGridBtn');
         if (gridBtn) gridBtn.addEventListener('click', () => { if (runCmd('grid')) toggleBtn(gridBtn); });
         const snapBtn = document.getElementById('dwgSnapBtn');
