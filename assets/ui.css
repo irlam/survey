@@ -494,6 +494,15 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
   padding: 0;
 }
 
+@keyframes pinPulse {
+  0% { transform: translate(-50%, -100%) scale(1); filter: drop-shadow(0 0 0 rgba(0,255,231,0.0)); }
+  35% { transform: translate(-50%, -100%) scale(1.08); filter: drop-shadow(0 0 14px rgba(0,255,231,0.55)); }
+  100% { transform: translate(-50%, -100%) scale(1); filter: drop-shadow(0 0 6px rgba(0,255,231,0.15)); }
+}
+.pin-highlight{
+  animation: pinPulse 1.2s ease-out 1;
+}
+
 /* For legacy span labels (if any remain) make them black and centered */
 .pinLabel{
   display:inline-block;

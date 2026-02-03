@@ -315,7 +315,23 @@ function showIssuesModal(planId) {
       const res = await fetch(`/api/list_issues.php?plan_id=${encodeURIComponent(planId)}`);
       const data = await res.json();
       if(!data.ok) throw new Error(data.error || 'Failed to load issues');
-      if(!data.issues.length){ issuesList.innerHTML = '<div class="muted">No issues for this plan.</div>'; return; }
+      if(!data.issues.length){
+        issuesList.innerHTML = `
+          <div class="card" style="display:flex;flex-direction:column;gap:10px;align-items:flex-start;">
+            <div style="font-weight:800;">No issues yet</div>
+            <div class="muted">Tap Add Issue mode, then long‑press on the plan to drop your first pin.</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button id="issuesEmptyAdd" class="btnPrimary" type="button">Add Issue</button>
+              <button id="issuesEmptyClose" class="btn" type="button">Close</button>
+            </div>
+          </div>
+        `;
+        const addBtn = document.getElementById('issuesEmptyAdd');
+        const closeEmpty = document.getElementById('issuesEmptyClose');
+        if (addBtn) addBtn.onclick = ()=>{ try{ modal.style.display='none'; const add = document.getElementById('btnAddIssueMode'); if(add) add.click(); }catch(e){} };
+        if (closeEmpty) closeEmpty.onclick = ()=>{ modal.style.display='none'; };
+        return;
+      }
       // prefetch photos for thumbnails/counts
       let photosMap = {};
       try{
@@ -371,6 +387,43 @@ function showIssuesModal(planId) {
           {value:'Low',label:'Low'},{value:'Medium',label:'Medium'},{value:'High',label:'High'}
         ], issue.priority || 'Medium', 'small');
         prioSelect.style.minWidth='90px'; prioSelect.title='Priority'; prioSelect.setAttribute('aria-label','Issue priority');
+        const scheduleQuickSave = (() => {
+          let timer = null;
+          return () => {
+            if (timer) clearTimeout(timer);
+            timer = setTimeout(async () => {
+              try{
+                const payload = {
+                  id: issue.id,
+                  plan_id: planId,
+                  title: issue.title,
+                  notes: issue.notes,
+                  page: issue.page,
+                  x_norm: issue.x_norm,
+                  y_norm: issue.y_norm,
+                  status: statusSelect.value,
+                  priority: prioSelect.value
+                };
+                const r = await fetch('/api/save_issue.php',{
+                  method:'POST',
+                  headers:{'Content-Type':'application/json'},
+                  body: JSON.stringify(payload),
+                  credentials:'same-origin'
+                });
+                const txt = await r.text();
+                let resp; try{ resp = JSON.parse(txt); }catch{ resp = null; }
+                if(!r.ok || !resp || !resp.ok) throw new Error((resp && resp.error) ? resp.error : 'Save failed');
+                issue.status = statusSelect.value;
+                issue.priority = prioSelect.value;
+                showToast('Updated');
+              }catch(err){
+                showToast('Update failed: ' + err.message);
+              }
+            }, 550);
+          };
+        })();
+        statusSelect.addEventListener('change', scheduleQuickSave);
+        prioSelect.addEventListener('change', scheduleQuickSave);
 
         metaRow.appendChild(statusSelect); metaRow.appendChild(prioSelect);
         const assigneeSpan = document.createElement('div'); assigneeSpan.style.fontSize='12px'; assigneeSpan.style.color='var(--muted)'; assigneeSpan.textContent = issue.assignee || '';
@@ -445,9 +498,15 @@ function showIssuesModal(planId) {
         else { const d = new Date(val); const pad = (n) => n.toString().padStart(2,'0'); createdDiv.textContent = `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}` + (issue.created_by ? (' — ' + issue.created_by) : ''); } } else if (issue.created_by) { createdDiv.textContent = issue.created_by; }
         const btnRow = document.createElement('div'); btnRow.className = 'issueListItemButtons';
         const viewBtn = document.createElement('button'); viewBtn.className='btn'; viewBtn.textContent='View'; viewBtn.onclick = ()=>{ try{ if(window.showIssueModal) window.showIssueModal(issue); else showToast('Viewer not loaded'); }catch(e){ console.error(e); showToast('Unable to open issue'); } };
-        const jumpBtn = document.createElement('button'); jumpBtn.className='btn'; jumpBtn.textContent='Jump to page'; jumpBtn.onclick = ()=>{ try{ const u = new URL(window.location.href); u.searchParams.set('plan_id', String(planId)); history.pushState({},'',u.toString()); if(window.startViewer){ window.startViewer().then(()=>{ if(window.viewerGoToPage) window.viewerGoToPage(Number(issue.page||1)); // open modal after short delay
-              setTimeout(()=>{ if(window.showIssueModal) window.showIssueModal(issue); }, 600);
-            }); } }catch(e){ console.error(e); } };
+        const jumpBtn = document.createElement('button'); jumpBtn.className='btn'; jumpBtn.textContent='Jump & highlight'; jumpBtn.onclick = ()=>{ try{
+          const u = new URL(window.location.href); u.searchParams.set('plan_id', String(planId)); history.pushState({},'',u.toString());
+          if(window.startViewer){
+            window.startViewer().then(()=>{
+              if(window.viewerJumpToIssue) window.viewerJumpToIssue(issue);
+              else if(window.viewerGoToPage) window.viewerGoToPage(Number(issue.page||1));
+            });
+          }
+        }catch(e){ console.error(e); } };
         const exportBtn = document.createElement('button'); exportBtn.className='btn'; exportBtn.textContent='Export PDF';
         exportBtn.onclick = async ()=>{
           exportBtn.disabled = true; addSpinner(exportBtn);
@@ -509,6 +568,15 @@ function showIssuesModal(planId) {
         left.className = 'issueListItemLeft';
         item.className = 'card issueListItem';
         item.appendChild(left); item.appendChild(right); container.appendChild(item);
+        item.addEventListener('click', (ev)=>{
+          if (ev.target && ev.target.closest && (ev.target.closest('button') || ev.target.closest('.customSelect'))) return;
+          const go = () => {
+            if (window.viewerJumpToIssue) window.viewerJumpToIssue(issue);
+            else if (window.viewerGoToPage) window.viewerGoToPage(Number(issue.page||1));
+          };
+          if (window.startViewer) window.startViewer().then(go).catch(()=>go());
+          else go();
+        });
       }
       issuesList.appendChild(container);
     }catch(e){ issuesList.innerHTML = `<div class="error">${escapeHtml(e.message)}</div>`; }

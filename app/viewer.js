@@ -15,6 +15,7 @@ let tempPins = [];
 let dbPins = [];
 let panX = 0;
 let panY = 0;
+let pendingHighlightIssueId = null;
 
 // Helpers
 function qs(sel){ return document.querySelector(sel); }
@@ -156,6 +157,20 @@ function applyPanTransform(){
   wrap.style.transform = `translate(${panX}px, ${panY}px)`;
 }
 
+function highlightPinById(issueId){
+  if(!issueId) return false;
+  const overlay = qs('#pdfContainer .pdfOverlay');
+  if(!overlay) return false;
+  const el = overlay.querySelector(`.pin[data-issue-id="${issueId}"]`);
+  if(!el) return false;
+  el.classList.remove('pin-highlight');
+  // force reflow for restart
+  void el.offsetHeight;
+  el.classList.add('pin-highlight');
+  setTimeout(()=>{ try{ el.classList.remove('pin-highlight'); }catch(e){} }, 1400);
+  return true;
+}
+
 // Crosshair / reticle helper
 function initCrosshair(){
   const allowFeature = () => { try{ const u = new URL(window.location.href); if (u.searchParams.get('f') === 'crosshair') return true; }catch(e){} return (window.innerWidth || 0) < 700; };
@@ -197,6 +212,7 @@ async function renderPinsForPage(overlay, viewportWidth, viewportHeight){ clearO
     const el = document.createElement('div');
     el.className = 'pin db-pin';
     el.title = p.title || '';
+    el.dataset.issueId = String(p.id || '');
     el.style.left = `${p.x_norm * viewportWidth}px`;
     el.style.top = `${p.y_norm * viewportHeight}px`;
     const labelText = String(p.id || p.label || p.title || '!');
@@ -293,6 +309,11 @@ async function renderPinsForPage(overlay, viewportWidth, viewportHeight){ clearO
       el.addEventListener('click', ()=> showIssueModal(p));
     }
   }
+
+  if (pendingHighlightIssueId) {
+    const ok = highlightPinById(pendingHighlightIssueId);
+    if (ok) pendingHighlightIssueId = null;
+  }
 }
 
 async function renderPage(pageNo){ if(!pdfDoc) return; const {wrap, canvas, overlay} = ensureWrapAndOverlay(); const ctx = canvas.getContext('2d'); setStatus(`Rendering page ${pageNo}…`); const page = await pdfDoc.getPage(pageNo); const w = stageWidth(); const h = stageHeight(); const v1 = page.getViewport({scale:1.0}); // choose the fit scale that keeps the page within both width and height of the stage
@@ -303,6 +324,17 @@ async function goToPage(n){ if(!pdfDoc) return; const pageNo = Math.max(1, Math.
 
 // Expose a global helper to let other UI code jump the viewer to a page
 window.viewerGoToPage = async function(n){ try{ if(typeof goToPage==='function') await goToPage(n); }catch(e){ console.warn('viewerGoToPage failed', e); } };
+
+// Jump to an issue and highlight its pin
+window.viewerJumpToIssue = async function(issue){
+  try{
+    if(!issue || !issue.page) return;
+    pendingHighlightIssueId = String(issue.id || '');
+    await goToPage(Number(issue.page || 1));
+    // try immediate highlight in case render finished before pending set
+    highlightPinById(pendingHighlightIssueId);
+  }catch(e){ console.warn('viewerJumpToIssue failed', e); }
+};
 
 function bindUiOnce(){ if(window.__viewerBound) return; window.__viewerBound = true;
   const prevBtn = qs('#btnPrev'); const nextBtn = qs('#btnNext'); const goBtn = qs('#btnGo'); const pageInput = qs('#pageInput'); const zoomOut = qs('#btnZoomOut'); const zoomIn = qs('#btnZoomIn'); const fitBtn = qs('#btnFit'); const closeBtn = qs('#btnCloseViewer'); const addBtn = qs('#btnAddIssueMode'); const fab = qs('#fabAddIssue');
