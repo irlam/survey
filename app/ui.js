@@ -439,12 +439,14 @@ function showIssuesModal(planId) {
       const container = document.createElement('div');
       container.style.display = 'flex'; container.style.flexDirection = 'column'; container.style.gap = '8px';
       for (const issue of filtered) {
-        const item = document.createElement('div'); item.className = 'card'; item.dataset.issueId = String(issue.id||'');
-        item.style.display = 'flex'; item.style.alignItems = 'center'; item.style.justifyContent = 'space-between';
-        const left = document.createElement('div'); left.style.flex = '1';
-        left.innerHTML = `\n          <div style="font-weight:800;">${escapeHtml(issue.title || ('Issue #' + issue.id))}</div>\n          <div style="font-size:13px;color:var(--muted);margin-top:4px;">${escapeHtml(issue.notes||issue.description||'')}</div>\n          <div style="margin-top:6px;font-size:13px;color:var(--muted);">\n            <strong>ID:</strong> ${escapeHtml(String(issue.id||''))} &nbsp; \n            <strong>Page:</strong> ${escapeHtml(String(issue.page||''))} &nbsp; \n\n          </div>\n        `;
-        const right = document.createElement('div'); right.className = 'issueListItemRight';
-        const metaRow = document.createElement('div'); metaRow.className = 'issueListItemMeta';
+        const item = document.createElement('div'); item.className = 'card issueCard'; item.dataset.issueId = String(issue.id||'');
+        const header = document.createElement('div'); header.className = 'issueHeader';
+        const titleWrap = document.createElement('div'); titleWrap.className = 'issueTitleWrap';
+        const title = document.createElement('div'); title.className = 'issueTitleText'; title.textContent = issue.title || ('Issue #' + issue.id);
+        const sub = document.createElement('div'); sub.className = 'issueSubText';
+        sub.textContent = `#${issue.id || ''} · Page ${issue.page || ''}`;
+        titleWrap.appendChild(title); titleWrap.appendChild(sub);
+        const badges = document.createElement('div'); badges.className = 'issueBadges';
         // Create custom-styled select widgets (neon / customSelect) so dropdown list is styled consistently
         function normalizeSelectValue(val, opts){
           if (!val) return (opts[0] && opts[0].value) || '';
@@ -518,80 +520,78 @@ function showIssuesModal(planId) {
         statusSelect.addEventListener('change', scheduleQuickSave);
         prioSelect.addEventListener('change', scheduleQuickSave);
 
-        metaRow.appendChild(statusSelect); metaRow.appendChild(prioSelect);
-        const assigneeSpan = document.createElement('div'); assigneeSpan.style.fontSize='12px'; assigneeSpan.style.color='var(--muted)'; assigneeSpan.textContent = issue.assignee || '';
+        badges.appendChild(statusSelect); badges.appendChild(prioSelect);
+        header.appendChild(titleWrap); header.appendChild(badges);
+
+        const body = document.createElement('div'); body.className = 'issueBody';
+        const notes = document.createElement('div'); notes.className = 'issueNotesText'; notes.textContent = issue.notes || issue.description || 'No notes';
+        body.appendChild(notes);
+
+        const meta = document.createElement('div'); meta.className = 'issueMetaRow';
+        const createdDiv = document.createElement('div'); createdDiv.className = 'issueMetaItem';
+        if (issue.created_at) { const val = issue.created_at; if (typeof val === 'string' && val.indexOf('/') !== -1) { createdDiv.textContent = val + (issue.created_by ? (' — ' + issue.created_by) : ''); }
+          else { const d = new Date(val); const pad = (n) => n.toString().padStart(2,'0'); createdDiv.textContent = `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}` + (issue.created_by ? (' — ' + issue.created_by) : ''); } }
+        else if (issue.created_by) { createdDiv.textContent = issue.created_by; }
+        const assignee = document.createElement('div'); assignee.className = 'issueMetaItem'; assignee.textContent = issue.assignee ? ('Assignee: ' + issue.assignee) : 'Unassigned';
+        meta.appendChild(createdDiv); meta.appendChild(assignee);
+        body.appendChild(meta);
+
+        const previews = document.createElement('div'); previews.className = 'issuePreviews';
         const phs = photosMap[String(issue.id)] || [];
-        if(phs.length){ const thumbsWrap = document.createElement('div'); thumbsWrap.style.display='flex'; thumbsWrap.style.gap='6px'; thumbsWrap.style.marginTop='6px'; for(let i=0;i<Math.min(3, phs.length); i++){ const p = phs[i]; const img = document.createElement('img'); img.dataset.src = p.thumb_url || p.url; img.style.width='48px'; img.style.height='48px'; img.style.objectFit='cover'; img.style.borderRadius='6px'; img.style.cursor='pointer'; img.onclick = ()=>{ window.open(p.url || p.thumb_url, '_blank'); }; thumbsWrap.appendChild(img); }
-          // pin location preview (small thumbnail) — must be requested separately
-          const pinPreview = document.createElement('div'); pinPreview.style.marginLeft = '8px'; pinPreview.style.display = 'inline-block';
-          const pinImg = document.createElement('img'); pinImg.style.width = '80px'; pinImg.style.height = 'auto'; pinImg.style.borderRadius = '6px'; pinImg.style.boxShadow = '0 6px 18px rgba(0,0,0,.4)'; pinImg.style.display = 'none'; pinImg.alt = 'Pin location preview';
-          pinImg.onerror = ()=>{ pinImg.style.display = 'none'; };
-          // open a simple lightbox when clicking the pin preview (reuses the same lightbox as photos)
-          pinImg.onclick = ()=>{
-            if(!pinImg.src) return;
-            let lb = document.getElementById('imageLightbox');
-            if(!lb){
-              lb = document.createElement('div'); lb.id = 'imageLightbox';
-              lb.style.position='fixed'; lb.style.left=0; lb.style.top=0; lb.style.width='100%'; lb.style.height='100%';
-              lb.style.background='rgba(0,0,0,0.85)'; lb.style.display='flex'; lb.style.alignItems='center'; lb.style.justifyContent='center'; lb.style.zIndex=200000; lb.onclick = ()=>{ lb.style.display='none'; };
-              const imgEl = document.createElement('img'); imgEl.style.maxWidth='95%'; imgEl.style.maxHeight='95%'; imgEl.id='imageLightboxImg'; lb.appendChild(imgEl); document.body.appendChild(lb);
-            }
-            const imgEl = document.getElementById('imageLightboxImg'); imgEl.src = pinImg.src; document.getElementById('imageLightbox').style.display='flex';
-          };
-          pinPreview.appendChild(pinImg);
-          thumbsWrap.appendChild(pinPreview);
-
-          // trigger fetching of preview (non-blocking)
-          (async ()=>{
-            try{
-              const u = '/api/render_pin.php?plan_id='+encodeURIComponent(planId)+'&issue_id='+encodeURIComponent(issue.id);
-              // fetch image as blob to detect failures and avoid double requests
-              const res = await fetch(u, {cache: 'no-store', credentials: 'same-origin'});
-              if (res.ok && res.headers.get('Content-Type') && res.headers.get('Content-Type').includes('image')) {
-                const blob = await res.blob();
-                const url = URL.createObjectURL(blob);
-                pinImg.src = url;
-                pinImg.onload = ()=>{ pinImg.style.display = ''; URL.revokeObjectURL(url); };
-              } else {
-                // show small muted 'No preview' note
-                const note = document.createElement('div'); note.className = 'muted'; note.style.fontSize='12px'; note.style.marginLeft='6px'; note.textContent = 'No preview'; pinPreview.appendChild(note);
-              }
-            }catch(e){
-              const note = document.createElement('div'); note.className = 'muted'; note.style.fontSize='12px'; note.style.marginLeft='6px'; note.textContent = 'No preview'; pinPreview.appendChild(note);
-            }
-          })();
-
-          const countBadge = document.createElement('span'); countBadge.className='pill'; countBadge.textContent = String(phs.length) + ' photos'; countBadge.style.fontSize='12px'; countBadge.style.marginLeft='6px'; left.appendChild(thumbsWrap); left.appendChild(countBadge); }
-        else {
-          // no photos — still show a pin preview
-          const thumbsWrap2 = document.createElement('div'); thumbsWrap2.style.display='flex'; thumbsWrap2.style.gap='6px'; thumbsWrap2.style.marginTop='6px';
-          const pinPreview = document.createElement('div'); pinPreview.style.marginLeft = '8px'; pinPreview.style.display = 'inline-block';
-          const pinImg = document.createElement('img'); pinImg.style.width = '80px'; pinImg.style.height = 'auto'; pinImg.style.borderRadius = '6px'; pinImg.style.boxShadow = '0 6px 18px rgba(0,0,0,.4)'; pinImg.style.display = 'none'; pinImg.alt = 'Pin location preview';
-          pinImg.onerror = ()=>{ pinImg.style.display = 'none'; };
-          pinImg.onclick = ()=>{ if(pinImg.src) window.open(pinImg.src, '_blank'); };
-          pinPreview.appendChild(pinImg);
-          thumbsWrap2.appendChild(pinPreview);
-
-          // fetch preview
-          (async ()=>{
-            try{
-              const u = '/api/render_pin.php?plan_id='+encodeURIComponent(planId)+'&issue_id='+encodeURIComponent(issue.id);
-              const res = await fetch(u, {cache: 'no-store', credentials: 'same-origin'});
-              if (res.ok && res.headers.get('Content-Type') && res.headers.get('Content-Type').includes('image')) {
-                const blob = await res.blob(); const url = URL.createObjectURL(blob); pinImg.src = url; pinImg.onload = ()=>{ pinImg.style.display = ''; URL.revokeObjectURL(url); };
-              } else { const note = document.createElement('div'); note.className = 'muted'; note.style.fontSize = '12px'; note.style.marginLeft = '6px'; note.textContent = 'No preview'; pinPreview.appendChild(note); }
-            }catch(e){ const note = document.createElement('div'); note.className = 'muted'; note.style.fontSize = '12px'; note.style.marginLeft = '6px'; note.textContent = 'No preview'; pinPreview.appendChild(note); }
-          })();
-
-          left.appendChild(thumbsWrap2);
-          const countBadge2 = document.createElement('span'); countBadge2.className='pill'; countBadge2.textContent = String(phs.length) + ' photos'; countBadge2.style.fontSize='12px'; countBadge2.style.marginLeft='6px'; left.appendChild(countBadge2);
+        const countBadge = document.createElement('span'); countBadge.className='pill issuePhotoCount'; countBadge.textContent = String(phs.length) + ' photos';
+        const thumbsWrap = document.createElement('div'); thumbsWrap.className = 'issueThumbs';
+        if(phs.length){
+          for(let i=0;i<Math.min(4, phs.length); i++){
+            const p = phs[i];
+            const img = document.createElement('img');
+            img.dataset.src = p.thumb_url || p.url;
+            img.alt = 'Photo';
+            img.onclick = ()=>{ window.open(p.url || p.thumb_url, '_blank'); };
+            thumbsWrap.appendChild(img);
+          }
         }
-        const createdDiv = document.createElement('div'); createdDiv.style.fontSize = '12px'; createdDiv.style.color = 'var(--muted)'; if (issue.created_at) { const val = issue.created_at; // API may return UK formatted string 'd/m/Y H:i' or ISO; if string contains '/' assume UK and display as-is
-        if (typeof val === 'string' && val.indexOf('/') !== -1) { createdDiv.textContent = val + (issue.created_by ? (' — ' + issue.created_by) : ''); }
-        else { const d = new Date(val); const pad = (n) => n.toString().padStart(2,'0'); createdDiv.textContent = `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}` + (issue.created_by ? (' — ' + issue.created_by) : ''); } } else if (issue.created_by) { createdDiv.textContent = issue.created_by; }
-        const btnRow = document.createElement('div'); btnRow.className = 'issueListItemButtons';
-        const viewBtn = document.createElement('button'); viewBtn.className='btn'; viewBtn.textContent='View'; viewBtn.onclick = ()=>{ try{ if(window.showIssueModal) window.showIssueModal(issue); else showToast('Viewer not loaded'); }catch(e){ console.error(e); showToast('Unable to open issue'); } };
-        const jumpBtn = document.createElement('button'); jumpBtn.className='btn'; jumpBtn.textContent='Jump & highlight'; jumpBtn.onclick = ()=>{ try{
+        previews.appendChild(thumbsWrap);
+        previews.appendChild(countBadge);
+
+        const pinPreview = document.createElement('div'); pinPreview.className = 'issuePinPreview';
+        const pinImg = document.createElement('img'); pinImg.alt = 'Pin preview'; pinImg.style.display = 'none';
+        pinImg.onerror = ()=>{ pinImg.style.display = 'none'; };
+        pinImg.onclick = ()=>{
+          if(!pinImg.src) return;
+          let lb = document.getElementById('imageLightbox');
+          if(!lb){
+            lb = document.createElement('div'); lb.id = 'imageLightbox';
+            lb.style.position='fixed'; lb.style.left=0; lb.style.top=0; lb.style.width='100%'; lb.style.height='100%';
+            lb.style.background='rgba(0,0,0,0.85)'; lb.style.display='flex'; lb.style.alignItems='center'; lb.style.justifyContent='center'; lb.style.zIndex=200000; lb.onclick = ()=>{ lb.style.display='none'; };
+            const imgEl = document.createElement('img'); imgEl.style.maxWidth='95%'; imgEl.style.maxHeight='95%'; imgEl.id='imageLightboxImg'; lb.appendChild(imgEl); document.body.appendChild(lb);
+          }
+          const imgEl = document.getElementById('imageLightboxImg'); imgEl.src = pinImg.src; document.getElementById('imageLightbox').style.display='flex';
+        };
+        pinPreview.appendChild(pinImg);
+        previews.appendChild(pinPreview);
+        body.appendChild(previews);
+
+        // fetch pin preview
+        (async ()=>{
+          try{
+            const u = '/api/render_pin.php?plan_id='+encodeURIComponent(planId)+'&issue_id='+encodeURIComponent(issue.id);
+            const res = await fetch(u, {cache: 'no-store', credentials: 'same-origin'});
+            if (res.ok && res.headers.get('Content-Type') && res.headers.get('Content-Type').includes('image')) {
+              const blob = await res.blob();
+              const url = URL.createObjectURL(blob);
+              pinImg.src = url;
+              pinImg.onload = ()=>{ pinImg.style.display = ''; URL.revokeObjectURL(url); };
+            }
+          }catch(e){ /* ignore */ }
+        })();
+
+        const actions = document.createElement('div'); actions.className = 'issueActions';
+        const primary = document.createElement('div'); primary.className = 'issueActionsPrimary';
+        const secondary = document.createElement('div'); secondary.className = 'issueActionsSecondary';
+        const viewBtn = document.createElement('button'); viewBtn.className='btnPrimary'; viewBtn.textContent='Open';
+        viewBtn.onclick = ()=>{ try{ if(window.showIssueModal) window.showIssueModal(issue); else showToast('Viewer not loaded'); }catch(e){ console.error(e); showToast('Unable to open issue'); } };
+        const jumpBtn = document.createElement('button'); jumpBtn.className='btn'; jumpBtn.textContent='Jump';
+        jumpBtn.onclick = ()=>{ try{
           const u = new URL(window.location.href); u.searchParams.set('plan_id', String(planId)); history.pushState({},'',u.toString());
           if(window.startViewer){
             window.startViewer().then(()=>{
@@ -600,10 +600,9 @@ function showIssuesModal(planId) {
             });
           }
         }catch(e){ console.error(e); } };
-        const exportBtn = document.createElement('button'); exportBtn.className='btn'; exportBtn.textContent='Export PDF';
+        const exportBtn = document.createElement('button'); exportBtn.className='btn'; exportBtn.textContent='Export';
         exportBtn.onclick = async ()=>{
           exportBtn.disabled = true; addSpinner(exportBtn);
-          // hide/disable global download while generating
           if (downloadBtn) { downloadBtn.style.display = 'none'; downloadBtn.disabled = true; downloadBtn.onclick = null; }
           try{
             pdfOut.textContent = 'Generating PDF…';
@@ -612,10 +611,7 @@ function showIssuesModal(planId) {
             const r = await fetch('/api/export_report.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `plan_id=${encodeURIComponent(planId)}&issue_id=${encodeURIComponent(issue.id)}${includePinParam2}` });
             let data = null;
             try{ data = await r.json(); }catch(parseErr){ const txt = await r.text().catch(()=>null); console.error('export parse error, response text:', txt, parseErr); throw new Error(txt || 'Export failed (invalid JSON)'); }
-            if (!r.ok || !data || !data.ok) {
-              console.error('Export error response', r.status, data);
-              throw new Error((data && data.error) ? data.error : (`Export failed (HTTP ${r.status})`));
-            }
+            if (!r.ok || !data || !data.ok) throw new Error((data && data.error) ? data.error : (`Export failed (HTTP ${r.status})`));
             if (downloadBtn) {
               downloadBtn.textContent = 'Download PDF';
               downloadBtn.style.display = '';
@@ -628,7 +624,6 @@ function showIssuesModal(planId) {
             }
           }catch(e){
             console.error('Export failed', e); pdfOut.textContent = e.message || 'Export failed';
-            // try debug retry
             try{
               const chk3 = document.getElementById('chkIncludePin');
               const includePinParam3 = (chk3 && chk3.checked) ? '&include_pin=1' : '&include_pin=0';
@@ -640,8 +635,7 @@ function showIssuesModal(planId) {
           }
           removeSpinner(exportBtn); exportBtn.disabled = false;
         };
-        // Delete button for issue
-        const delIssueBtn = document.createElement('button'); delIssueBtn.className='btn'; delIssueBtn.type='button'; delIssueBtn.textContent='Delete'; delIssueBtn.title = 'Delete this issue'; delIssueBtn.style.borderColor = 'rgba(255,80,80,.28)'; delIssueBtn.style.color = '#ff7b7b';
+        const delIssueBtn = document.createElement('button'); delIssueBtn.className='btn'; delIssueBtn.textContent='Delete';
         delIssueBtn.onclick = async ()=>{
           if(!confirm(`Delete issue "${issue.title || ('#' + issue.id)}"? This will remove it and its photos.`)) return;
           delIssueBtn.disabled = true;
@@ -655,12 +649,16 @@ function showIssuesModal(planId) {
           }catch(err){ showToast('Delete error: ' + (err.message || err)); console.error('delete issue', err); }
           delIssueBtn.disabled = false;
         };
-        const saveBtn = document.createElement('button'); saveBtn.className='btnPrimary'; saveBtn.textContent='Save'; saveBtn.onclick = async ()=>{ saveBtn.disabled = true; try{ const payload = { id: issue.id, plan_id: planId, title: issue.title, notes: issue.notes, page: issue.page, x_norm: issue.x_norm, y_norm: issue.y_norm, status: statusSelect.value, priority: prioSelect.value }; const r = await fetch('/api/save_issue.php',{method:'POST',headers:{'Content-Type':'application/json'},body: JSON.stringify(payload), credentials:'same-origin'}); const txt = await r.text(); let resp; try{ resp = JSON.parse(txt); }catch{ resp = null; } if(!r.ok || !resp || !resp.ok) throw new Error((resp && resp.error) ? resp.error : 'Save failed'); showToast('Saved'); issue.status = statusSelect.value; issue.priority = prioSelect.value; }catch(err){ showToast('Save error: ' + err.message); } saveBtn.disabled = false; };
-        btnRow.appendChild(viewBtn); btnRow.appendChild(jumpBtn); btnRow.appendChild(exportBtn); btnRow.appendChild(delIssueBtn); btnRow.appendChild(saveBtn);
-        right.appendChild(metaRow); right.appendChild(assigneeSpan); right.appendChild(createdDiv); right.appendChild(btnRow);
-        left.className = 'issueListItemLeft';
-        item.className = 'card issueListItem';
-        item.appendChild(left); item.appendChild(right); container.appendChild(item);
+        const saveBtn = document.createElement('button'); saveBtn.className='btn'; saveBtn.textContent='Save';
+        saveBtn.onclick = async ()=>{ saveBtn.disabled = true; try{ const payload = { id: issue.id, plan_id: planId, title: issue.title, notes: issue.notes, page: issue.page, x_norm: issue.x_norm, y_norm: issue.y_norm, status: statusSelect.value, priority: prioSelect.value }; const r = await fetch('/api/save_issue.php',{method:'POST',headers:{'Content-Type':'application/json'},body: JSON.stringify(payload), credentials:'same-origin'}); const txt = await r.text(); let resp; try{ resp = JSON.parse(txt); }catch{ resp = null; } if(!r.ok || !resp || !resp.ok) throw new Error((resp && resp.error) ? resp.error : 'Save failed'); showToast('Saved'); issue.status = statusSelect.value; issue.priority = prioSelect.value; }catch(err){ showToast('Save error: ' + err.message); } saveBtn.disabled = false; };
+        primary.appendChild(viewBtn); primary.appendChild(jumpBtn);
+        secondary.appendChild(exportBtn); secondary.appendChild(saveBtn); secondary.appendChild(delIssueBtn);
+        actions.appendChild(primary); actions.appendChild(secondary);
+
+        item.appendChild(header);
+        item.appendChild(body);
+        item.appendChild(actions);
+        container.appendChild(item);
         item.addEventListener('click', (ev)=>{
           if (ev.target && ev.target.closest && (ev.target.closest('button') || ev.target.closest('.customSelect'))) return;
           const go = () => {

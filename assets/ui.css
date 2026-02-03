@@ -897,6 +897,123 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
   }
 }
 
+/* New Issue list layout */
+.issueCard{
+  display:grid;
+  grid-template-rows: auto auto auto;
+  gap:12px;
+  padding:16px;
+  background: linear-gradient(180deg, rgba(11,18,32,0.78), rgba(7,10,15,0.78));
+  border:1px solid rgba(0,255,231,0.12);
+  box-shadow: 0 16px 40px rgba(0,0,0,0.45);
+}
+.issueHeader{
+  display:flex;
+  gap:12px;
+  align-items:center;
+  justify-content:space-between;
+  flex-wrap:wrap;
+}
+.issueTitleWrap{ min-width: 0; }
+.issueTitleText{
+  font-weight:900;
+  font-size:16px;
+  color: var(--text);
+}
+.issueSubText{
+  font-size:12px;
+  color: var(--muted);
+  margin-top:4px;
+}
+.issueBadges{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+.issueBody{
+  display:grid;
+  grid-template-columns: 1fr;
+  gap:10px;
+}
+.issueNotesText{
+  color: var(--muted);
+  font-size:13px;
+  line-height:1.45;
+}
+.issueMetaRow{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  color: var(--muted);
+  font-size:12px;
+}
+.issueMetaItem{ padding:4px 8px; border-radius:999px; background: rgba(0,255,231,0.06); border:1px solid rgba(0,255,231,0.12); }
+.issuePreviews{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  flex-wrap:wrap;
+}
+.issueThumbs{
+  display:flex;
+  gap:6px;
+  align-items:center;
+}
+.issueThumbs img{
+  width:54px;
+  height:54px;
+  border-radius:10px;
+  object-fit:cover;
+  box-shadow: 0 6px 14px rgba(0,0,0,0.4);
+  cursor:pointer;
+}
+.issuePinPreview{
+  width:92px;
+  height:60px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:10px;
+  border:1px solid rgba(255,255,255,0.06);
+  background: rgba(0,0,0,0.2);
+}
+.issuePinPreview img{
+  width:92px;
+  height:auto;
+  border-radius:8px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+}
+.issuePhotoCount{ font-size:12px; }
+.issueActions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  justify-content:space-between;
+  align-items:center;
+}
+.issueActionsPrimary,
+.issueActionsSecondary{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.issueActionsPrimary .btnPrimary{
+  min-width:120px;
+}
+.issueActionsSecondary .btn{
+  min-width:100px;
+}
+@media (max-width: 760px){
+  .issueActions{ flex-direction:column; align-items:stretch; }
+  .issueActionsPrimary,
+  .issueActionsSecondary{ width:100%; }
+  .issueActionsPrimary .btnPrimary,
+  .issueActionsSecondary .btn{ flex:1 1 48%; min-width:0; }
+  .issuePinPreview{ width:100%; height:auto; }
+  .issuePinPreview img{ width:100%; }
+}
+
 /* queued photos badge in issue modal */
 .photoQueueBadge{ display:inline-block; min-width:28px; padding:3px 8px; border-radius:999px; background: linear-gradient(90deg,var(--neon2),var(--neon)); color:#061016; font-weight:900; text-align:center; box-shadow: 0 6px 24px rgba(0,0,0,0.5); }
 
