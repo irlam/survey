@@ -717,6 +717,31 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
   flex-wrap: wrap;
   align-items: flex-end;
 }
+.annotatorSwatches{
+  display:flex;
+  gap:6px;
+  align-items:center;
+  flex-wrap:wrap;
+}
+.swatchBtn{
+  width:22px;
+  height:22px;
+  border-radius:6px;
+  border:1px solid rgba(255,255,255,0.2);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+  cursor:pointer;
+}
+.annotatorZoomControls{
+  display:flex;
+  gap:6px;
+  align-items:center;
+}
+.annotatorZoomLabel{
+  min-width:46px;
+  text-align:center;
+  font-weight:800;
+  color: var(--neon);
+}
 .annotatorToolGroup{
   display: flex;
   flex-direction: column;
@@ -746,6 +771,19 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
   gap: 8px;
   justify-content: flex-end;
   flex-wrap: wrap;
+}
+.undoBadge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:18px;
+  height:18px;
+  margin-left:6px;
+  border-radius:999px;
+  background: rgba(0,255,231,0.18);
+  color: var(--neon);
+  font-size:11px;
+  font-weight:900;
 }
 @media (max-width: 760px){
   .annotatorWrap{

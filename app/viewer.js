@@ -829,6 +829,8 @@ async function showIssueModal(pin){
           const footer = document.createElement('div'); footer.className = 'annotatorFooter';
           const saveBtn = document.createElement('button'); saveBtn.className='btnPrimary'; saveBtn.textContent='Save';
           const undoBtn = document.createElement('button'); undoBtn.className='btn'; undoBtn.textContent='Undo';
+          const undoBadge = document.createElement('span'); undoBadge.className='undoBadge'; undoBadge.textContent='0';
+          undoBtn.appendChild(undoBadge);
           const clearBtn = document.createElement('button'); clearBtn.className='btn'; clearBtn.textContent='Clear';
           footer.appendChild(undoBtn); footer.appendChild(clearBtn); footer.appendChild(saveBtn);
           wrap.appendChild(header); wrap.appendChild(toolbar); wrap.appendChild(canvasWrap); wrap.appendChild(footer);
@@ -836,6 +838,23 @@ async function showIssueModal(pin){
 
           // drawing state with tools, colors and undo stack
           let ctx = canvas.getContext('2d'); let drawing=false; let strokes=[]; let current=null; let toolMode='free'; let drawColor='rgba(255,80,80,0.95)'; let drawWidth=4;
+          let zoom = 1; let fitMode = true;
+          function applyZoom(){
+            canvas.style.transform = `scale(${zoom})`;
+            canvas.style.transformOrigin = 'top left';
+            const zLabel = wrap.querySelector('#annotatorZoomLabel');
+            if (zLabel) zLabel.textContent = Math.round(zoom * 100) + '%';
+          }
+          function fitZoom(){
+            if (!canvas.width || !canvas.height) return;
+            const pad = 16;
+            const w = Math.max(200, canvasWrap.clientWidth - pad);
+            const h = Math.max(200, canvasWrap.clientHeight - pad);
+            zoom = Math.min(w / canvas.width, h / canvas.height, 2);
+            zoom = Math.max(0.5, zoom);
+            fitMode = true;
+            applyZoom();
+          }
           function redraw(){ ctx.clearRect(0,0,canvas.width,canvas.height); const img = new Image(); img.src = canvas.dataset.bg || ''; img.onload = ()=>{ ctx.drawImage(img,0,0,canvas.width,canvas.height); // then draw strokes
               ctx.lineCap='round'; ctx.lineJoin='round';
               for(const s of strokes){
@@ -862,9 +881,31 @@ async function showIssueModal(pin){
           toolGroup.innerHTML = '<label>Tool</label>'; toolGroup.appendChild(toolSelect);
           colorGroup.innerHTML = '<label>Color</label>'; colorGroup.appendChild(colorInput);
           widthGroup.innerHTML = '<label>Width</label>'; widthGroup.appendChild(widthInput);
-          toolbar.appendChild(toolGroup); toolbar.appendChild(colorGroup); toolbar.appendChild(widthGroup);
+          const swatches = document.createElement('div'); swatches.className = 'annotatorSwatches';
+          const swatchColors = ['#ff5050','#ff7b00','#ffd400','#39ff14','#00ffe7','#2b7bff','#b026ff','#ffffff','#000000'];
+          swatchColors.forEach((hex)=>{
+            const b = document.createElement('button'); b.type='button'; b.className='swatchBtn'; b.style.background = hex;
+            b.setAttribute('aria-label', `Color ${hex}`);
+            b.onclick = ()=>{ colorInput.value = hex; drawColor = hexToRgba(hex, 0.95); };
+            swatches.appendChild(b);
+          });
+          const zoomGroup = document.createElement('div'); zoomGroup.className = 'annotatorToolGroup';
+          zoomGroup.innerHTML = '<label>Zoom</label>';
+          const zoomControls = document.createElement('div'); zoomControls.className = 'annotatorZoomControls';
+          const zoomOutBtn = document.createElement('button'); zoomOutBtn.className='btn'; zoomOutBtn.textContent='−';
+          const zoomLabel = document.createElement('div'); zoomLabel.id='annotatorZoomLabel'; zoomLabel.className='annotatorZoomLabel'; zoomLabel.textContent='100%';
+          const zoomInBtn = document.createElement('button'); zoomInBtn.className='btn'; zoomInBtn.textContent='+';
+          const fitBtn = document.createElement('button'); fitBtn.className='btn'; fitBtn.textContent='Fit';
+          zoomOutBtn.onclick = ()=>{ zoom = Math.max(0.5, zoom - 0.1); fitMode = false; applyZoom(); };
+          zoomInBtn.onclick = ()=>{ zoom = Math.min(3, zoom + 0.1); fitMode = false; applyZoom(); };
+          fitBtn.onclick = ()=>{ fitZoom(); };
+          zoomControls.appendChild(zoomOutBtn); zoomControls.appendChild(zoomLabel); zoomControls.appendChild(zoomInBtn); zoomControls.appendChild(fitBtn);
+          zoomGroup.appendChild(zoomControls);
+          toolbar.appendChild(toolGroup); toolbar.appendChild(colorGroup); toolbar.appendChild(widthGroup); toolbar.appendChild(swatches); toolbar.appendChild(zoomGroup);
 
           function hexToRgba(hex, a){ const bigint = parseInt(hex.replace('#',''), 16); const r = (bigint >> 16) & 255; const g = (bigint >> 8) & 255; const b = bigint & 255; return `rgba(${r},${g},${b},${a})`; }
+
+          function updateUndoBadge(){ undoBadge.textContent = String(strokes.length); }
 
           // pointer handlers
           canvas.addEventListener('pointerdown', (ev)=>{ ev.preventDefault(); try{ canvas.setPointerCapture && canvas.setPointerCapture(ev.pointerId); }catch(ignore){} drawing=true; const r = canvas.getBoundingClientRect(); const x = (ev.clientX-r.left)*(canvas.width/r.width); const y = (ev.clientY-r.top)*(canvas.height/r.height); if(toolMode==='free'){ current = [{x,y}]; } else { current = {sx:x, sy:y, ex:x, ey:y}; } });
@@ -873,12 +914,12 @@ async function showIssueModal(pin){
             if(toolMode==='free' && current.length>0){ ctx.strokeStyle = drawColor; ctx.lineWidth = drawWidth; ctx.beginPath(); ctx.moveTo(current[0].x, current[0].y); for(let i=1;i<current.length;i++) ctx.lineTo(current[i].x, current[i].y); ctx.stroke(); }
             if(toolMode==='arrow' && current){ ctx.strokeStyle = drawColor; ctx.lineWidth = drawWidth; ctx.beginPath(); ctx.moveTo(current.sx,current.sy); ctx.lineTo(current.ex,current.ey); ctx.stroke(); drawArrowHead(ctx, current.sx, current.sy, current.ex, current.ey, drawWidth, drawColor); }
           });
-          canvas.addEventListener('pointerup', (ev)=>{ if(!drawing || !current) return; try{ canvas.releasePointerCapture && canvas.releasePointerCapture(ev.pointerId); }catch(ignore){} drawing=false; if(toolMode==='free'){ if(current.length>1) strokes.push({ type: 'free', points: current.slice(), color: drawColor, width: drawWidth }); } else { strokes.push({ type: 'arrow', sx: current.sx, sy: current.sy, ex: current.ex, ey: current.ey, color: drawColor, width: drawWidth }); } current=null; redraw(); });
+          canvas.addEventListener('pointerup', (ev)=>{ if(!drawing || !current) return; try{ canvas.releasePointerCapture && canvas.releasePointerCapture(ev.pointerId); }catch(ignore){} drawing=false; if(toolMode==='free'){ if(current.length>1) strokes.push({ type: 'free', points: current.slice(), color: drawColor, width: drawWidth }); } else { strokes.push({ type: 'arrow', sx: current.sx, sy: current.sy, ex: current.ex, ey: current.ey, color: drawColor, width: drawWidth }); } current=null; redraw(); updateUndoBadge(); });
           canvas.addEventListener('pointercancel', (ev)=>{ try{ canvas.releasePointerCapture && canvas.releasePointerCapture(ev.pointerId); }catch(ignore){} if(!drawing) return; drawing=false; current=null; redraw(); });
 
-          undoBtn.onclick = ()=>{ if(strokes.length) strokes.pop(); redraw(); };
-          clearBtn.onclick = ()=>{ strokes=[]; redraw(); };
-          closeBtn.onclick = ()=>{ ann.style.display='none'; };
+          undoBtn.onclick = ()=>{ if(strokes.length) strokes.pop(); redraw(); updateUndoBadge(); };
+          clearBtn.onclick = ()=>{ strokes=[]; redraw(); updateUndoBadge(); };
+          closeBtn.onclick = ()=>{ ann.style.display='none'; if(ann._resizeHandler){ window.removeEventListener('resize', ann._resizeHandler); ann._resizeHandler = null; } };
           saveBtn.onclick = ()=>{
             // export canvas to blob (merge bg + strokes)
             const sav = document.createElement('canvas'); sav.width = canvas.width; sav.height = canvas.height; const sctx = sav.getContext('2d');
@@ -893,6 +934,13 @@ async function showIssueModal(pin){
         // setup image
         const canvas = document.getElementById('annotatorCanvas'); const img = new Image(); img.onload = ()=>{ // size canvas at natural size but limit to viewport
           const maxW = Math.min(window.innerWidth*0.85, 1200); const ratio = Math.min(1, maxW / img.width); canvas.width = Math.round(img.width * ratio); canvas.height = Math.round(img.height * ratio); const ctx = canvas.getContext('2d'); ctx.drawImage(img,0,0,canvas.width, canvas.height); canvas.dataset.bg = canvas.toDataURL('image/png'); // store bg for redraws
+          // apply initial fit zoom
+          try{ if(typeof fitZoom === 'function') fitZoom(); else { zoom = 1; applyZoom(); } }catch(e){}
+          try{ if(typeof updateUndoBadge === 'function') updateUndoBadge(); }catch(e){}
+          if(!ann._resizeHandler){
+            ann._resizeHandler = ()=>{ try{ if(fitMode) fitZoom(); }catch(e){} };
+            window.addEventListener('resize', ann._resizeHandler);
+          }
         }; img.src = imgSrc;
         document.getElementById('annotatorModal').style.display='flex';
       };
