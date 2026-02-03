@@ -458,6 +458,7 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
   position: relative;
   margin: 0 auto;
   overflow: visible !important;
+  touch-action: none;
 }
 
 /* Overlay for PDF pins */

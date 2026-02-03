@@ -13,6 +13,8 @@ let fitMode = true;
 let addIssueMode = false;
 let tempPins = [];
 let dbPins = [];
+let panX = 0;
+let panY = 0;
 
 // Helpers
 function qs(sel){ return document.querySelector(sel); }
@@ -137,6 +139,12 @@ function resizeImageFile(file, maxWidth=1600, maxHeight=1600, quality=0.8){ retu
   }; img.onerror = (e)=>reject(new Error('Image load error')); img.src = fr.result; }; fr.onerror = ()=>reject(new Error('File read error')); fr.readAsDataURL(file); }); }
 
 function clearOverlay(overlay){ overlay.innerHTML = ''; }
+
+function applyPanTransform(){
+  const wrap = qs('#pdfContainer .pdfWrap');
+  if(!wrap) return;
+  wrap.style.transform = `translate(${panX}px, ${panY}px)`;
+}
 
 // Crosshair / reticle helper
 function initCrosshair(){
@@ -278,8 +286,8 @@ async function renderPinsForPage(overlay, viewportWidth, viewportHeight){ clearO
 }
 
 async function renderPage(pageNo){ if(!pdfDoc) return; const {wrap, canvas, overlay} = ensureWrapAndOverlay(); const ctx = canvas.getContext('2d'); setStatus(`Rendering page ${pageNo}…`); const page = await pdfDoc.getPage(pageNo); const w = stageWidth(); const h = stageHeight(); const v1 = page.getViewport({scale:1.0}); // choose the fit scale that keeps the page within both width and height of the stage
-fitScale = Math.min(w / v1.width, h / v1.height);
-const effectiveScale = fitMode ? (fitScale * userZoom) : userZoom; const viewport = page.getViewport({scale: effectiveScale}); const dpr = window.devicePixelRatio || 1; canvas.width = Math.floor(viewport.width * dpr); canvas.height = Math.floor(viewport.height * dpr); canvas.style.width = `${Math.floor(viewport.width)}px`; canvas.style.height = `${Math.floor(viewport.height)}px`; wrap.style.width = `${Math.floor(viewport.width)}px`; wrap.style.height = `${Math.floor(viewport.height)}px`; overlay.style.width = `${Math.floor(viewport.width)}px`; overlay.style.height = `${Math.floor(viewport.height)}px`; ctx.setTransform(dpr,0,0,dpr,0,0); await page.render({canvasContext:ctx, viewport}).promise; await renderPinsForPage(overlay, Math.floor(viewport.width), Math.floor(viewport.height)); setStatus(''); setBadges(); setModeBadge(); }
+  fitScale = Math.min(w / v1.width, h / v1.height);
+  const effectiveScale = fitMode ? (fitScale * userZoom) : userZoom; const viewport = page.getViewport({scale: effectiveScale}); const dpr = window.devicePixelRatio || 1; canvas.width = Math.floor(viewport.width * dpr); canvas.height = Math.floor(viewport.height * dpr); canvas.style.width = `${Math.floor(viewport.width)}px`; canvas.style.height = `${Math.floor(viewport.height)}px`; wrap.style.width = `${Math.floor(viewport.width)}px`; wrap.style.height = `${Math.floor(viewport.height)}px`; overlay.style.width = `${Math.floor(viewport.width)}px`; overlay.style.height = `${Math.floor(viewport.height)}px`; ctx.setTransform(dpr,0,0,dpr,0,0); panX = 0; panY = 0; applyPanTransform(); await page.render({canvasContext:ctx, viewport}).promise; await renderPinsForPage(overlay, Math.floor(viewport.width), Math.floor(viewport.height)); setStatus(''); setBadges(); setModeBadge(); }
 
 async function goToPage(n){ if(!pdfDoc) return; const pageNo = Math.max(1, Math.min(totalPages, n)); currentPage = pageNo; await renderPage(currentPage); }
 
@@ -319,6 +327,9 @@ function bindUiOnce(){ if(window.__viewerBound) return; window.__viewerBound = t
     let startZoom = userZoom;
     let pinchActive = false;
     let renderTimer = null;
+    let panActive = false;
+    let panLastX = 0;
+    let panLastY = 0;
     const scheduleRender = () => {
       if (renderTimer) return;
       renderTimer = setTimeout(async () => {
@@ -336,6 +347,12 @@ function bindUiOnce(){ if(window.__viewerBound) return; window.__viewerBound = t
     stage.addEventListener('pointerdown', (e) => {
       if (e.pointerType !== 'touch') return;
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pointers.size === 1) {
+        panActive = true;
+        panLastX = e.clientX;
+        panLastY = e.clientY;
+        stage.classList.add('dragging');
+      }
       if (pointers.size === 2) {
         pinchActive = true;
         startDist = getDist();
@@ -347,6 +364,16 @@ function bindUiOnce(){ if(window.__viewerBound) return; window.__viewerBound = t
       if (e.pointerType !== 'touch') return;
       if (!pointers.has(e.pointerId)) return;
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (!pinchActive && pointers.size === 1 && panActive) {
+        const dx = e.clientX - panLastX;
+        const dy = e.clientY - panLastY;
+        panX += dx;
+        panY += dy;
+        panLastX = e.clientX;
+        panLastY = e.clientY;
+        applyPanTransform();
+        e.preventDefault();
+      }
       if (pinchActive && pointers.size === 2) {
         const dist = getDist();
         if (startDist > 0) {
@@ -364,6 +391,10 @@ function bindUiOnce(){ if(window.__viewerBound) return; window.__viewerBound = t
     const endPinch = (e) => {
       if (e.pointerType !== 'touch') return;
       pointers.delete(e.pointerId);
+      if (pointers.size === 0) {
+        panActive = false;
+        stage.classList.remove('dragging');
+      }
       if (pointers.size < 2) {
         pinchActive = false;
         startDist = 0;
