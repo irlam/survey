@@ -19,3 +19,7 @@ node_modules/
 
 # Ignore debug console captures
 tools/dwgviewer/console-capture*.txt
+
+# Ignore test results
+test-results/
+playwright-report/
