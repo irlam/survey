@@ -602,7 +602,7 @@ async function showIssueModal(pin){
             </div>
           </div>
           <label style="display:block;margin-top:8px;">Assignee:<br>
-            <input id="issueAssignee" type="text" style="width:100%;font-size:14px;" value="${pin.assignee||''}" />
+            <input id="issueAssignee" type="text" style="width:100%;font-size:14px;" value="${pin.assigned_to||pin.assignee||''}" />
           </label>
 
           <!-- Moved: Preview block now under Assignee; enlarged and annotated -->
@@ -1002,12 +1002,12 @@ async function showIssueModal(pin){
           const notes = modal.querySelector('#issueNotes').value.trim();
           const status = modal.querySelector('#issueStatusSelect').value;
           const priority = modal.querySelector('#issuePrioritySelect').value;
-          const assignee = modal.querySelector('#issueAssignee').value.trim();
+          const assigned_to = modal.querySelector('#issueAssignee').value.trim();
           if(!title){ localShowToast('Title is required to upload photos.'); confirmBtn.disabled=false; return; }
-          const issue = { plan_id: planId, page: pin.page, x_norm: pin.x_norm, y_norm: pin.y_norm, title, notes, status, priority, assignee };
+          const issue = { plan_id: planId, page: pin.page, x_norm: pin.x_norm, y_norm: pin.y_norm, title, notes, status, priority, assigned_to };
           try{
             const saved = await apiSaveIssue(issue);
-            pin.id = saved.id;
+            pin.id = saved.issue?.id || saved.id;
             await reloadDbPins();
             await renderPage(currentPage);
           }catch(e){
@@ -1037,7 +1037,6 @@ async function showIssueModal(pin){
   }catch(err){ localShowToast('Image processing failed: '+err.message); confirmBtn.disabled=false; } };
       // ensure Cancel clears preview and annotations as well
       cancelBtn.onclick = ()=>{ previewWrap.style.display='none'; imgEl.src=''; infoEl.textContent = ''; URL.revokeObjectURL(url); if(modal._clearAnnotations) modal._clearAnnotations(); };
-      cancelBtn.onclick = ()=>{ previewWrap.style.display='none'; imgEl.src=''; infoEl.textContent=''; URL.revokeObjectURL(url); };
     }
 
     modal.querySelector('#issuePhotoInput').onchange = (e)=>{ const f = e.target.files && e.target.files[0]; if(f) handleSelectedFile(f); };
@@ -1085,7 +1084,7 @@ async function showIssueModal(pin){
       if(prioSelect) initCustomSelect(prioSelect);
       if(statusSelect) statusSelect.setValue(normalizeSelectValue(details.status || 'Open', [{value:'Open',label:'Open'},{value:'In Progress',label:'In Progress'},{value:'Closed',label:'Closed'}]));
       if(prioSelect) prioSelect.setValue(normalizeSelectValue(details.priority || 'Medium', [{value:'Low',label:'Low'},{value:'Medium',label:'Medium'},{value:'High',label:'High'}]));
-      if(assigneeInput) assigneeInput.value = details.assignee || '';
+      if(assigneeInput) assigneeInput.value = details.assigned_to || details.assignee || '';
       const createdByEl = modal.querySelector('#issueCreatedBy'); if(createdByEl) createdByEl.textContent = details.created_by||details.author||'';
       const createdVal = details.created_at || details.created || details.createdAt || details.ts;
       const createdEl = modal.querySelector('#issueCreated'); if(createdEl){ if(createdVal){ if (typeof createdVal === 'string' && createdVal.indexOf('/') !== -1) { createdEl.textContent = createdVal; } else { const d = new Date(createdVal); const pad=(n)=>n.toString().padStart(2,'0'); createdEl.textContent = `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; } createdEl.style.display='block'; } else createdEl.style.display='none'; }
@@ -1274,20 +1273,21 @@ async function showIssueModal(pin){
     const notes = modal.querySelector('#issueNotes').value.trim();
     const status = modal.querySelector('#issueStatusSelect') ? modal.querySelector('#issueStatusSelect').value : (pin.status||'Open');
     const priority = modal.querySelector('#issuePrioritySelect') ? modal.querySelector('#issuePrioritySelect').value : (pin.priority||null);
-    const assignee = modal.querySelector('#issueAssignee') ? modal.querySelector('#issueAssignee').value.trim() : (pin.assignee||null);
+    const assigned_to = modal.querySelector('#issueAssignee') ? modal.querySelector('#issueAssignee').value.trim() : (pin.assigned_to||pin.assignee||null);
     if(!title){ localShowToast('Title is required'); return; }
-    const issue = { plan_id: planId, page: pin.page, x_norm: pin.x_norm, y_norm: pin.y_norm, title, notes, status, priority, assignee };
+    const issue = { plan_id: planId, page: pin.page, x_norm: pin.x_norm, y_norm: pin.y_norm, title, notes, status, priority, assigned_to };
     if(pin.id) issue.id = pin.id;
     try{
       const saved = await apiSaveIssue(issue);
-      try{ trackEvent('pin_save_success', { id: saved.id || null, x: issue.x_norm, y: issue.y_norm }); }catch(e){}
+      const savedId = saved.issue?.id || saved.id;
+      try{ trackEvent('pin_save_success', { id: savedId || null, x: issue.x_norm, y: issue.y_norm }); }catch(e){}
       try{ if(navigator && typeof navigator.vibrate === 'function') navigator.vibrate(50); }catch(e){}
       addIssueMode = true;
       updateAddModeVisuals();
       localShowToast('Saved — long‑press to add another');
       // after saving, upload any queued photos that were added before save
       if(pendingPhotos && pendingPhotos.length){
-        pin.id = saved.id || pin.id;
+        pin.id = savedId || pin.id;
         for(const [idx, pf] of pendingPhotos.entries()){
           try{
             // show progress while uploading
@@ -1300,7 +1300,7 @@ async function showIssueModal(pin){
       window.removeEventListener('keydown', modal._keyHandler);
       await reloadDbPins();
       await renderPage(currentPage);
-      if(!pin.id && saved.id){ pin.id = saved.id; await showIssueModal(pin); }
+      if(!pin.id && savedId){ pin.id = savedId; await showIssueModal(pin); }
     }catch(e){ localShowToast('Error saving issue: '+e.message); try{ trackEvent('pin_save_failure', { error: e && e.message || String(e) }); }catch(x){} try{ if(navigator && typeof navigator.vibrate === 'function') navigator.vibrate(20); }catch(x){} }
   };
 
@@ -1332,7 +1332,8 @@ async function reloadDbPins() {
       created_by: issue.created_by || issue.author || issue.user || null,
       status: issue.status || 'Open',
       priority: issue.priority || null,
-      assignee: issue.assignee || null
+      assignee: issue.assigned_to || issue.assignee || null,
+      assigned_to: issue.assigned_to || issue.assignee || null
     }));
     await loadPhotoCounts(planId);
   } catch (e) {

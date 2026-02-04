@@ -12,6 +12,7 @@ $rows = format_dates_in_rows($rows);
 // Ensure compatibility: older code expects `notes` field, whereas DB uses `description`.
 foreach ($rows as &$r) {
   if (isset($r['description']) && !isset($r['notes'])) $r['notes'] = $r['description'];
+  if (isset($r['assigned_to']) && !isset($r['assignee'])) $r['assignee'] = $r['assigned_to'];
 }
 unset($r);
 json_response(['ok'=>true, 'issues'=>$rows]);
