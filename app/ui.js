@@ -324,6 +324,7 @@ function showIssuesModal(planId) {
   const selectedIds = modal._selectedIds || new Set();
   modal._selectedIds = selectedIds;
   let outsideClickHandler = null;
+  let filterTimer = null;
 
   // Ensure close button is visible so the modal can be dismissed
   if (closeBtn) closeBtn.style.display = '';
@@ -436,6 +437,7 @@ function showIssuesModal(planId) {
 
   // helper to load and render issues list (used initially and on photo updates)
   async function loadIssuesList(){
+    issuesList.setAttribute('aria-busy', 'true');
     issuesList.innerHTML = '<div class="muted">Loading…</div>';
     try{
       const res = await fetch(`/api/list_issues.php?plan_id=${encodeURIComponent(planId)}`);
@@ -510,6 +512,7 @@ function showIssuesModal(planId) {
         const closeEmpty = document.getElementById('issuesEmptyClose');
         if (addBtn) addBtn.onclick = ()=>{ try{ modal.style.display='none'; const add = document.getElementById('btnAddIssueMode'); if(add) add.click(); }catch(e){} };
         if (closeEmpty) closeEmpty.onclick = ()=>{ modal.style.display='none'; };
+        issuesList.setAttribute('aria-busy', 'false');
         return;
       }
       // prefetch photos for thumbnails/counts
@@ -526,7 +529,7 @@ function showIssuesModal(planId) {
       const container = document.createElement('div');
       container.style.display = 'flex'; container.style.flexDirection = 'column'; container.style.gap = '8px';
       for (const issue of filtered) {
-        const item = document.createElement('div'); item.className = 'card issueCard'; item.dataset.issueId = String(issue.id||'');
+        const item = document.createElement('div'); item.className = 'card issueCard'; item.dataset.issueId = String(issue.id||''); item.setAttribute('role','listitem');
         item.dataset.status = (issue.status || 'Open');
         item.dataset.priority = (issue.priority || 'Medium');
         item.dataset.category = (issue.category || 'Other');
@@ -556,7 +559,7 @@ function showIssuesModal(planId) {
           const wrap = document.createElement('div'); wrap.className = (extraClass ? extraClass + ' ' : '') + 'customSelect neonSelect';
           wrap.tabIndex = 0; wrap.setAttribute('role','combobox');
           const btn = document.createElement('button'); btn.className = 'selectButton'; btn.setAttribute('aria-label','Select'); btn.innerHTML = '<span class="selectedLabel"></span>';
-          const ul = document.createElement('ul'); ul.className = 'selectList'; ul.setAttribute('role','listbox');
+          const ul = document.createElement('ul'); ul.className = 'selectList'; ul.setAttribute('role','listbox'); ul.tabIndex = -1;
           for(const o of opts){ const li = document.createElement('li'); li.setAttribute('role','option'); li.dataset.value = o.value; li.textContent = o.label; if(o.value===val) li.setAttribute('aria-selected','true'); ul.appendChild(li); }
           wrap.appendChild(btn); wrap.appendChild(ul);
           // hidden value storage
@@ -567,7 +570,7 @@ function showIssuesModal(planId) {
           setSelected(wrap.value);
           btn.onclick = (e)=>{ e.stopPropagation(); const open = ul.classList.toggle('open'); wrap.setAttribute('aria-expanded', open? 'true':'false'); if(open) ul.focus(); };
           ul.querySelectorAll('li').forEach(li=>{ li.tabIndex=0; li.onclick = (ev)=>{ ev.stopPropagation(); setSelected(li.dataset.value); ul.classList.remove('open'); wrap.setAttribute('aria-expanded','false'); wrap.dispatchEvent(new Event('change')); }; li.onkeydown = (ev)=>{ if(ev.key==='Enter' || ev.key===' '){ ev.preventDefault(); li.click(); } }; });
-          document.addEventListener('click', (ev)=>{ if(!wrap.contains(ev.target)) { ul.classList.remove('open'); wrap.setAttribute('aria-expanded','false'); } });
+          wrap._closeList = ()=>{ ul.classList.remove('open'); wrap.setAttribute('aria-expanded','false'); };
           return wrap;
         }
         const statusSelect = createCustomSelect([
@@ -647,7 +650,8 @@ function showIssuesModal(planId) {
             const p = phs[i];
             const img = document.createElement('img');
             img.dataset.src = p.thumb_url || p.url;
-            img.alt = 'Photo';
+            img.alt = 'Issue photo';
+            img.loading = 'lazy';
             img.onclick = ()=>{ window.open(p.url || p.thumb_url, '_blank'); };
             thumbsWrap.appendChild(img);
           }
@@ -656,7 +660,7 @@ function showIssuesModal(planId) {
         previews.appendChild(countBadge);
 
         const pinPreview = document.createElement('div'); pinPreview.className = 'issuePinPreview';
-        const pinImg = document.createElement('img'); pinImg.alt = 'Pin preview'; pinImg.style.display = 'none';
+        const pinImg = document.createElement('img'); pinImg.alt = 'Pin preview'; pinImg.style.display = 'none'; pinImg.loading = 'lazy';
         pinImg.onerror = ()=>{ pinImg.style.display = 'none'; };
         pinImg.onclick = ()=>{
           if(!pinImg.src) return;
@@ -812,6 +816,7 @@ function showIssuesModal(planId) {
         container.addEventListener('pointerdown', (ev)=>{
           const handle = ev.target.closest && ev.target.closest('.issueDragHandle');
           if (!handle) return;
+          if (handle.setPointerCapture) handle.setPointerCapture(ev.pointerId);
           dragging = handle.closest('.issueCard');
           if (!dragging) return;
           dragging.classList.add('dragging');
@@ -819,22 +824,30 @@ function showIssuesModal(planId) {
           document.addEventListener('pointerup', onUp);
         });
       }
-    }catch(e){ issuesList.innerHTML = `<div class="error">${escapeHtml(e.message)}</div>`; }
+      issuesList.setAttribute('aria-busy', 'false');
+    }catch(e){ issuesList.innerHTML = `<div class="error">${escapeHtml(e.message)}</div>`; issuesList.setAttribute('aria-busy', 'false'); }
   }
   if (!modal._filtersBound) {
     const triggerReload = ()=>{ loadIssuesList(); };
-    if (searchInput) searchInput.addEventListener('input', triggerReload);
-    if (assigneeFilter) assigneeFilter.addEventListener('input', triggerReload);
-
+    const scheduleReload = ()=>{ if (filterTimer) clearTimeout(filterTimer); filterTimer = setTimeout(loadIssuesList, 220); };
+    if (searchInput) searchInput.addEventListener('input', scheduleReload);
+    if (assigneeFilter) assigneeFilter.addEventListener('input', scheduleReload);
     if (sortSelect) sortSelect.addEventListener('change', triggerReload);
-
-
-    if (sortSelect) sortSelect.addEventListener('change', triggerReload);
-
-
     if (statusFilter) statusFilter.addEventListener('change', triggerReload);
     if (priorityFilter) priorityFilter.addEventListener('change', triggerReload);
     modal._filtersBound = true;
+  }
+  if (!modal._selectCloseBound) {
+    const closeHandler = (ev)=>{
+      if (!modal || modal.style.display !== 'block') return;
+      if (ev && ev.target && ev.target.closest && ev.target.closest('.customSelect')) return;
+      modal.querySelectorAll('.customSelect').forEach((wrap)=>{
+        if (wrap && typeof wrap._closeList === 'function') wrap._closeList();
+      });
+    };
+    modal._selectCloseHandler = closeHandler;
+    document.addEventListener('click', closeHandler);
+    modal._selectCloseBound = true;
   }
   // initial load
   loadIssuesList();

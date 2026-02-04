@@ -124,8 +124,8 @@
       <span id="closeIssuesModal" class="close">&times;</span>
       <h2>Issues for this Plan</h2>
       <div class="issuesControls">
-        <input id="issuesSearch" type="text" placeholder="Search issues…" />
-        <input id="issuesAssigneeFilter" type="text" placeholder="Assignee…" />
+        <input id="issuesSearch" type="text" placeholder="Search issues…" aria-label="Search issues" />
+        <input id="issuesAssigneeFilter" type="text" placeholder="Assignee…" aria-label="Filter by assignee" />
 
         <select id="issuesSort">
           <option value="manual">Manual order</option>
@@ -151,7 +151,7 @@
         <label class="issuesCompactToggle"><input id="issuesCompactToggle" type="checkbox"> Compact view</label>
       </div>
       <div id="recentIssues" class="recentIssues" style="display:none;"></div>
-      <div id="issuesList"></div>
+      <div id="issuesList" role="list" aria-busy="false"></div>
       <div style="display:flex;gap:8px;align-items:center;margin-top:16px;">
         <button id="btnGeneratePdf" class="btnPrimary">Generate PDF Report</button>
         <button id="btnDownloadPdf" class="btn" style="display:none;">Download PDF</button>
@@ -257,7 +257,7 @@
       tryLoad();
     })();
   </script>
-  <script src="/app/ui.js?v=20260204_1"></script>
+  <script src="/app/ui.js?v=20260204_2"></script>
   <script src="/app/app.js?v=20260125_1"></script>
 
 </body>

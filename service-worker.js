@@ -11,7 +11,7 @@ const ASSETS = [
   '/app/app.js?v=20260125_1',
   '/app/router.js',
   '/app/viewer.js?v=20260204_2',
-  '/app/ui.js?v=20260204_1',
+  '/app/ui.js?v=20260204_2',
   '/app/idb.js',
   '/app/sync.js',
   '/app/overlay.js',
