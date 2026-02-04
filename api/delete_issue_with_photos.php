@@ -1,4 +1,5 @@
 <?php
+/* api/delete_issue_with_photos.php - Delete issue + related files (04/02/2026) */
 require_once __DIR__ . '/config-util.php';
 require_once __DIR__ . '/db.php';
 require_method('POST');
@@ -30,7 +31,7 @@ function move_to_trash_file_local($src, $trashDir){
 
 $deleted = ['issue_deleted'=>false, 'photos_deleted'=>0, 'photos'=>[], 'thumbs'=>[], 'exports_deleted'=>[]];
 
-// write a manifest with issue + photos + intent so undo can restore
+// Write a manifest with issue + photos + intent so undo can restore (now that $photos is known)
 try {
     $manifest = ['type'=>'issue','issue'=>$issue, 'photos'=>$photos, 'timestamp'=>date('c')];
     @file_put_contents(rtrim($trashDir, '/') . '/manifest.json', json_encode($manifest, JSON_PRETTY_PRINT));

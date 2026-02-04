@@ -1,9 +1,10 @@
 <?php
+/* api/delete_plan.php - Delete plan + related files (04/02/2026) */
 require_once __DIR__ . '/config-util.php';
 require_once __DIR__ . '/db.php';
 
 require_method('POST');
-$data = json_decode(file_get_contents('php://input'), true);
+$data = read_json_body();
 $plan_id = safe_int($data['id'] ?? null);
 if (!$plan_id) error_response('Missing or invalid id', 400);
 

@@ -1,5 +1,5 @@
 <?php
-// api/diagnostics.php
+/* api/diagnostics.php - Deployment diagnostics (04/02/2026) */
 // Simple diagnostics endpoint to help validate deployment & environment
 require_once __DIR__ . '/config-util.php';
 require_once __DIR__ . '/db.php';

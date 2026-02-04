@@ -1,4 +1,5 @@
 <?php
+/* api/delete_export.php - Delete an export (04/02/2026) */
 require_once __DIR__ . '/config-util.php';
 require_once __DIR__ . '/db.php';
 require_method('POST');
