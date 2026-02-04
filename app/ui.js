@@ -400,7 +400,7 @@ function showIssuesModal(planId) {
         const data = await r.json();
         if (!r.ok || !data || !data.ok) throw new Error((data && data.error) ? data.error : 'Export failed');
         const url = '/storage/exports/' + encodeURIComponent(data.filename);
-        const a = document.createElement('a'); a.href = url; a.download = data.filename; a.target = '_blank'; document.body.appendChild(a); a.click(); a.remove();
+        const a = document.createElement('a'); a.href = url; a.download = data.filename; a.target = '_blank'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove();
         pdfOut.textContent = 'Ready: ' + data.filename;
       }catch(e){ showToast('Export failed: ' + e.message); }
       removeSpinner(exportSelectedBtn); exportSelectedBtn.disabled = false;
@@ -435,10 +435,10 @@ function showIssuesModal(planId) {
           downloadBtn.style.display = '';
           downloadBtn.disabled = false;
           const url = '/storage/exports/' + encodeURIComponent(data.filename);
-          downloadBtn.onclick = () => { window.open(url, '_blank'); };
+          downloadBtn.onclick = () => { const w = window.open(url, '_blank', 'noopener'); if (w) w.opener = null; };
           pdfOut.textContent = 'Ready: ' + data.filename;
         } else {
-          pdfOut.innerHTML = `<a href="/storage/exports/${encodeURIComponent(data.filename)}" target="_blank">Download PDF Report</a>`;
+          pdfOut.innerHTML = `<a href="/storage/exports/${encodeURIComponent(data.filename)}" target="_blank" rel="noopener">Download PDF Report</a>`;
         }
       }catch(e){ console.error('Export failed', e); pdfOut.textContent = e.message || 'Export failed';
         // Try debug retry to get more server-side info
@@ -685,7 +685,7 @@ function showIssuesModal(planId) {
             img.dataset.src = p.thumb_url || p.url;
             img.alt = 'Issue photo';
             img.loading = 'lazy';
-            img.onclick = ()=>{ window.open(p.url || p.thumb_url, '_blank'); };
+            img.onclick = ()=>{ const w = window.open(p.url || p.thumb_url, '_blank', 'noopener'); if (w) w.opener = null; };
             thumbsWrap.appendChild(img);
           }
         }
@@ -752,7 +752,7 @@ function showIssuesModal(planId) {
             try{ data = await r.json(); }catch(parseErr){ const txt = await r.text().catch(()=>null); console.error('export parse error, response text:', txt, parseErr); throw new Error(txt || 'Export failed (invalid JSON)'); }
             if (!r.ok || !data || !data.ok) throw new Error((data && data.error) ? data.error : (`Export failed (HTTP ${r.status})`));
             const url = '/storage/exports/' + encodeURIComponent(data.filename);
-            const a = document.createElement('a'); a.href = url; a.download = data.filename; a.target = '_blank'; document.body.appendChild(a); a.click(); a.remove();
+            const a = document.createElement('a'); a.href = url; a.download = data.filename; a.target = '_blank'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove();
             pdfOut.textContent = 'Ready: ' + data.filename;
           }catch(e){
             console.error('Export failed', e); pdfOut.textContent = e.message || 'Export failed';
