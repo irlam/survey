@@ -13,6 +13,7 @@
     <button id="menuBtn" aria-label="Open menu" aria-expanded="false">☰</button>
     <h1>Exports Manager</h1>
     <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+      <span id="selectedCount" class="muted" aria-live="polite">0 selected</span>
       <label class="tool-card" style="display:flex;align-items:center;gap:6px;padding:6px 10px;">
         <input id="selectAllExports" type="checkbox" aria-label="Select all exports">
         <span>Select all</span>
@@ -97,8 +98,10 @@
     function updateBulkControls(totalExports = 0) {
       const selectAll = document.getElementById('selectAllExports');
       const deleteBtn = document.getElementById('deleteSelectedBtn');
+      const selectedLabel = document.getElementById('selectedCount');
       const selectedCount = selectedExportIds.size;
       deleteBtn.disabled = selectedCount === 0;
+      if (selectedLabel) selectedLabel.textContent = selectedCount + ' selected';
       if (totalExports === 0) {
         selectAll.checked = false;
         selectAll.indeterminate = false;
