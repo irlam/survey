@@ -1,15 +1,17 @@
-const STATIC_CACHE = 'survey-pwa-static-v5';
-const RUNTIME_CACHE = 'survey-pwa-runtime-v5';
+/* service-worker.js - PWA caching strategy (04/02/2026) */
+
+const STATIC_CACHE = 'survey-pwa-static-v6';
+const RUNTIME_CACHE = 'survey-pwa-runtime-v6';
 const ASSETS = [
   '/',
   '/index.html',
   '/offline.html',
   '/manifest.json',
-  '/assets/ui.css?v=20260125_7',
+  '/assets/ui.css?v=20260204_1',
   '/app/app.js?v=20260125_1',
   '/app/router.js',
-  '/app/viewer.js?v=20260128_3',
-  '/app/ui.js?v=20260125_2',
+  '/app/viewer.js?v=20260204_1',
+  '/app/ui.js?v=20260204_1',
   '/app/idb.js',
   '/app/sync.js',
   '/app/overlay.js',
