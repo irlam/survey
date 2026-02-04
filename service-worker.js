@@ -1,7 +1,7 @@
 /* service-worker.js - PWA caching strategy (04/02/2026) */
 
-const STATIC_CACHE = 'survey-pwa-static-v31';
-const RUNTIME_CACHE = 'survey-pwa-runtime-v31';
+const STATIC_CACHE = 'survey-pwa-static-v32';
+const RUNTIME_CACHE = 'survey-pwa-runtime-v32';
 const ASSETS = [
   '/',
   '/index.html',
@@ -13,6 +13,10 @@ const ASSETS = [
   '/tools/convert.html',
   '/tools/dwg.html',
   '/tools/trash.html',
+  '/tools/merge.html',
+  '/tools/split.html',
+  '/tools/print.html',
+  '/tools/batch-print.html',
   '/offline.html',
   '/manifest.json',
   '/assets/ui.css?v=20260204_1',
