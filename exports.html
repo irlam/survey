@@ -36,7 +36,7 @@
   </nav>
   <main>
     <div style="padding:12px;">
-      <div id="exportsGrid" class="export-grid" aria-busy="false">Loading…</div>
+      <div id="exportsGrid" class="export-grid" aria-busy="false" role="list">Loading…</div>
     </div>
   </main>
   <style>
@@ -186,7 +186,7 @@
         const exportIds = new Set();
         for (const exp of data.exports) {
           exportIds.add(Number(exp.id));
-          const card = document.createElement('div'); card.className = 'export-card card'; card.dataset.exportId = exp.id;
+          const card = document.createElement('div'); card.className = 'export-card card'; card.dataset.exportId = exp.id; card.setAttribute('role','listitem');
           const meta = document.createElement('div'); meta.className = 'export-meta';
           const name = document.createElement('div'); name.className = 'export-name'; name.textContent = exp.filename;
           const sub = document.createElement('div'); sub.className = 'export-sub'; sub.textContent = (exp.type ? exp.type.toUpperCase() + ' • ' : '') + formatDate(exp.created_at);
