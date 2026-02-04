@@ -113,6 +113,7 @@
           delBtn.textContent = 'Delete';
           delBtn.dataset.id = txt(iss.id);
           delBtn.dataset.plan = txt(iss.plan_id);
+          delBtn.setAttribute('aria-label', 'Delete issue ' + txt(iss.id));
           tdActions.appendChild(delBtn);
           tr.appendChild(tdActions);
 
