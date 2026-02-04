@@ -48,7 +48,8 @@
     }
 
     function viewTrash(t){
-      const w = window.open('', '_blank');
+      const w = window.open('', '_blank', 'noopener');
+      if (w) w.opener = null;
       w.document.title = 'Trash: ' + t.dir;
       w.document.body.style.background = '#071014'; w.document.body.style.color = '#dff';
       const h = document.createElement('div'); h.style.padding='12px'; h.innerHTML = `<h3>${t.dir}</h3><p>${t.files.length} file(s)</p>`;
