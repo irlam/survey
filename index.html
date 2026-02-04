@@ -147,7 +147,7 @@
         <button id="issuesAddBtn" class="btnPrimary" type="button">Add Issue</button>
         <label class="issuesSelectAll"><input id="issuesSelectAll" type="checkbox"> Select all</label>
         <button id="issuesExportSelected" class="btn" type="button">Export Selected</button>
-        <span id="issuesSelectedCount" class="muted">0 selected</span>
+        <span id="issuesSelectedCount" class="muted" aria-live="polite">0 selected</span>
         <label class="issuesCompactToggle"><input id="issuesCompactToggle" type="checkbox"> Compact view</label>
       </div>
       <div id="recentIssues" class="recentIssues" style="display:none;"></div>
@@ -160,7 +160,7 @@
           <span style="font-size:13px;color:var(--muted);">Include pin thumbnail</span>
           <button id="imgHelp" title="Checking server capability..." style="display:none;border:none;background:transparent;color:var(--muted);font-size:14px;padding:6px;">❔</button>
         </label>
-        <div id="pdfReportOut" class="muted" style="margin-left:8px;flex:1"></div>
+        <div id="pdfReportOut" class="muted" style="margin-left:8px;flex:1" role="status" aria-live="polite"></div>
       </div>
     </div>
   </div>
