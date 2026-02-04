@@ -151,11 +151,17 @@ async function refreshPlans() {
   try {
     const data = await apiJson('/api/list_plans.php');
     box.innerHTML = '';
-    if (!data.plans.length) {
-      box.innerHTML = '<div class="muted">No plans yet. Upload one.</div>';
+    const search = ($('#plansSearch')?.value || '').trim().toLowerCase();
+    const plans = (data.plans || []).filter(p => {
+      if (!search) return true;
+      const name = `${p.name || ''} ${p.revision || ''} ${p.id || ''}`.toLowerCase();
+      return name.includes(search);
+    });
+    if (!plans.length) {
+      box.innerHTML = data.plans.length ? '<div class="muted">No plans match your search.</div>' : '<div class="muted">No plans yet. Upload one.</div>';
       return;
     }
-    data.plans.forEach(p => box.appendChild(planRow(p)));
+    plans.forEach(p => box.appendChild(planRow(p)));
   } catch (e) {
     box.innerHTML = `<div class="error">Failed to load plans: ${escapeHtml(e.message)}</div>`;
   }
@@ -226,6 +232,10 @@ async function renderPlansScreen() {
   if (menuBtn) menuBtn.onclick = () => document.body.classList.toggle('sidebar-open');
   await wireUpload();
   await refreshPlans();
+  const plansSearch = $('#plansSearch');
+  if (plansSearch) {
+    plansSearch.oninput = () => refreshPlans();
+  }
   // wire trash button
   const trashBtn = document.getElementById('btnTrash');
   if (trashBtn) trashBtn.onclick = async ()=>{ showTrashModal(); };
@@ -300,6 +310,8 @@ function showIssuesModal(planId) {
   const pdfOut = document.getElementById('pdfReportOut');
   const modalTitle = modal ? modal.querySelector('h2') : null;
   const searchInput = document.getElementById('issuesSearch');
+  const assigneeFilter = document.getElementById('issuesAssigneeFilter');
+  const sortSelect = document.getElementById('issuesSort');
   const statusFilter = document.getElementById('issuesStatusFilter');
   const priorityFilter = document.getElementById('issuesPriorityFilter');
   const addIssueBtn = document.getElementById('issuesAddBtn');
@@ -311,6 +323,7 @@ function showIssuesModal(planId) {
   if (!modal || !issuesList || !pdfBtn || !pdfOut) return;
   const selectedIds = modal._selectedIds || new Set();
   modal._selectedIds = selectedIds;
+  let outsideClickHandler = null;
 
   // Ensure close button is visible so the modal can be dismissed
   if (closeBtn) closeBtn.style.display = '';
@@ -326,6 +339,11 @@ function showIssuesModal(planId) {
     if (exportSelectedBtn) exportSelectedBtn.disabled = selectedIds.size === 0;
   };
   updateSelectedUi();
+  if (sortSelect) {
+    const savedSort = localStorage.getItem('issues_sort') || 'manual';
+    sortSelect.value = savedSort;
+    sortSelect.onchange = ()=>{ localStorage.setItem('issues_sort', sortSelect.value); loadIssuesList(); };
+  }
   if (selectAll) {
     selectAll.onchange = ()=>{ 
       const checks = issuesList.querySelectorAll('input.issueSelect');
@@ -425,17 +443,38 @@ function showIssuesModal(planId) {
       if(!data.ok) throw new Error(data.error || 'Failed to load issues');
       const allIssues = Array.isArray(data.issues) ? data.issues.slice() : [];
       const q = (searchInput && searchInput.value || '').trim().toLowerCase();
+      const aVal = (assigneeFilter && assigneeFilter.value || '').trim().toLowerCase();
       const sVal = statusFilter ? statusFilter.value : '';
       const pVal = priorityFilter ? priorityFilter.value : '';
+      const sortMode = sortSelect ? sortSelect.value : 'manual';
       let filtered = allIssues.filter(i=>{
         if (sVal && String(i.status||'') !== sVal) return false;
         if (pVal && String(i.priority||'') !== pVal) return false;
+        if (aVal) {
+          const assignee = (i.assigned_to || i.assignee || '').toLowerCase();
+          if (!assignee.includes(aVal)) return false;
+        }
         if (q) {
-          const hay = `${i.title||''} ${i.notes||i.description||''} ${i.id||''}`.toLowerCase();
+          const hay = `${i.title||''} ${i.notes||i.description||''} ${i.id||''} ${i.assigned_to||i.assignee||''} ${i.due_date||''}`.toLowerCase();
           if (!hay.includes(q)) return false;
         }
         return true;
       });
+      const orderKey = `issues_order_${planId}`;
+      const savedOrder = (localStorage.getItem(orderKey) || '').split(',').map(v => v.trim()).filter(Boolean);
+      if (sortMode === 'newest') {
+        filtered.sort((a, b) => parseIssueDate(b) - parseIssueDate(a));
+      } else if (sortMode === 'oldest') {
+        filtered.sort((a, b) => parseIssueDate(a) - parseIssueDate(b));
+      } else if (savedOrder.length) {
+        const orderMap = new Map(savedOrder.map((id, idx) => [id, idx]));
+        filtered.sort((a, b) => {
+          const aKey = orderMap.has(String(a.id)) ? orderMap.get(String(a.id)) : Number.POSITIVE_INFINITY;
+          const bKey = orderMap.has(String(b.id)) ? orderMap.get(String(b.id)) : Number.POSITIVE_INFINITY;
+          if (aKey !== bKey) return aKey - bKey;
+          return parseIssueDate(a) - parseIssueDate(b);
+        });
+      }
       // recent issues (top 3 by date)
       if (recentBox) {
         const recent = allIssues.slice().sort((a,b)=> parseIssueDate(b) - parseIssueDate(a)).slice(0,3);
@@ -456,10 +495,11 @@ function showIssuesModal(planId) {
         }
       }
       if(!filtered.length){
+        const hasFilters = Boolean(q || aVal || sVal || pVal);
         issuesList.innerHTML = `
           <div class="card" style="display:flex;flex-direction:column;gap:10px;align-items:flex-start;">
-            <div style="font-weight:800;">No issues yet</div>
-            <div class="muted">Tap Add Issue mode, then long‑press on the plan to drop your first pin.</div>
+            <div style="font-weight:800;">${hasFilters ? 'No matching issues' : 'No issues yet'}</div>
+            <div class="muted">${hasFilters ? 'Try clearing filters or search terms.' : 'Tap Add Issue mode, then long‑press on the plan to drop your first pin.'}</div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
               <button id="issuesEmptyAdd" class="btnPrimary" type="button">Add Issue</button>
               <button id="issuesEmptyClose" class="btn" type="button">Close</button>
@@ -589,8 +629,13 @@ function showIssuesModal(planId) {
         if (issue.created_at) { const val = issue.created_at; if (typeof val === 'string' && val.indexOf('/') !== -1) { createdDiv.textContent = val + (issue.created_by ? (' — ' + issue.created_by) : ''); }
           else { const d = new Date(val); const pad = (n) => n.toString().padStart(2,'0'); createdDiv.textContent = `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}` + (issue.created_by ? (' — ' + issue.created_by) : ''); } }
         else if (issue.created_by) { createdDiv.textContent = issue.created_by; }
-        const assignee = document.createElement('div'); assignee.className = 'issueMetaItem'; assignee.textContent = issue.assignee ? ('Assignee: ' + issue.assignee) : 'Unassigned';
+        const assignee = document.createElement('div'); assignee.className = 'issueMetaItem';
+        const assigneeVal = issue.assigned_to || issue.assignee || '';
+        assignee.textContent = assigneeVal ? ('Assignee: ' + assigneeVal) : 'Unassigned';
+        const due = document.createElement('div'); due.className = 'issueMetaItem';
+        due.textContent = issue.due_date ? ('Due: ' + issue.due_date) : '';
         meta.appendChild(createdDiv); meta.appendChild(assignee);
+        if (issue.due_date) meta.appendChild(due);
         body.appendChild(meta);
 
         const previews = document.createElement('div'); previews.className = 'issuePreviews';
@@ -756,6 +801,12 @@ function showIssuesModal(planId) {
           clearDrop();
           document.removeEventListener('pointermove', onMove);
           document.removeEventListener('pointerup', onUp);
+          const orderKey = `issues_order_${planId}`;
+          const orderIds = Array.from(container.querySelectorAll('.issueCard')).map(card => card.dataset.issueId).filter(Boolean);
+          if (orderIds.length) {
+            localStorage.setItem(orderKey, orderIds.join(','));
+            showToast('Issue order saved');
+          }
           dragging = null;
         };
         container.addEventListener('pointerdown', (ev)=>{
@@ -773,6 +824,8 @@ function showIssuesModal(planId) {
   if (!modal._filtersBound) {
     const triggerReload = ()=>{ loadIssuesList(); };
     if (searchInput) searchInput.addEventListener('input', triggerReload);
+    if (assigneeFilter) assigneeFilter.addEventListener('input', triggerReload);
+    if (sortSelect) sortSelect.addEventListener('change', triggerReload);
     if (statusFilter) statusFilter.addEventListener('change', triggerReload);
     if (priorityFilter) priorityFilter.addEventListener('change', triggerReload);
     modal._filtersBound = true;
@@ -786,16 +839,27 @@ function showIssuesModal(planId) {
   document.addEventListener('issueUpdated', issueUpdatedListener);
 
   // allow closing with ESC key
-  const escKeyHandler = (ev) => { if (ev.key === 'Escape') { modal.style.display = 'none'; issuesList.innerHTML = ''; pdfOut.textContent = ''; document.removeEventListener('photosUpdated', photosListener); document.removeEventListener('issueUpdated', issueUpdatedListener); document.removeEventListener('keydown', escKeyHandler); } };
+  const escKeyHandler = (ev) => { if (ev.key === 'Escape') { modal.style.display = 'none'; issuesList.innerHTML = ''; pdfOut.textContent = ''; document.removeEventListener('photosUpdated', photosListener); document.removeEventListener('issueUpdated', issueUpdatedListener); document.removeEventListener('keydown', escKeyHandler); if (outsideClickHandler) window.removeEventListener('click', outsideClickHandler); } };
   document.addEventListener('keydown', escKeyHandler);
 
   // wire close button (X) to dismiss modal
   if (closeBtn){
     closeBtn.style.display = '';
-    closeBtn.onclick = () => { modal.style.display = 'none'; issuesList.innerHTML = ''; pdfOut.textContent = ''; document.removeEventListener('photosUpdated', photosListener); document.removeEventListener('issueUpdated', issueUpdatedListener); document.removeEventListener('keydown', escKeyHandler); };
+    closeBtn.onclick = () => { modal.style.display = 'none'; issuesList.innerHTML = ''; pdfOut.textContent = ''; document.removeEventListener('photosUpdated', photosListener); document.removeEventListener('issueUpdated', issueUpdatedListener); document.removeEventListener('keydown', escKeyHandler); if (outsideClickHandler) window.removeEventListener('click', outsideClickHandler); };
   }
   // clicking outside modal content will also close
-  window.onclick = (event) => { if (event.target === modal) { modal.style.display = 'none'; issuesList.innerHTML = ''; pdfOut.textContent = ''; document.removeEventListener('photosUpdated', photosListener); document.removeEventListener('issueUpdated', issueUpdatedListener); document.removeEventListener('keydown', escKeyHandler); } };
+  outsideClickHandler = (event) => {
+    if (event.target === modal) {
+      modal.style.display = 'none';
+      issuesList.innerHTML = '';
+      pdfOut.textContent = '';
+      document.removeEventListener('photosUpdated', photosListener);
+      document.removeEventListener('issueUpdated', issueUpdatedListener);
+      document.removeEventListener('keydown', escKeyHandler);
+      window.removeEventListener('click', outsideClickHandler);
+    }
+  };
+  window.addEventListener('click', outsideClickHandler);
 }
 
 
