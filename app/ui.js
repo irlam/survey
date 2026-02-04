@@ -551,15 +551,21 @@ function showIssuesModal(planId) {
         issuesList.setAttribute('aria-busy', 'false');
         return;
       }
-      // prefetch photos for thumbnails/counts
+      // prefetch photos for thumbnails/counts (cache per modal/session)
       let photosMap = {};
-      try{
-        const prs = await fetch(`/api/list_photos.php?plan_id=${encodeURIComponent(planId)}`);
-        const pjson = await prs.json().catch(()=>null);
-        if(pjson && pjson.ok && Array.isArray(pjson.photos)){
-          for(const ph of pjson.photos){ const key = String(ph.issue_id||''); photosMap[key] = photosMap[key] || []; photosMap[key].push(ph); }
-        }
-      }catch(e){ /* ignore */ }
+      const cached = modal._photosCache;
+      if (cached && cached.planId === planId) {
+        photosMap = cached.map || {};
+      } else {
+        try{
+          const prs = await fetch(`/api/list_photos.php?plan_id=${encodeURIComponent(planId)}`);
+          const pjson = await prs.json().catch(()=>null);
+          if(pjson && pjson.ok && Array.isArray(pjson.photos)){
+            for(const ph of pjson.photos){ const key = String(ph.issue_id||''); photosMap[key] = photosMap[key] || []; photosMap[key].push(ph); }
+          }
+        }catch(e){ /* ignore */ }
+        modal._photosCache = { planId, map: photosMap };
+      }
       // build enhanced list
       issuesList.innerHTML = '';
       const container = document.createElement('div');
@@ -888,7 +894,7 @@ function showIssuesModal(planId) {
   // initial load
   loadIssuesList();
   // refresh thumbnails/counts when photosUpdated or issueUpdated event fires for this plan
-  const photosListener = (ev)=>{ loadIssuesList(); };
+  const photosListener = (ev)=>{ modal._photosCache = null; loadIssuesList(); };
   document.addEventListener('photosUpdated', photosListener);
   const issueUpdatedListener = (ev)=>{ loadIssuesList(); };
   document.addEventListener('issueUpdated', issueUpdatedListener);
