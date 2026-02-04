@@ -11,7 +11,7 @@
 </head>
 <body>
   <header class="topbar">
-    <button onclick="history.back()" class="iconBtn">←</button>
+    <button onclick="history.back()" class="iconBtn" aria-label="Back">←</button>
     <div class="brand">Issue Manager</div>
   </header>
 
@@ -276,7 +276,7 @@
       off.style.transition = 'left .22s ease';
 
       off.innerHTML = `
-        <button id="menuClose" class="iconBtn" type="button">×</button>
+        <button id="menuClose" class="iconBtn" aria-label="Back" type="button">×</button>
         <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
           <a href="/" style="color:var(--text);text-decoration:none">Home</a>
           <a href="/tools/index.html" style="color:var(--text);text-decoration:none">Tools</a>
@@ -298,6 +298,7 @@
   </script>
 </body>
 </html>
+
 
 
 
