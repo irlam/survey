@@ -24,14 +24,14 @@
       <h2>DWG Viewer & Converter</h2>
       <p>Upload a DWG file and convert it to PDF, SVG or DXF if conversion utilities are available on the server (LibreDWG, ODA, ImageMagick).</p>
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
-        <label style="flex:1">File: <input id="dwgFile" type="file" accept=".dwg,.dxf"></label>
-        <label>Output: <select id="outFmt" class="neonSelect small"><option value="pdf">PDF</option><option value="svg">SVG</option><option value="dxf">DXF</option></select></label>
+        <label style="flex:1">File: <input id="dwgFile" type="file" accept=".dwg,.dxf" aria-label="Select DWG/DXF file"></label>
+        <label>Output: <select id="outFmt" class="neonSelect small" aria-label="Output format"><option value="pdf">PDF</option><option value="svg">SVG</option><option value="dxf">DXF</option></select></label>
         <button id="btnConvert" class="btn">Convert</button>
       </div>
-      <div id="dwgOut" class="muted">No conversion yet.</div>
+      <div id="dwgOut" class="muted" role="status" aria-live="polite">No conversion yet.</div>
       <hr>
       <h3>Available converters (server probe)</h3>
-      <div id="probeOut" class="muted">Probing server...</div>
+      <div id="probeOut" class="muted" role="status" aria-live="polite">Probing server...</div>
       <script>
         async function probe(){
           const r = await fetch('/api/diagnostics.php?probe=dwg');
