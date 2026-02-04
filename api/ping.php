@@ -1,5 +1,5 @@
 <?php
-// api/ping.php — health check
+/* api/ping.php - Health check (04/02/2026) */
 require_once __DIR__ . '/config-util.php';
 require_once __DIR__ . '/db.php';
 

@@ -1,4 +1,5 @@
 <?php
+/* api/render_pin.php - Render pin thumbnail image (04/02/2026) */
 require_once __DIR__ . '/config-util.php';
 require_once __DIR__ . '/db.php';
 require_method('GET');
