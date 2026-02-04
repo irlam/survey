@@ -378,6 +378,10 @@
     document.getElementById('btnCropPreview').onclick = ()=> showPreviewFromRect(rect);
 
     document.getElementById('btnExportPdf').onclick = async ()=>{
+      const exportBtn = document.getElementById('btnExportPdf');
+      const prevLabel = exportBtn ? exportBtn.textContent : '';
+      if (exportBtn) { exportBtn.disabled = true; exportBtn.textContent = 'Exporting…'; }
+      try{
       if(!rect) { alert('Draw a rectangle on the page to crop'); return; }
       const r = {x: Math.min(rect.x, rect.x+rect.w), y: Math.min(rect.y, rect.y+rect.h), w: Math.abs(rect.w), h: Math.abs(rect.h)};
       const dpi = Number(document.getElementById('dpiSelect').value || '300');
@@ -439,6 +443,9 @@
         const url = URL.createObjectURL(blobOut);
         const a = document.createElement('a'); a.href = url; a.download = `crop_page_${curPage}.pdf`; a.textContent = 'Download cropped PDF'; a.style.display='inline-block'; a.style.marginTop='8px'; document.getElementById('previewOut').appendChild(a);
       }catch(e){ document.getElementById('previewOut').textContent = 'Export failed: ' + e.message; console.error(e); }
+      } finally {
+        if (exportBtn) { exportBtn.disabled = false; exportBtn.textContent = prevLabel; }
+      }
     };
 
     // init
