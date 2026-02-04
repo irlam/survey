@@ -145,6 +145,7 @@ function planRow(plan) {
 async function refreshPlans() {
   const box = $('#plansList');
   if (!box) return;
+  box.setAttribute('aria-busy', 'true');
   box.innerHTML = '<div class="muted">Loading plans…</div>';
 
   try {
@@ -159,11 +160,14 @@ async function refreshPlans() {
     });
     if (!plans.length) {
       box.innerHTML = data.plans.length ? '<div class="muted">No plans match your search.</div>' : '<div class="muted">No plans yet. Upload one.</div>';
+      box.setAttribute('aria-busy', 'false');
       return;
     }
     plans.forEach(p => box.appendChild(planRow(p)));
+    box.setAttribute('aria-busy', 'false');
   } catch (e) {
     box.innerHTML = `<div class="error">Failed to load plans: ${escapeHtml(e.message)}</div>`;
+    box.setAttribute('aria-busy', 'false');
   }
 }
 
@@ -174,6 +178,8 @@ async function wireUpload() {
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn) { submitBtn.disabled = true; addSpinner(submitBtn); }
     out.textContent = 'Uploading…';
 
     const fd = new FormData(form);
@@ -184,6 +190,7 @@ async function wireUpload() {
 
     if (!r.ok || !data.ok) {
       out.textContent = `Upload failed (HTTP ${r.status}): ${data.error || 'Unknown error'}`;
+      if (submitBtn) { removeSpinner(submitBtn); submitBtn.disabled = false; }
       return;
     }
 
@@ -191,6 +198,7 @@ async function wireUpload() {
     form.reset();
     await refreshPlans();
     showPlansList(); // reset to list view after upload
+    if (submitBtn) { removeSpinner(submitBtn); submitBtn.disabled = false; }
   });
 }
 
@@ -244,7 +252,11 @@ async function renderPlansScreen() {
   await refreshPlans();
   const plansSearch = $('#plansSearch');
   if (plansSearch) {
-    plansSearch.oninput = () => refreshPlans();
+    let searchTimer = null;
+    plansSearch.oninput = () => {
+      if (searchTimer) clearTimeout(searchTimer);
+      searchTimer = setTimeout(refreshPlans, 220);
+    };
   }
   // wire trash button
   const trashBtn = document.getElementById('btnTrash');
