@@ -134,9 +134,9 @@ function ensureWrapAndOverlay(){
 }
 
 // API wrappers
-async function apiGetPlan(planId){ const res = await fetch(`/api/get_plan.php?plan_id=${encodeURIComponent(planId)}`, {credentials:'same-origin'}); const txt = await res.text(); let data; try{ data = JSON.parse(txt); }catch{ throw new Error(`get_plan invalid JSON: ${txt}`); } if(!res.ok || !data.ok) throw new Error(data.error || `get_plan failed: HTTP ${res.status}`); return data; }
-async function apiListIssues(planId){ const res = await fetch(`/api/list_issues.php?plan_id=${encodeURIComponent(planId)}`, {credentials:'same-origin'}); const txt = await res.text(); let data; try{ data = JSON.parse(txt); }catch{ throw new Error(`list_issues invalid JSON: ${txt}`); } if(!res.ok || !data.ok) throw new Error(data.error || `list_issues failed: HTTP ${res.status}`); return data.issues || []; }
-async function apiSaveIssue(issue){ const res = await fetch('/api/save_issue.php',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(issue)}); const txt = await res.text(); let data; try{ data = JSON.parse(txt); }catch{ throw new Error(`save_issue invalid JSON: ${txt}`); } if(!res.ok || !data.ok) throw new Error(data.error || `save_issue failed: HTTP ${res.status}`); return data; }
+async function apiGetPlan(planId){ const res = await fetch(`/api/get_plan.php?plan_id=${encodeURIComponent(planId)}`, {credentials:'same-origin'}); const txt = await res.text(); let data; try{ data = JSON.parse(txt); }catch(e){ throw new Error(`get_plan invalid JSON: ${txt}`); } if(!res.ok || !data.ok) throw new Error(data.error || `get_plan failed: HTTP ${res.status}`); return data; }
+async function apiListIssues(planId){ const res = await fetch(`/api/list_issues.php?plan_id=${encodeURIComponent(planId)}`, {credentials:'same-origin'}); const txt = await res.text(); let data; try{ data = JSON.parse(txt); }catch(e){ throw new Error(`list_issues invalid JSON: ${txt}`); } if(!res.ok || !data.ok) throw new Error(data.error || `list_issues failed: HTTP ${res.status}`); return data.issues || []; }
+async function apiSaveIssue(issue){ const res = await fetch('/api/save_issue.php',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(issue)}); const txt = await res.text(); let data; try{ data = JSON.parse(txt); }catch(e){ throw new Error(`save_issue invalid JSON: ${txt}`); } if(!res.ok || !data.ok) throw new Error(data.error || `save_issue failed: HTTP ${res.status}`); return data; }
 
 // fetch issue details by id via list_issues (safe fallback if no dedicated endpoint)
 async function fetchIssueDetails(issueId){ const planId = getActivePlanId(); if(!planId || !issueId) return null; try{ const issues = await apiListIssues(planId); return issues.find(i=>String(i.id)===String(issueId)) || null; }catch(e){ console.warn('fetchIssueDetails failed', e); return null; } }
@@ -750,7 +750,7 @@ async function showIssueModal(pin){
     const planId = getActivePlanId(pin); if(!planId || !pin.id) return;
     try{
       const res = await fetch(`/api/list_photos.php?plan_id=${planId}`);
-      const txt = await res.text(); let data; try{ data = JSON.parse(txt);}catch{return;} if(!data.ok || !Array.isArray(data.photos)) return;
+      const txt = await res.text(); let data; try{ data = JSON.parse(txt);}catch(e){return;} if(!data.ok || !Array.isArray(data.photos)) return;
       const thumbs = data.photos.filter(p=>p.issue_id==pin.id);
       const thumbsDiv = modal.querySelector('#photoThumbs');
       thumbsDiv.innerHTML='';
@@ -1007,7 +1007,7 @@ async function showIssueModal(pin){
           const issue = { plan_id: planId, page: pin.page, x_norm: pin.x_norm, y_norm: pin.y_norm, title, notes, status, priority, assigned_to };
           try{
             const saved = await apiSaveIssue(issue);
-            pin.id = saved.issue?.id || saved.id;
+            pin.id = (saved.issue && saved.issue.id) || saved.id;
             await reloadDbPins();
             await renderPage(currentPage);
           }catch(e){
@@ -1279,7 +1279,7 @@ async function showIssueModal(pin){
     if(pin.id) issue.id = pin.id;
     try{
       const saved = await apiSaveIssue(issue);
-      const savedId = saved.issue?.id || saved.id;
+      const savedId = (saved.issue && saved.issue.id) || saved.id;
       try{ trackEvent('pin_save_success', { id: savedId || null, x: issue.x_norm, y: issue.y_norm }); }catch(e){}
       try{ if(navigator && typeof navigator.vibrate === 'function') navigator.vibrate(50); }catch(e){}
       addIssueMode = true;
@@ -1305,7 +1305,7 @@ async function showIssueModal(pin){
   };
 
   // Cancel handler and close modal
-    const cancelBtn = modal.querySelector('#issueCancelBtn'); if(cancelBtn) cancelBtn.onclick = ()=>{ try{ if(!pin.id) trackEvent('pin_create_cancel', { x: pin.x_norm, y: pin.y_norm, title: modal.querySelector('#issueTitle')?.value || '' }); }catch(e){} modal.style.display='none'; if(modal._clearAnnotations) modal._clearAnnotations(); window.removeEventListener('keydown', modal._keyHandler); };
+    const cancelBtn = modal.querySelector('#issueCancelBtn'); if(cancelBtn) cancelBtn.onclick = ()=>{ try{ const titleEl = modal.querySelector('#issueTitle'); if(!pin.id) trackEvent('pin_create_cancel', { x: pin.x_norm, y: pin.y_norm, title: (titleEl && titleEl.value) || '' }); }catch(e){} modal.style.display='none'; if(modal._clearAnnotations) modal._clearAnnotations(); window.removeEventListener('keydown', modal._keyHandler); };
 
   // Refresh viewer when an issue is deleted elsewhere
   const issueDeletedHandler = (ev)=>{ try{ reloadDbPins(); renderPage(currentPage); }catch(e){} };
@@ -1346,7 +1346,7 @@ async function loadPhotoCounts(planId){
   try{
     const res = await fetch(`/api/list_photos.php?plan_id=${planId}`, {credentials:'same-origin'});
     const txt = await res.text();
-    let data; try{ data = JSON.parse(txt); }catch{ return; }
+    let data; try{ data = JSON.parse(txt); }catch(e){ return; }
     if(!data.ok || !Array.isArray(data.photos)) return;
     const counts = {};
     for(const p of data.photos){
