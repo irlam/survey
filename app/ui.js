@@ -472,14 +472,22 @@ function showIssuesModal(planId) {
   })();
 
   // helper to load and render issues list (used initially and on photo updates)
-  async function loadIssuesList(){
+  async function loadIssuesList(force){
     issuesList.setAttribute('aria-busy', 'true');
     issuesList.innerHTML = '<div class="muted">Loading…</div>';
     try{
-      const res = await fetch(`/api/list_issues.php?plan_id=${encodeURIComponent(planId)}`);
-      const data = await res.json();
-      if(!data.ok) throw new Error(data.error || 'Failed to load issues');
-      const allIssues = Array.isArray(data.issues) ? data.issues.slice() : [];
+      let allIssues = null;
+      const cachedIssues = modal._issuesCache;
+      if (!force && cachedIssues && cachedIssues.planId === planId) {
+        allIssues = cachedIssues.items;
+      }
+      if (force || !allIssues) {
+        const res = await fetch(`/api/list_issues.php?plan_id=${encodeURIComponent(planId)}`);
+        const data = await res.json();
+        if(!data.ok) throw new Error(data.error || 'Failed to load issues');
+        allIssues = Array.isArray(data.issues) ? data.issues.slice() : [];
+        modal._issuesCache = { planId, items: allIssues };
+      }
       const q = (searchInput && searchInput.value || '').trim().toLowerCase();
       const aVal = (assigneeFilter && assigneeFilter.value || '').trim().toLowerCase();
       const sVal = statusFilter ? statusFilter.value : '';
@@ -896,7 +904,7 @@ function showIssuesModal(planId) {
   // refresh thumbnails/counts when photosUpdated or issueUpdated event fires for this plan
   const photosListener = (ev)=>{ modal._photosCache = null; loadIssuesList(); };
   document.addEventListener('photosUpdated', photosListener);
-  const issueUpdatedListener = (ev)=>{ loadIssuesList(); };
+  const issueUpdatedListener = (ev)=>{ modal._issuesCache = null; loadIssuesList(true); };
   document.addEventListener('issueUpdated', issueUpdatedListener);
 
   // allow closing with ESC key
