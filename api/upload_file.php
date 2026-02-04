@@ -1,4 +1,5 @@
 <?php
+/* api/upload_file.php - Upload generic file (04/02/2026) */
 require_once __DIR__ . '/config-util.php';
 require_once __DIR__ . '/db.php';
 require_method('POST');
@@ -11,6 +12,7 @@ $file = $_FILES['file'];
 $original = safe_string($file['name'], 255);
 $size = $file['size'];
 $finfo = finfo_open(FILEINFO_MIME_TYPE);
+if (!$finfo) error_response('File inspection failed', 500);
 $mime = finfo_file($finfo, $file['tmp_name']);
 finfo_close($finfo);
 $ext = pathinfo($original, PATHINFO_EXTENSION);

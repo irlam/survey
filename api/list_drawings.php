@@ -1,4 +1,5 @@
 <?php
+/* api/list_drawings.php - List drawings in a project (04/02/2026) */
 require_once __DIR__ . '/config-util.php';
 require_once __DIR__ . '/db.php';
 

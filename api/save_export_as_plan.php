@@ -1,8 +1,9 @@
 <?php
+/* api/save_export_as_plan.php - Save export as plan (04/02/2026) */
 require_once __DIR__ . '/config-util.php';
 require_once __DIR__ . '/db.php';
 require_method('POST');
-$data = json_decode(file_get_contents('php://input'), true);
+$data = read_json_body();
 $filename = $data['filename'] ?? null;
 $name = safe_string($data['name'] ?? '', 255);
 $revision = safe_string($data['revision'] ?? '', 50);

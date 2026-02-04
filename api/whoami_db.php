@@ -1,4 +1,5 @@
 <?php
+/* api/whoami_db.php - DB identity check (04/02/2026) */
 require_once __DIR__ . '/config-util.php';
 require_once __DIR__ . '/db.php';
 

@@ -1,4 +1,5 @@
 <?php
+/* api/create_drawing.php - Attach plan to project (04/02/2026) */
 require_once __DIR__ . '/config-util.php';
 require_once __DIR__ . '/db.php';
 
@@ -47,5 +48,6 @@ $out = $pdo->prepare('
 ');
 $out->execute([$drawing_id]);
 $drawing = $out->fetch();
+if (is_array($drawing)) $drawing = format_dates_in_row($drawing);
 
 json_response(['ok' => true, 'drawing' => $drawing, 'created' => true], 201);

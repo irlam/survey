@@ -1,4 +1,5 @@
 <?php
+/* api/plan_file.php - Stream plan PDF with range support (04/02/2026) */
 require_once __DIR__ . '/config-util.php';
 require_once __DIR__ . '/db.php';
 
@@ -24,7 +25,7 @@ if (!is_readable($full)) error_response('File not readable (permissions)', 500);
 while (ob_get_level()) { ob_end_clean(); }
 
 $size = filesize($full);
-$etag = '"' . $plan['sha1'] . '"';
+$etag = '"' . ($plan['sha1'] ?? sha1_file($full)) . '"';
 $mtime = filemtime($full);
 $lastMod = gmdate('D, d M Y H:i:s', $mtime) . ' GMT';
 
@@ -34,6 +35,15 @@ header('Content-Disposition: inline; filename="plan_' . (int)$plan_id . '.pdf"')
 header('Accept-Ranges: bytes');
 header('ETag: ' . $etag);
 header('Last-Modified: ' . $lastMod);
+header('Cache-Control: private, max-age=0, must-revalidate');
+
+// If client cache is valid, return 304
+$ifNoneMatch = $_SERVER['HTTP_IF_NONE_MATCH'] ?? '';
+$ifModifiedSince = $_SERVER['HTTP_IF_MODIFIED_SINCE'] ?? '';
+if ($ifNoneMatch === $etag || ($ifModifiedSince && strtotime($ifModifiedSince) >= $mtime)) {
+  header('HTTP/1.1 304 Not Modified');
+  exit;
+}
 
 // Support Range requests (PDF.js likes this)
 $range = $_SERVER['HTTP_RANGE'] ?? '';

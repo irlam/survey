@@ -1,4 +1,5 @@
 <?php
+/* api/save_revision.php - Save drawing revision state (04/02/2026) */
 require_once __DIR__ . '/config-util.php';
 require_once __DIR__ . '/db.php';
 
@@ -43,5 +44,6 @@ $rev_id = (int)$pdo->lastInsertId();
 $out = $pdo->prepare('SELECT id, drawing_id, created_at FROM revisions WHERE id=?');
 $out->execute([$rev_id]);
 $rev = $out->fetch();
+if (is_array($rev)) $rev = format_dates_in_row($rev);
 
 json_response(['ok' => true, 'revision' => $rev, 'created' => true], 201);

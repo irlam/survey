@@ -1,4 +1,5 @@
 <?php
+/* api/save_project.php - Create/update project (04/02/2026) */
 require_once __DIR__ . '/config-util.php';
 require_once __DIR__ . '/db.php';
 
@@ -26,6 +27,7 @@ if ($id) {
   $out = $pdo->prepare('SELECT id, name, created_at FROM projects WHERE id=?');
   $out->execute([$id]);
   $project = $out->fetch();
+  if (is_array($project)) $project = format_dates_in_row($project);
 
   json_response(['ok' => true, 'project' => $project, 'updated' => true], 200);
 } else {
@@ -37,6 +39,7 @@ if ($id) {
   $out = $pdo->prepare('SELECT id, name, created_at FROM projects WHERE id=?');
   $out->execute([$new_id]);
   $project = $out->fetch();
+  if (is_array($project)) $project = format_dates_in_row($project);
 
   json_response(['ok' => true, 'project' => $project, 'created' => true], 201);
 }
