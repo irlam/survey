@@ -166,7 +166,9 @@ async function refreshPlans() {
       box.setAttribute('aria-busy', 'false');
       return;
     }
-    plans.forEach(p => box.appendChild(planRow(p)));
+    const frag = document.createDocumentFragment();
+    plans.forEach(p => frag.appendChild(planRow(p)));
+    box.appendChild(frag);
     box.setAttribute('aria-busy', 'false');
   } catch (e) {
     box.innerHTML = `<div class="error">Failed to load plans: ${escapeHtml(e.message)}</div>`;
