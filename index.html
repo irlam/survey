@@ -57,6 +57,7 @@
           <button class="btnPrimary" type="submit">Upload</button>
           <div id="uploadOut" class="muted" style="margin-top:8px"></div>
         </div>
+        <input id="plansSearch" type="text" placeholder="Search plans…" style="margin:8px 0 6px;" />
         <div id="plansList" class="list"></div>
       </form>
     </aside>
@@ -105,13 +106,15 @@
           <div id="pdfContainer" class="pdfContainer"></div>
         </div>
 
-        <div class="siteFooter"><img src="/icons/icon-48.png" alt="Survey" class="siteFooterIcon">Built for real sites, by real people. Developed And Maintained By Chris Irlam</div>
-
         <!-- Mobile floating Add Issue button (visible on small viewports) -->
         <button id="fabAddIssue" class="fab" aria-label="Add Issue" title="Add Issue">＋</button>
       </div>
     </main>
   </div>
+  <footer class="siteFooter">
+    <img src="/icons/icon-48.png" alt="Survey" class="siteFooterIcon">
+    Built for real sites, by real people. Developed And Maintained By Chris Irlam
+  </footer>
 
   <!-- Issues Modal -->
   <div id="issuesModal" class="modal" style="display:none;">
@@ -120,6 +123,12 @@
       <h2>Issues for this Plan</h2>
       <div class="issuesControls">
         <input id="issuesSearch" type="text" placeholder="Search issues…" />
+        <input id="issuesAssigneeFilter" type="text" placeholder="Assignee…" />
+        <select id="issuesSort">
+          <option value="manual">Manual order</option>
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+        </select>
         <select id="issuesStatusFilter">
           <option value="">All status</option>
           <option value="Open">Open</option>
