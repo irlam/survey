@@ -183,6 +183,7 @@
           return;
         }
         wrap.innerHTML = '';
+        const frag = document.createDocumentFragment();
         const exportIds = new Set();
         for (const exp of data.exports) {
           exportIds.add(Number(exp.id));
@@ -222,8 +223,9 @@
           actions.appendChild(linkBtn); actions.appendChild(dl); actions.appendChild(del);
 
           card.appendChild(meta); card.appendChild(actions);
-          wrap.appendChild(card);
+          frag.appendChild(card);
         }
+        wrap.appendChild(frag);
         for (const id of Array.from(selectedExportIds)) {
           if (!exportIds.has(id)) selectedExportIds.delete(id);
         }
