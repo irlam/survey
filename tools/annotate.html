@@ -183,7 +183,7 @@
             </label>
             <div class="controlRow">
               <label class="muted" style="flex:0 0 auto">Page:</label>
-              <input id="pageInput" type="number" min="1" value="1" style="width:80px">
+              <input id="pageInput" type="number" min="1" value="1" style="width:80px" inputmode="numeric" aria-label="Page number">
             </div>
             <button id="btnUndo" class="btn">Undo</button>
             <button id="btnClear" class="btn">Clear</button>
@@ -192,7 +192,7 @@
           </div>
         </aside>
       </div>
-      <div id="annotOut" class="muted" style="margin-top:8px"></div>
+      <div id="annotOut" class="muted" style="margin-top:8px" role="status" aria-live="polite"></div>
     </div>
   </main>
 
