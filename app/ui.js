@@ -462,12 +462,12 @@ function showIssuesModal(planId) {
       });
       const orderKey = `issues_order_${planId}`;
       const savedOrder = (localStorage.getItem(orderKey) || '').split(',').map(v => v.trim()).filter(Boolean);
-
       if (sortMode === 'newest') {
         filtered.sort((a, b) => parseIssueDate(b) - parseIssueDate(a));
       } else if (sortMode === 'oldest') {
         filtered.sort((a, b) => parseIssueDate(a) - parseIssueDate(b));
       } else if (savedOrder.length) {
+
 
       if (savedOrder.length) {
 
@@ -831,6 +831,10 @@ function showIssuesModal(planId) {
     if (assigneeFilter) assigneeFilter.addEventListener('input', triggerReload);
 
     if (sortSelect) sortSelect.addEventListener('change', triggerReload);
+
+
+    if (sortSelect) sortSelect.addEventListener('change', triggerReload);
+
 
     if (statusFilter) statusFilter.addEventListener('change', triggerReload);
     if (priorityFilter) priorityFilter.addEventListener('change', triggerReload);
