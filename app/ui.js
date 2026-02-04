@@ -180,6 +180,9 @@ async function wireUpload() {
     e.preventDefault();
     const submitBtn = form.querySelector('button[type="submit"]');
     if (submitBtn) { submitBtn.disabled = true; addSpinner(submitBtn); }
+    if (!navigator.onLine) {
+      showToast('You are offline — upload may fail');
+    }
     out.textContent = 'Uploading…';
 
     const fd = new FormData(form);
