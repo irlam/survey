@@ -56,6 +56,8 @@ function showToast(msg, timeout=2200){
   if(!stack){
     stack = document.createElement('div');
     stack.id = 'toastStack';
+    stack.setAttribute('role','status');
+    stack.setAttribute('aria-live','polite');
     stack.style.position = 'fixed';
     stack.style.right = '20px';
     stack.style.bottom = '20px';
