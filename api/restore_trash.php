@@ -1,8 +1,9 @@
 <?php
+/* api/restore_trash.php - Restore trash folder contents (04/02/2026) */
 require_once __DIR__ . '/config-util.php';
 require_once __DIR__ . '/db.php';
 require_method('POST');
-$data = json_decode(file_get_contents('php://input'), true);
+$data = read_json_body();
 $trash = $data['trash'] ?? null; $overwrite = !empty($data['overwrite']);
 if (!$trash) error_response('Missing trash parameter', 400);
 $base = resolve_storage_path() . '/trash';
@@ -83,8 +84,8 @@ try {
 
   // After restoring files, if directory is empty (only manifest was left), delete the manifest and directory
   $left = @scandir($dir);
-  $left = array_filter($left, function($n){ return $n !== '.' && $n !== '..'; });
-  if (count($left) === 0 || (count($left) === 1 && isset($left[1]) && $left[1] === 'manifest.json')) {
+  $left = array_values(array_filter($left, function($n){ return $n !== '.' && $n !== '..'; }));
+  if (count($left) === 0 || (count($left) === 1 && $left[0] === 'manifest.json')) {
     @unlink($manifestFile);
     @rmdir($dir);
   }

@@ -1,4 +1,5 @@
 <?php
+/* api/list_trash.php - List trash folders (04/02/2026) */
 require_once __DIR__ . '/config-util.php';
 require_once __DIR__ . '/db.php';
 require_method('GET');

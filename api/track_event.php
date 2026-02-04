@@ -1,4 +1,5 @@
 <?php
+/* api/track_event.php - Analytics event collector (04/02/2026) */
 require_once __DIR__ . '/config-util.php';
 require_once __DIR__ . '/db.php';
 

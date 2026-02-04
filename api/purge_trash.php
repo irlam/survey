@@ -1,8 +1,9 @@
 <?php
+/* api/purge_trash.php - Permanently delete trash folder (04/02/2026) */
 require_once __DIR__ . '/config-util.php';
 require_once __DIR__ . '/db.php';
 require_method('POST');
-$data = json_decode(file_get_contents('php://input'), true);
+$data = read_json_body();
 $trash = $data['trash'] ?? null;
 if (!$trash) error_response('Missing trash parameter', 400);
 $base = resolve_storage_path() . '/trash';
