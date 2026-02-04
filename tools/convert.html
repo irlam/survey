@@ -191,12 +191,8 @@
 			const opts = { format: fm, raster: document.getElementById('optRaster').checked, preview: document.getElementById('optPreview').checked, paper: document.getElementById('paperSelect').value, scale: document.getElementById('scaleInput').value || '1', layers: document.getElementById('optLayers').checked };
 			outArea.innerHTML = '';
 			const list = document.getElementById('fileList');
-			const rows = list.querySelectorAll('div > div');
 			// build status map
 			const statusElems = [];
-			const names = [];
-			const items = list.querySelectorAll('div > div');
-			let idx=0;
 			for(let i=0;i<files.length;i++){
 				const f = files[i];
 				// create dedicated status row
