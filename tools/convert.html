@@ -180,6 +180,11 @@
 		}
 
 		btnConvert.addEventListener('click', async ()=>{
+			if (btnConvert.disabled) return;
+			btnConvert.disabled = true;
+			const prevLabel = btnConvert.textContent;
+			btnConvert.textContent = 'Converting…';
+			try{
 			const files = fileInput.files || [];
 			if(!files || files.length===0) return showError('Choose one or more DWG/DXF files');
 			const fm = formatSelect.value || 'pdf';
@@ -214,6 +219,10 @@
 						outArea.appendChild(place);
 					}
 				}catch(err){ statusEl.textContent = 'Error: '+err.message; console.error('convert error', err); }
+			}
+			} finally {
+				btnConvert.disabled = false;
+				btnConvert.textContent = prevLabel;
 			}
 		});
 	</script>
