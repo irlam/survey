@@ -91,6 +91,7 @@ function removeSpinner(btn){ if(!btn) return; const s = btn.querySelector('.spin
 function planRow(plan) {
   const li = document.createElement('div');
   li.className = 'planRow';
+  li.setAttribute('role','listitem');
 
   const left = document.createElement('div');
   left.className = 'planMeta';
