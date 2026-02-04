@@ -18,7 +18,7 @@
   <main style="padding:16px;">
     <div class="card">
       <h2>All issues</h2>
-      <div id="issuesList">Loading…</div>
+      <div id="issuesList" aria-busy="false" role="status" aria-live="polite">Loading…</div>
     </div>
   </main>
 
@@ -28,6 +28,7 @@
 
     async function loadIssues(){
       const wrap = document.getElementById('issuesList');
+      wrap.setAttribute('aria-busy', 'true');
       wrap.textContent = 'Loading…';
 
       try{
@@ -48,11 +49,13 @@
 
         if (!Array.isArray(data.issues) || data.issues.length === 0) {
           wrap.innerHTML = '<div>No issues found</div>';
+          wrap.setAttribute('aria-busy', 'false');
           return;
         }
 
         // Build table safely (no innerHTML with user content)
         const table = document.createElement('table');
+        table.setAttribute('aria-label', 'Issue list');
         table.style.width = '100%';
         table.style.borderCollapse = 'collapse';
 
@@ -60,6 +63,7 @@
         const hr = document.createElement('tr');
         ['ID','Plan','Page','Title','Coords','Photos','Actions'].forEach(h=>{
           const th = document.createElement('th');
+          th.setAttribute('scope','col');
           th.textContent = h;
           hr.appendChild(th);
         });
@@ -118,6 +122,7 @@
         table.appendChild(tbody);
         wrap.innerHTML = '';
         wrap.appendChild(table);
+        wrap.setAttribute('aria-busy', 'false');
 
         // Fetch photo counts per issue (safe against reloads)
         for (const iss of data.issues) {
@@ -147,6 +152,7 @@
 
       } catch(e) {
         wrap.textContent = 'Failed to load: ' + e.message;
+        wrap.setAttribute('aria-busy', 'false');
         console.error(e);
       }
     }
