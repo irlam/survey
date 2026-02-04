@@ -225,8 +225,18 @@ function showUploadForm() {
 
 async function renderPlansScreen() {
   setNetDot();
-  window.addEventListener('online', setNetDot);
-  window.addEventListener('offline', setNetDot);
+  let lastOnline = navigator.onLine;
+  const handleNetChange = ()=>{
+    setNetDot();
+    const nowOnline = navigator.onLine;
+    if (nowOnline !== lastOnline) {
+      if (nowOnline) showToast('Back online');
+      else showToast('Offline — changes will sync when online');
+      lastOnline = nowOnline;
+    }
+  };
+  window.addEventListener('online', handleNetChange);
+  window.addEventListener('offline', handleNetChange);
 
   const menuBtn = $('#menuBtn');
   if (menuBtn) menuBtn.onclick = () => document.body.classList.toggle('sidebar-open');
