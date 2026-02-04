@@ -44,7 +44,7 @@
 </head>
 <body>
 	<header class="topbar">
-		<button onclick="history.back()" class="iconBtn">←</button>
+		<button onclick="history.back()" class="iconBtn" aria-label="Back">←</button>
 		<div class="brand">Convert DWG / DXF</div>
 	</header>
 
@@ -54,7 +54,7 @@
 			<p class="hint">Upload a .dwg or .dxf file and choose an output format.</p>
 
 			<div class="row" style="margin-top:12px;">
-				<label style="flex:1">Files: <input id="fileInput" type="file" accept=".dwg,.dxf" multiple></label>
+				<label style="flex:1">Files: <input id="fileInput" type="file" accept=".dwg,.dxf" multiple aria-label="Select DWG/DXF files"></label>
 				<div style="width:220px">
 					<label>Format</label>
 					<div class="customSelect neonSelect" id="formatSelect">
@@ -89,12 +89,12 @@
 					</div>
 				</label>
 				<label style="margin-left:12px">Scale:
-					<input id="scaleInput" type="number" min="0.1" step="0.1" value="1" style="width:80px">x
+					<input id="scaleInput" type="number" min="0.1" step="0.1" value="1" style="width:80px" inputmode="decimal" aria-label="Scale factor">x
 				</label>
 				<label style="margin-left:12px"><input type="checkbox" id="optLayers"/> Preserve layers</label>
 			</div>
 
-			<div class="outArea" id="outArea"></div>
+			<div class="outArea" id="outArea" role="status" aria-live="polite"></div>
 	
 		</div>
 	</main>
