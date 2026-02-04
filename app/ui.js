@@ -350,6 +350,13 @@ function showIssuesModal(planId) {
   modal._selectedIds = selectedIds;
   let outsideClickHandler = null;
   let filterTimer = null;
+  const cleanupModal = () => {
+    if (modal._selectCloseHandler) {
+      document.removeEventListener('click', modal._selectCloseHandler);
+      modal._selectCloseHandler = null;
+      modal._selectCloseBound = false;
+    }
+  };
 
   // Ensure close button is visible so the modal can be dismissed
   if (closeBtn) closeBtn.style.display = '';
@@ -883,13 +890,13 @@ function showIssuesModal(planId) {
   document.addEventListener('issueUpdated', issueUpdatedListener);
 
   // allow closing with ESC key
-  const escKeyHandler = (ev) => { if (ev.key === 'Escape') { modal.style.display = 'none'; issuesList.innerHTML = ''; pdfOut.textContent = ''; document.removeEventListener('photosUpdated', photosListener); document.removeEventListener('issueUpdated', issueUpdatedListener); document.removeEventListener('keydown', escKeyHandler); if (outsideClickHandler) window.removeEventListener('click', outsideClickHandler); } };
+  const escKeyHandler = (ev) => { if (ev.key === 'Escape') { modal.style.display = 'none'; issuesList.innerHTML = ''; pdfOut.textContent = ''; document.removeEventListener('photosUpdated', photosListener); document.removeEventListener('issueUpdated', issueUpdatedListener); document.removeEventListener('keydown', escKeyHandler); if (outsideClickHandler) window.removeEventListener('click', outsideClickHandler); cleanupModal(); } };
   document.addEventListener('keydown', escKeyHandler);
 
   // wire close button (X) to dismiss modal
   if (closeBtn){
     closeBtn.style.display = '';
-    closeBtn.onclick = () => { modal.style.display = 'none'; issuesList.innerHTML = ''; pdfOut.textContent = ''; document.removeEventListener('photosUpdated', photosListener); document.removeEventListener('issueUpdated', issueUpdatedListener); document.removeEventListener('keydown', escKeyHandler); if (outsideClickHandler) window.removeEventListener('click', outsideClickHandler); };
+    closeBtn.onclick = () => { modal.style.display = 'none'; issuesList.innerHTML = ''; pdfOut.textContent = ''; document.removeEventListener('photosUpdated', photosListener); document.removeEventListener('issueUpdated', issueUpdatedListener); document.removeEventListener('keydown', escKeyHandler); if (outsideClickHandler) window.removeEventListener('click', outsideClickHandler); cleanupModal(); };
   }
   // clicking outside modal content will also close
   outsideClickHandler = (event) => {
@@ -901,6 +908,7 @@ function showIssuesModal(planId) {
       document.removeEventListener('issueUpdated', issueUpdatedListener);
       document.removeEventListener('keydown', escKeyHandler);
       window.removeEventListener('click', outsideClickHandler);
+      cleanupModal();
     }
   };
   window.addEventListener('click', outsideClickHandler);
