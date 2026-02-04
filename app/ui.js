@@ -18,7 +18,7 @@ function setNetDot() {
 }
 
 function escapeHtml(s) {
-  return String(s ?? '').replace(/[&<>"']/g, (m) => ({
+  return String(s == null ? '' : s).replace(/[&<>"']/g, (m) => ({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
   }[m]));
 }
@@ -123,7 +123,7 @@ function planRow(plan) {
     try{
       del.disabled = true;
       const r = await fetch('/api/delete_plan.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: plan.id }), credentials: 'same-origin' });
-      const txt = await r.text(); let data; try{ data = JSON.parse(txt); }catch{ data = null; }
+      const txt = await r.text(); let data; try{ data = JSON.parse(txt); }catch(e){ data = null; }
       if(!r.ok || !data || !data.ok) throw new Error((data && data.error) ? data.error : ('Delete failed (HTTP ' + r.status + ')'));
       showToast('Deleted plan');
       await refreshPlans();
@@ -151,7 +151,8 @@ async function refreshPlans() {
   try {
     const data = await apiJson('/api/list_plans.php');
     box.innerHTML = '';
-    const search = ($('#plansSearch')?.value || '').trim().toLowerCase();
+    const plansSearchEl = $('#plansSearch');
+    const search = ((plansSearchEl && plansSearchEl.value) || '').trim().toLowerCase();
     const plans = (data.plans || []).filter(p => {
       if (!search) return true;
       const name = `${p.name || ''} ${p.revision || ''} ${p.id || ''}`.toLowerCase();
@@ -180,14 +181,14 @@ async function wireUpload() {
     const r = await fetch('/api/upload_plan.php', { method: 'POST', body: fd });
     const txt = await r.text();
     let data;
-    try { data = JSON.parse(txt); } catch { data = { ok:false, error: txt }; }
+    try { data = JSON.parse(txt); } catch (e) { data = { ok:false, error: txt }; }
 
     if (!r.ok || !data.ok) {
       out.textContent = `Upload failed (HTTP ${r.status}): ${data.error || 'Unknown error'}`;
       return;
     }
 
-    out.textContent = `Uploaded: ${data.plan?.name || 'OK'}`;
+    out.textContent = `Uploaded: ${(data.plan && data.plan.name) || 'OK'}`;
     form.reset();
     await refreshPlans();
     showPlansList(); // reset to list view after upload
@@ -279,7 +280,7 @@ function showTrashModal(){
       for(const t of data.trash){
         const card = document.createElement('div'); card.className='card'; card.style.marginBottom='8px';
         const hdr = document.createElement('div'); hdr.style.display='flex'; hdr.style.justifyContent='space-between'; hdr.style.alignItems='center';
-        const left = document.createElement('div'); left.innerHTML = `<div style="font-weight:800;">${escapeHtml(t.dir)}</div><div class="muted">${escapeHtml(t.manifest? (t.manifest.plan?.name||('Plan ' + (t.manifest.plan_id||''))) : '')}</div>`;
+        const left = document.createElement('div'); left.innerHTML = `<div style="font-weight:800;">${escapeHtml(t.dir)}</div><div class="muted">${escapeHtml(t.manifest ? ((t.manifest.plan && t.manifest.plan.name) || ('Plan ' + (t.manifest.plan_id || ''))) : '')}</div>`;
         const right = document.createElement('div'); right.style.display='flex'; right.style.gap='8px';
         const restoreBtn = document.createElement('button'); restoreBtn.className='btn'; restoreBtn.textContent='Restore'; restoreBtn.onclick = async ()=>{
           if(!confirm('Restore this trash entry? This will move files back and attempt to recreate DB rows (plans/issues/photos).')) return;
@@ -467,10 +468,6 @@ function showIssuesModal(planId) {
       } else if (sortMode === 'oldest') {
         filtered.sort((a, b) => parseIssueDate(a) - parseIssueDate(b));
       } else if (savedOrder.length) {
-
-
-      if (savedOrder.length) {
-
         const orderMap = new Map(savedOrder.map((id, idx) => [id, idx]));
         filtered.sort((a, b) => {
           const aKey = orderMap.has(String(a.id)) ? orderMap.get(String(a.id)) : Number.POSITIVE_INFINITY;
@@ -606,7 +603,7 @@ function showIssuesModal(planId) {
                   credentials:'same-origin'
                 });
                 const txt = await r.text();
-                let resp; try{ resp = JSON.parse(txt); }catch{ resp = null; }
+                let resp; try{ resp = JSON.parse(txt); }catch(e){ resp = null; }
                 if(!r.ok || !resp || !resp.ok) throw new Error((resp && resp.error) ? resp.error : 'Save failed');
                 issue.status = statusSelect.value;
                 issue.priority = prioSelect.value;
@@ -740,7 +737,7 @@ function showIssuesModal(planId) {
           delIssueBtn.disabled = true;
           try{
             const res = await fetch('/api/delete_issue.php',{method:'POST',headers:{'Content-Type':'application/json'},body: JSON.stringify({ id: issue.id, plan_id: planId })});
-            const txt = await res.text(); let data; try{ data = JSON.parse(txt); }catch{ data = null; }
+            const txt = await res.text(); let data; try{ data = JSON.parse(txt); }catch(e){ data = null; }
             if(!res.ok || !data || !data.ok) throw new Error((data && data.error) ? data.error : ('Delete failed (HTTP ' + res.status + ')'));
             showToast('Issue deleted');
             await loadIssuesList();
@@ -749,7 +746,7 @@ function showIssuesModal(planId) {
           delIssueBtn.disabled = false;
         };
         const saveBtn = document.createElement('button'); saveBtn.className='btn'; saveBtn.textContent='Save';
-        saveBtn.onclick = async ()=>{ saveBtn.disabled = true; try{ const payload = { id: issue.id, plan_id: planId, title: issue.title, notes: issue.notes, page: issue.page, x_norm: issue.x_norm, y_norm: issue.y_norm, status: statusSelect.value, priority: prioSelect.value }; const r = await fetch('/api/save_issue.php',{method:'POST',headers:{'Content-Type':'application/json'},body: JSON.stringify(payload), credentials:'same-origin'}); const txt = await r.text(); let resp; try{ resp = JSON.parse(txt); }catch{ resp = null; } if(!r.ok || !resp || !resp.ok) throw new Error((resp && resp.error) ? resp.error : 'Save failed'); showToast('Saved'); issue.status = statusSelect.value; issue.priority = prioSelect.value; }catch(err){ showToast('Save error: ' + err.message); } saveBtn.disabled = false; };
+        saveBtn.onclick = async ()=>{ saveBtn.disabled = true; try{ const payload = { id: issue.id, plan_id: planId, title: issue.title, notes: issue.notes, page: issue.page, x_norm: issue.x_norm, y_norm: issue.y_norm, status: statusSelect.value, priority: prioSelect.value }; const r = await fetch('/api/save_issue.php',{method:'POST',headers:{'Content-Type':'application/json'},body: JSON.stringify(payload), credentials:'same-origin'}); const txt = await r.text(); let resp; try{ resp = JSON.parse(txt); }catch(e){ resp = null; } if(!r.ok || !resp || !resp.ok) throw new Error((resp && resp.error) ? resp.error : 'Save failed'); showToast('Saved'); issue.status = statusSelect.value; issue.priority = prioSelect.value; }catch(err){ showToast('Save error: ' + err.message); } saveBtn.disabled = false; };
         primary.appendChild(viewBtn); primary.appendChild(jumpBtn);
         secondary.appendChild(exportBtn); secondary.appendChild(saveBtn); secondary.appendChild(delIssueBtn);
         actions.appendChild(primary); actions.appendChild(secondary);
@@ -903,7 +900,7 @@ function wireViewIssues(planId) {
 // Listen for planOpened events (fired by viewer) and wire View Issues button
 document.addEventListener('planOpened', (e) => {
   try {
-    const planId = e?.detail?.planId;
+    const planId = (e && e.detail && e.detail.planId);
     if (planId) wireViewIssues(planId);
   } catch (err) { console.error('planOpened handler error', err); }
 });
