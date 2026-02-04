@@ -1,8 +1,7 @@
-/*
-PinDraggable: lightweight module to support dragging a pin overlay on a plan image.
-- Works with mouse, touch and keyboard (arrow nudges)
-- Exports utility functions for px<->normalized conversions so they can be unit tested
-- Provides an optional save callback to persist changed coordinates
+/* app/pin-draggable.js - Draggable pin helper (mouse/touch/keyboard) (04/02/2026)
+   - Works with mouse, touch and keyboard (arrow nudges)
+   - Exports utility functions for px<->normalized conversions
+   - Optional save callback to persist changed coordinates
 */
 (function(root, factory){
   if (typeof define === 'function' && define.amd) define([], factory);
@@ -51,6 +50,7 @@ PinDraggable: lightweight module to support dragging a pin overlay on a plan ima
       this._onPointerDown = this._onPointerDown.bind(this);
       this._onPointerMove = this._onPointerMove.bind(this);
       this._onPointerUp = this._onPointerUp.bind(this);
+      this._onPointerCancel = this._onPointerCancel.bind(this);
       this._onKey = this._onKey.bind(this);
 
       this.pinEl.addEventListener('pointerdown', this._onPointerDown);
@@ -76,11 +76,12 @@ PinDraggable: lightweight module to support dragging a pin overlay on a plan ima
 
     _onPointerDown(ev){
       ev.preventDefault();
-      this.pinEl.setPointerCapture(ev.pointerId);
+      try { this.pinEl.setPointerCapture(ev.pointerId); } catch (e) {}
       this.state.dragging = true;
       this.pinEl.style.cursor = 'grabbing';
       window.addEventListener('pointermove', this._onPointerMove);
       window.addEventListener('pointerup', this._onPointerUp);
+      window.addEventListener('pointercancel', this._onPointerCancel);
     }
 
     _onPointerMove(ev){
@@ -103,8 +104,13 @@ PinDraggable: lightweight module to support dragging a pin overlay on a plan ima
       this.pinEl.style.cursor = 'grab';
       window.removeEventListener('pointermove', this._onPointerMove);
       window.removeEventListener('pointerup', this._onPointerUp);
+      window.removeEventListener('pointercancel', this._onPointerCancel);
       // trigger immediate save on drop
       this.onSave({x_norm: this.state.x_norm, y_norm: this.state.y_norm});
+    }
+    
+    _onPointerCancel(ev){
+      this._onPointerUp(ev);
     }
 
     _onKey(ev){

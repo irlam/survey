@@ -1,6 +1,11 @@
+/* app/app.js - App bootstrap, PWA setup, and iOS install banner (04/02/2026) */
+
 window.addEventListener('DOMContentLoaded', async () => {
   if (window.renderPlansScreen) await window.renderPlansScreen();
-  if (window.startViewer) await window.startViewer(); // binds Add Issue, and loads PDF if ?plan_id= exists
+  if (window.startViewer) {
+    // Bind Add Issue UI and load PDF if ?plan_id= exists.
+    await window.startViewer();
+  }
 });
 
 // PWA: service worker registration + install prompt UI

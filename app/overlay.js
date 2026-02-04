@@ -1,1 +1,1 @@
-// Milestone 2: Overlay logic stub
+/* app/overlay.js - Overlay logic stub (placeholder) (04/02/2026) */

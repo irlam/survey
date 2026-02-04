@@ -1,4 +1,5 @@
-// app/viewer.js (single clean implementation)
+/* app/viewer.js - PDF viewer, pin/issue workflow, and mobile gestures (04/02/2026) */
+// Single clean implementation
 // Exposes `startViewer()` and `openPlanInApp()` on window
 window.__viewerDebugCounter = (window.__viewerDebugCounter || 0) + 1;
 console.log('[DEBUG] viewer.js loaded, counter:', window.__viewerDebugCounter);

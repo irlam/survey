@@ -1,5 +1,4 @@
-
-
+/* app/ui.js - UI controls, plans list, issues modal, exports, and toasts (04/02/2026) */
 
 function $(sel) { return document.querySelector(sel); }
 
