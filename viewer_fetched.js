@@ -1,3 +1,4 @@
+/* viewer_fetched.js - Snapshot of viewer script (04/02/2026) */
 // app/viewer.js (single clean implementation)
 // Exposes `startViewer()` and `openPlanInApp()` on window
 window.__viewerDebugCounter = (window.__viewerDebugCounter || 0) + 1;
