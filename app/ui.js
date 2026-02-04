@@ -462,11 +462,15 @@ function showIssuesModal(planId) {
       });
       const orderKey = `issues_order_${planId}`;
       const savedOrder = (localStorage.getItem(orderKey) || '').split(',').map(v => v.trim()).filter(Boolean);
+
       if (sortMode === 'newest') {
         filtered.sort((a, b) => parseIssueDate(b) - parseIssueDate(a));
       } else if (sortMode === 'oldest') {
         filtered.sort((a, b) => parseIssueDate(a) - parseIssueDate(b));
       } else if (savedOrder.length) {
+
+      if (savedOrder.length) {
+
         const orderMap = new Map(savedOrder.map((id, idx) => [id, idx]));
         filtered.sort((a, b) => {
           const aKey = orderMap.has(String(a.id)) ? orderMap.get(String(a.id)) : Number.POSITIVE_INFINITY;
@@ -825,7 +829,9 @@ function showIssuesModal(planId) {
     const triggerReload = ()=>{ loadIssuesList(); };
     if (searchInput) searchInput.addEventListener('input', triggerReload);
     if (assigneeFilter) assigneeFilter.addEventListener('input', triggerReload);
+
     if (sortSelect) sortSelect.addEventListener('change', triggerReload);
+
     if (statusFilter) statusFilter.addEventListener('change', triggerReload);
     if (priorityFilter) priorityFilter.addEventListener('change', triggerReload);
     modal._filtersBound = true;
