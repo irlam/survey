@@ -65,7 +65,8 @@
                 reader.onload = () => {
                   const arrayBuffer = reader.result;
                   console.log('Sending file to viewer:', f.name, arrayBuffer.byteLength);
-                  const win = window.open('/tools/dwgviewer/', '_blank');
+                  const win = window.open('/tools/dwgviewer/', '_blank', 'noopener');
+                  if (win) win.opener = null;
                   setTimeout(() => {
                     win.postMessage({ type: 'loadFile', file: arrayBuffer, filename: f.name }, window.location.origin);
                   }, 2000);
@@ -78,7 +79,7 @@
             // Open in DWG Viewer (same-origin)
             const openBtn = document.createElement('button'); openBtn.className='btn'; openBtn.textContent='Open in Viewer'; openBtn.style.marginLeft='8px'; openBtn.onclick = ()=>{
               const viewerUrl = '/tools/dwgviewer/?src=' + encodeURIComponent('/storage/exports/' + data.filename);
-              window.open(viewerUrl, '_blank');
+              const w = window.open(viewerUrl, '_blank', 'noopener'); if (w) w.opener = null;
             };
             out.appendChild(openBtn);
             // Add Save as Plan and Crop buttons
@@ -96,7 +97,7 @@
             const cropBtn = document.createElement('button'); cropBtn.className='btn'; cropBtn.textContent='Crop converted PDF'; cropBtn.onclick = ()=>{
               // open crop tool with pdf_url param
               const url = '/tools/crop.html?pdf_url=' + encodeURIComponent('/storage/exports/' + data.filename);
-              window.open(url, '_blank');
+              const w = window.open(url, '_blank', 'noopener'); if (w) w.opener = null;
             };
             out.appendChild(saveBtn);
             out.appendChild(cropBtn);
