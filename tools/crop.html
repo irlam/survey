@@ -72,7 +72,7 @@
             <ul class="selectList" role="listbox"></ul>
           </div>
         </label>
-        <label style="width:230px">Or upload PDF: <input id="fileUploader" type="file" accept="application/pdf" style="min-width:44px;min-height:44px;"></label>
+        <label style="width:230px">Or upload PDF: <input id="fileUploader" type="file" accept="application/pdf" style="min-width:44px;min-height:44px;" aria-label="Upload PDF file"></label>
         <label style="width:220px">DPI: <select id="dpiSelect" class="neonSelect small"><option value="150">150</option><option value="300" selected>300</option><option value="600">600</option><option value="1200">1200</option></select></label>
         <label style="width:180px"><input id="vectorCrop" type="checkbox" style="min-width:44px;min-height:44px;"> Vector crop (server)</label>
         <button id="btnLoad" class="btn">Load</button>
@@ -87,7 +87,7 @@
         </div>
         <div style="width:320px;">
           <div style="margin-bottom:8px;">
-            <label>Page: <input id="pageInput" type="number" min="1" value="1" style="width:80px;min-width:44px;min-height:44px;"></label>
+            <label>Page: <input id="pageInput" type="number" min="1" value="1" style="width:80px;min-width:44px;min-height:44px;" inputmode="numeric" aria-label="Page number"></label>
             <button id="btnPrev" class="btn" style="min-width:44px;min-height:44px;">◀</button>
             <button id="btnNext" class="btn" style="min-width:44px;min-height:44px;">▶</button>
           </div>
@@ -95,7 +95,7 @@
             <button id="btnCropPreview" class="btn" style="min-width:44px;min-height:44px;">Preview Crop</button>
             <button id="btnExportPdf" class="btnPrimary" style="min-width:44px;min-height:44px;">Export Cropped PDF</button>
           </div>
-          <div id="previewOut" class="muted"></div>
+          <div id="previewOut" class="muted" role="status" aria-live="polite"></div>
         </div>
       </div>
     </div>
