@@ -18,6 +18,7 @@ let panX = 0;
 let panY = 0;
 let pendingHighlightIssueId = null;
 let photoCounts = {};
+let resizeTimer = null;
 
 // Helpers
 function qs(sel){ return document.querySelector(sel); }
@@ -36,7 +37,9 @@ function updateAddModeVisuals(){
   const addBtn = qs('#btnAddIssueMode');
   const fab = qs('#fabAddIssue');
   if(addBtn) addBtn.textContent = addIssueMode ? 'Done' : 'Add Issue';
+  if(addBtn) addBtn.setAttribute('aria-pressed', addIssueMode ? 'true' : 'false');
   if(fab) fab.setAttribute('data-active', addIssueMode ? 'true' : 'false');
+  if(fab) fab.setAttribute('aria-pressed', addIssueMode ? 'true' : 'false');
   setModeBadge();
 }
 
@@ -361,9 +364,38 @@ async function renderPinsForPage(overlay, viewportWidth, viewportHeight){ clearO
   }
 }
 
-async function renderPage(pageNo){ if(!pdfDoc) return; const {wrap, canvas, overlay} = ensureWrapAndOverlay(); const ctx = canvas.getContext('2d'); setStatus(`Rendering page ${pageNo}…`); const page = await pdfDoc.getPage(pageNo); const w = stageWidth(); const h = stageHeight(); const v1 = page.getViewport({scale:1.0}); // choose the fit scale that keeps the page within both width and height of the stage
+async function renderPage(pageNo){
+  if(!pdfDoc) return;
+  const {wrap, canvas, overlay} = ensureWrapAndOverlay();
+  const ctx = canvas.getContext('2d');
+  const container = qs('#pdfContainer');
+  if(container) container.setAttribute('aria-busy', 'true');
+  setStatus(`Rendering page ${pageNo}…`);
+  const page = await pdfDoc.getPage(pageNo);
+  const w = stageWidth();
+  const h = stageHeight();
+  const v1 = page.getViewport({scale:1.0}); // choose the fit scale that keeps the page within both width and height of the stage
   fitScale = Math.min(w / v1.width, h / v1.height);
-  const effectiveScale = fitMode ? (fitScale * userZoom) : userZoom; const viewport = page.getViewport({scale: effectiveScale}); const dpr = window.devicePixelRatio || 1; canvas.width = Math.floor(viewport.width * dpr); canvas.height = Math.floor(viewport.height * dpr); canvas.style.width = `${Math.floor(viewport.width)}px`; canvas.style.height = `${Math.floor(viewport.height)}px`; wrap.style.width = `${Math.floor(viewport.width)}px`; wrap.style.height = `${Math.floor(viewport.height)}px`; overlay.style.width = `${Math.floor(viewport.width)}px`; overlay.style.height = `${Math.floor(viewport.height)}px`; ctx.setTransform(dpr,0,0,dpr,0,0); applyPanTransform(); await page.render({canvasContext:ctx, viewport}).promise; await renderPinsForPage(overlay, Math.floor(viewport.width), Math.floor(viewport.height)); setStatus(''); setBadges(); setModeBadge(); }
+  const effectiveScale = fitMode ? (fitScale * userZoom) : userZoom;
+  const viewport = page.getViewport({scale: effectiveScale});
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.floor(viewport.width * dpr);
+  canvas.height = Math.floor(viewport.height * dpr);
+  canvas.style.width = `${Math.floor(viewport.width)}px`;
+  canvas.style.height = `${Math.floor(viewport.height)}px`;
+  wrap.style.width = `${Math.floor(viewport.width)}px`;
+  wrap.style.height = `${Math.floor(viewport.height)}px`;
+  overlay.style.width = `${Math.floor(viewport.width)}px`;
+  overlay.style.height = `${Math.floor(viewport.height)}px`;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  applyPanTransform();
+  await page.render({canvasContext:ctx, viewport}).promise;
+  await renderPinsForPage(overlay, Math.floor(viewport.width), Math.floor(viewport.height));
+  setStatus('');
+  setBadges();
+  setModeBadge();
+  if(container) container.setAttribute('aria-busy', 'false');
+}
 
 async function goToPage(n){ if(!pdfDoc) return; const pageNo = Math.max(1, Math.min(totalPages, n)); currentPage = pageNo; panX = 0; panY = 0; await renderPage(currentPage); }
 
@@ -525,7 +557,11 @@ function bindUiOnce(){ if(window.__viewerBound) return; window.__viewerBound = t
     stage.addEventListener('pointercancel', endPinch);
   }
   if(closeBtn){ closeBtn.onclick = ()=>{ const u = new URL(window.location.href); u.searchParams.delete('plan_id'); history.pushState({},'',u.pathname); setTitle('Select a plan'); setStatus(''); const c = qs('#pdfContainer'); if(c) c.innerHTML = ''; pdfDoc = null; totalPages = 0; currentPage = 1; userZoom = 1.0; panX = 0; panY = 0; addIssueMode = false; setModeBadge(); setBadges(); document.body.classList.remove('has-viewer'); }; }
-  window.addEventListener('resize', ()=>{ if(pdfDoc) { panX = 0; panY = 0; renderPage(currentPage); } });
+  window.addEventListener('resize', ()=>{
+    if(!pdfDoc) return;
+    if(resizeTimer) clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(()=>{ panX = 0; panY = 0; renderPage(currentPage); }, 120);
+  });
 
   // initialize crosshair helper (mobile-gated)
   try{ initCrosshair(); }catch(e){}

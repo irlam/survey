@@ -80,7 +80,7 @@
           <button id="btnNext" class="btn">▶</button>
 
           <span class="muted">Page</span>
-          <input id="pageInput" class="inputSmall" type="number" min="1" value="1">
+          <input id="pageInput" class="inputSmall" type="number" min="1" value="1" inputmode="numeric" aria-label="Page number">
           <button id="btnGo" class="btn">Go</button>
 
           <div class="spacer"></div>
@@ -94,7 +94,7 @@
           <button id="btnViewIssues" class="btn">View Issues</button>
         </div>
 
-        <div id="viewerMsg" class="muted" style="margin:6px 2px 10px 2px;"></div>
+        <div id="viewerMsg" class="muted" style="margin:6px 2px 10px 2px;" role="status" aria-live="polite"></div>
 
         <!-- Mobile sticky mini toolbar -->
         <div id="mobileToolbar" class="mobileToolbar" aria-label="Quick actions">
@@ -105,7 +105,7 @@
         </div>
 
         <div id="pdfStage" class="pdfStage">
-          <div id="pdfContainer" class="pdfContainer"></div>
+          <div id="pdfContainer" class="pdfContainer" aria-busy="false"></div>
         </div>
 
         <!-- Mobile floating Add Issue button (visible on small viewports) -->
@@ -173,7 +173,7 @@
     }
   </script>
 
-    <script src="/app/viewer.js?v=20260204_1"></script>
+    <script src="/app/viewer.js?v=20260204_2"></script>
   <script>
     // Check server-side capabilities and show Imagick hint only when missing
     (async ()=>{
@@ -198,7 +198,7 @@
     (function(){
       if (window.startViewer) return;
       console.warn('viewer.js did not initialize. Attempting fallback fetch...');
-      const urlBase = '/app/viewer.js?v=20260204_1';
+      const urlBase = '/app/viewer.js?v=20260204_2';
       let attempts = 0;
       async function tryLoad(){
         attempts++;
