@@ -71,6 +71,7 @@
         table.appendChild(thead);
 
         const tbody = document.createElement('tbody');
+        const frag = document.createDocumentFragment();
 
         for (const iss of data.issues) {
           const tr = document.createElement('tr');
@@ -117,9 +118,9 @@
           tdActions.appendChild(delBtn);
           tr.appendChild(tdActions);
 
-          tbody.appendChild(tr);
+          frag.appendChild(tr);
         }
-
+        tbody.appendChild(frag);
         table.appendChild(tbody);
         wrap.innerHTML = '';
         wrap.appendChild(table);
