@@ -905,11 +905,12 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
 .issueCard{
   display:grid;
   grid-template-rows: auto auto auto;
-  gap:12px;
-  padding:16px;
-  background: linear-gradient(180deg, rgba(11,18,32,0.78), rgba(7,10,15,0.78));
-  border:1px solid rgba(0,255,231,0.12);
-  box-shadow: 0 16px 40px rgba(0,0,0,0.45);
+  gap:10px;
+  padding:12px 14px;
+  background: linear-gradient(180deg, rgba(10,16,28,0.82), rgba(6,9,14,0.86));
+  border:1px solid rgba(0,255,231,0.16);
+  border-radius:14px;
+  box-shadow: 0 12px 28px rgba(0,0,0,0.4);
   position: relative;
 }
 .issueCard::after{
@@ -942,11 +943,10 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
 .issueCard.dragging{ opacity:0.8; transform: scale(0.99); box-shadow: 0 8px 20px rgba(0,0,0,0.35); }
 .issueDropTarget{ outline: 2px dashed rgba(0,255,231,0.6); outline-offset: 4px; }
 .issueHeader{
-  display:flex;
-  gap:12px;
+  display:grid;
+  grid-template-columns: auto auto minmax(0,1fr) auto;
+  gap:10px;
   align-items:center;
-  justify-content:space-between;
-  flex-wrap:wrap;
 }
 .issueSelectWrap{
   display:flex;
@@ -959,8 +959,8 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
   accent-color: #00ffe7;
 }
 .issueDragHandle{
-  min-width:36px;
-  min-height:36px;
+  min-width:30px;
+  min-height:30px;
   border-radius:10px;
   border:1px dashed rgba(255,255,255,0.16);
   background: rgba(0,0,0,0.25);
@@ -970,22 +970,23 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
 .issueTitleWrap{ min-width: 0; }
 .issueTitleText{
   font-weight:900;
-  font-size:16px;
+  font-size:15px;
   color: var(--text);
 }
 .issueSubText{
-  font-size:12px;
+  font-size:11px;
   color: var(--muted);
   margin-top:4px;
 }
 .issueBadges{
   display:flex;
   gap:8px;
-  flex-wrap:wrap;
+  flex-wrap:nowrap;
   align-items:center;
+  justify-content:flex-end;
 }
 .issueChip{
-  padding:6px 10px;
+  padding:4px 10px;
   border-radius:999px;
   font-size:12px;
   font-weight:800;
@@ -996,11 +997,11 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
 .issueBody{
   display:grid;
   grid-template-columns: 1fr;
-  gap:10px;
+  gap:8px;
 }
 .issueNotesText{
   color: var(--muted);
-  font-size:13px;
+  font-size:12px;
   line-height:1.45;
 }
 .issueMetaRow{
@@ -1008,12 +1009,12 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
   gap:10px;
   flex-wrap:wrap;
   color: var(--muted);
-  font-size:12px;
+  font-size:11px;
 }
-.issueMetaItem{ padding:4px 8px; border-radius:999px; background: rgba(0,255,231,0.06); border:1px solid rgba(0,255,231,0.12); }
+.issueMetaItem{ padding:3px 8px; border-radius:999px; background: rgba(0,255,231,0.05); border:1px solid rgba(0,255,231,0.12); }
 .issuePreviews{
   display:flex;
-  gap:10px;
+  gap:8px;
   align-items:center;
   flex-wrap:wrap;
 }
@@ -1023,16 +1024,16 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
   align-items:center;
 }
 .issueThumbs img{
-  width:54px;
-  height:54px;
-  border-radius:10px;
+  width:44px;
+  height:44px;
+  border-radius:8px;
   object-fit:cover;
   box-shadow: 0 6px 14px rgba(0,0,0,0.4);
   cursor:pointer;
 }
 .issuePinPreview{
-  width:92px;
-  height:60px;
+  width:72px;
+  height:48px;
   display:flex;
   align-items:center;
   justify-content:center;
@@ -1041,41 +1042,54 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
   background: rgba(0,0,0,0.2);
 }
 .issuePinPreview img{
-  width:92px;
+  width:72px;
   height:auto;
   border-radius:8px;
   box-shadow: 0 6px 18px rgba(0,0,0,0.4);
 }
 .issuePhotoCount{ font-size:12px; }
 .issueActions{
-  display:flex;
+  display:grid;
+  grid-template-columns: 1fr auto;
   gap:8px;
-  flex-wrap:wrap;
-  justify-content:space-between;
   align-items:center;
 }
 .issueActionsPrimary,
 .issueActionsSecondary{
   display:flex;
-  gap:8px;
+  gap:6px;
   flex-wrap:wrap;
+  align-items:center;
 }
 .issueActionsPrimary .btnPrimary{
-  min-width:120px;
+  min-width:90px;
+  padding:6px 12px;
 }
 .issueActionsSecondary .btn{
-  min-width:100px;
+  min-width:76px;
+  padding:6px 10px;
 }
 /* Compact view */
 #issuesList.compact .issueCard{
   gap:8px;
-  padding:12px;
+  padding:10px 12px;
 }
 #issuesList.compact .issuePreviews,
 #issuesList.compact .issueNotesText{ display:none; }
-#issuesList.compact .issueActionsSecondary .btn{ min-width:84px; }
+#issuesList.compact .issueActionsSecondary .btn{ min-width:72px; }
 @media (max-width: 760px){
-  .issueActions{ flex-direction:column; align-items:stretch; }
+  .issueHeader{
+    grid-template-columns: auto auto minmax(0,1fr);
+    row-gap:6px;
+  }
+  .issueBadges{
+    grid-column: 1 / -1;
+    justify-content:flex-start;
+    flex-wrap:wrap;
+  }
+  .issueActions{
+    grid-template-columns: 1fr;
+  }
   .issueActionsPrimary,
   .issueActionsSecondary{ width:100%; }
   .issueActionsPrimary .btnPrimary,
