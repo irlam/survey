@@ -311,6 +311,7 @@ function showIssuesModal(planId) {
   const modalTitle = modal ? modal.querySelector('h2') : null;
   const searchInput = document.getElementById('issuesSearch');
   const assigneeFilter = document.getElementById('issuesAssigneeFilter');
+  const sortSelect = document.getElementById('issuesSort');
   const statusFilter = document.getElementById('issuesStatusFilter');
   const priorityFilter = document.getElementById('issuesPriorityFilter');
   const addIssueBtn = document.getElementById('issuesAddBtn');
@@ -338,6 +339,11 @@ function showIssuesModal(planId) {
     if (exportSelectedBtn) exportSelectedBtn.disabled = selectedIds.size === 0;
   };
   updateSelectedUi();
+  if (sortSelect) {
+    const savedSort = localStorage.getItem('issues_sort') || 'manual';
+    sortSelect.value = savedSort;
+    sortSelect.onchange = ()=>{ localStorage.setItem('issues_sort', sortSelect.value); loadIssuesList(); };
+  }
   if (selectAll) {
     selectAll.onchange = ()=>{ 
       const checks = issuesList.querySelectorAll('input.issueSelect');
@@ -440,6 +446,7 @@ function showIssuesModal(planId) {
       const aVal = (assigneeFilter && assigneeFilter.value || '').trim().toLowerCase();
       const sVal = statusFilter ? statusFilter.value : '';
       const pVal = priorityFilter ? priorityFilter.value : '';
+      const sortMode = sortSelect ? sortSelect.value : 'manual';
       let filtered = allIssues.filter(i=>{
         if (sVal && String(i.status||'') !== sVal) return false;
         if (pVal && String(i.priority||'') !== pVal) return false;
@@ -455,7 +462,15 @@ function showIssuesModal(planId) {
       });
       const orderKey = `issues_order_${planId}`;
       const savedOrder = (localStorage.getItem(orderKey) || '').split(',').map(v => v.trim()).filter(Boolean);
+
+      if (sortMode === 'newest') {
+        filtered.sort((a, b) => parseIssueDate(b) - parseIssueDate(a));
+      } else if (sortMode === 'oldest') {
+        filtered.sort((a, b) => parseIssueDate(a) - parseIssueDate(b));
+      } else if (savedOrder.length) {
+
       if (savedOrder.length) {
+
         const orderMap = new Map(savedOrder.map((id, idx) => [id, idx]));
         filtered.sort((a, b) => {
           const aKey = orderMap.has(String(a.id)) ? orderMap.get(String(a.id)) : Number.POSITIVE_INFINITY;
@@ -484,10 +499,11 @@ function showIssuesModal(planId) {
         }
       }
       if(!filtered.length){
+        const hasFilters = Boolean(q || aVal || sVal || pVal);
         issuesList.innerHTML = `
           <div class="card" style="display:flex;flex-direction:column;gap:10px;align-items:flex-start;">
-            <div style="font-weight:800;">No issues yet</div>
-            <div class="muted">Tap Add Issue mode, then long‑press on the plan to drop your first pin.</div>
+            <div style="font-weight:800;">${hasFilters ? 'No matching issues' : 'No issues yet'}</div>
+            <div class="muted">${hasFilters ? 'Try clearing filters or search terms.' : 'Tap Add Issue mode, then long‑press on the plan to drop your first pin.'}</div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
               <button id="issuesEmptyAdd" class="btnPrimary" type="button">Add Issue</button>
               <button id="issuesEmptyClose" class="btn" type="button">Close</button>
@@ -813,6 +829,9 @@ function showIssuesModal(planId) {
     const triggerReload = ()=>{ loadIssuesList(); };
     if (searchInput) searchInput.addEventListener('input', triggerReload);
     if (assigneeFilter) assigneeFilter.addEventListener('input', triggerReload);
+
+    if (sortSelect) sortSelect.addEventListener('change', triggerReload);
+
     if (statusFilter) statusFilter.addEventListener('change', triggerReload);
     if (priorityFilter) priorityFilter.addEventListener('change', triggerReload);
     modal._filtersBound = true;
