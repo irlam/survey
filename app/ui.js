@@ -173,6 +173,7 @@ async function refreshPlans() {
     box.setAttribute('aria-busy', 'false');
   }
 }
+window.refreshPlans = refreshPlans;
 
 async function wireUpload() {
   const form = $('#uploadForm');
