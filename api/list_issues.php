@@ -5,9 +5,13 @@ require_once __DIR__ . '/db.php';
 require_method('GET');
 $plan_id = safe_int($_GET['plan_id'] ?? null);
 $pdo = db();
-if (!$plan_id) error_response('Missing or invalid plan_id', 400);
-$stmt = $pdo->prepare('SELECT issues.*, plans.name AS plan_name FROM issues LEFT JOIN plans ON issues.plan_id=plans.id WHERE plan_id=? ORDER BY created_at ASC');
-$stmt->execute([$plan_id]);
+if ($plan_id) {
+  $stmt = $pdo->prepare('SELECT issues.*, plans.name AS plan_name FROM issues LEFT JOIN plans ON issues.plan_id=plans.id WHERE plan_id=? ORDER BY created_at ASC');
+  $stmt->execute([$plan_id]);
+} else {
+  // Tooling endpoint: allow listing all issues when plan_id is omitted
+  $stmt = $pdo->query('SELECT issues.*, plans.name AS plan_name FROM issues LEFT JOIN plans ON issues.plan_id=plans.id ORDER BY created_at DESC');
+}
 $rows = $stmt->fetchAll();
 $rows = format_dates_in_rows($rows);
 // Ensure compatibility: older code expects `notes` field, whereas DB uses `description`.

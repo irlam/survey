@@ -125,30 +125,42 @@
         wrap.appendChild(table);
         wrap.setAttribute('aria-busy', 'false');
 
-        // Fetch photo counts per issue (safe against reloads)
+        // Fetch photo counts per plan to reduce requests
+        const issuesByPlan = new Map();
         for (const iss of data.issues) {
-          (async ()=>{
-            const phWrap = document.getElementById('ph-' + txt(iss.id));
-            if (!phWrap) return;
-
-            try{
-              const r = await fetch(`/api/list_photos.php?plan_id=${encodeURIComponent(iss.plan_id)}&issue_id=${encodeURIComponent(iss.id)}`, {
-                headers: { 'Accept':'application/json' },
-                cache: 'no-store'
-              });
-              const raw2 = await r.text();
-              let j;
-              try { j = JSON.parse(raw2); } catch { j = null; }
-
-              if (j && j.ok && Array.isArray(j.photos)) {
-                phWrap.textContent = j.photos.length + ' photo(s)';
-              } else {
-                phWrap.textContent = '0';
+          const pid = txt(iss.plan_id);
+          if (!issuesByPlan.has(pid)) issuesByPlan.set(pid, []);
+          issuesByPlan.get(pid).push(iss);
+        }
+        for (const [pid, issues] of issuesByPlan.entries()) {
+          try{
+            const r = await fetch(`/api/list_photos.php?plan_id=${encodeURIComponent(pid)}`, {
+              headers: { 'Accept':'application/json' },
+              cache: 'no-store'
+            });
+            const raw2 = await r.text();
+            let j;
+            try { j = JSON.parse(raw2); } catch { j = null; }
+            const counts = {};
+            if (j && j.ok && Array.isArray(j.photos)) {
+              for (const ph of j.photos) {
+                const key = txt(ph.issue_id);
+                if (!key) continue;
+                counts[key] = (counts[key] || 0) + 1;
               }
-            } catch(e) {
-              phWrap.textContent = '0';
             }
-          })();
+            for (const iss of issues) {
+              const phWrap = document.getElementById('ph-' + txt(iss.id));
+              if (!phWrap) continue;
+              const c = counts[txt(iss.id)] || 0;
+              phWrap.textContent = c + ' photo(s)';
+            }
+          } catch(e) {
+            for (const iss of issues) {
+              const phWrap = document.getElementById('ph-' + txt(iss.id));
+              if (phWrap) phWrap.textContent = '0';
+            }
+          }
         }
 
       } catch(e) {
