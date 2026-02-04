@@ -48,6 +48,10 @@
         probe();
 
         document.getElementById('btnConvert').onclick = async ()=>{
+          const btn = document.getElementById('btnConvert');
+          const prev = btn ? btn.textContent : '';
+          if (btn) { btn.disabled = true; btn.textContent = 'Converting…'; }
+          try{
           const f = document.getElementById('dwgFile').files && document.getElementById('dwgFile').files[0];
           const fmt = document.getElementById('outFmt').value;
           const out = document.getElementById('dwgOut');
@@ -102,6 +106,9 @@
             out.appendChild(saveBtn);
             out.appendChild(cropBtn);
           }catch(e){ out.textContent = 'Network error: ' + e.message; }
+          } finally {
+            if (btn) { btn.disabled = false; btn.textContent = prev; }
+          }
         };
       </script>
     </div>
