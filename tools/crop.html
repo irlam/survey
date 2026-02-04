@@ -170,7 +170,17 @@
       try{ await openPdfFromBytes(pdfBytes); }finally{ if(loader) loader.remove(); }
      }; r.readAsArrayBuffer(f); };
 
-    btnLoad.onclick = async ()=>{ if(pdfBytes) { await openPdfFromBytes(pdfBytes); } else if (planSelect.value){ planSelect.onchange(); } else { alert('Select a plan or upload a PDF first'); } };
+    btnLoad.onclick = async ()=>{ 
+      const prev = btnLoad.textContent;
+      btnLoad.disabled = true; btnLoad.textContent = 'Loading…';
+      try{
+        if(pdfBytes) { await openPdfFromBytes(pdfBytes); }
+        else if (planSelect.value){ planSelect.onchange(); }
+        else { alert('Select a plan or upload a PDF first'); }
+      } finally {
+        btnLoad.disabled = false; btnLoad.textContent = prev;
+      }
+    };
 
     async function openPdfFromBytes(ab){
       pdfDoc = await pdfjsLib.getDocument({data: ab}).promise;
