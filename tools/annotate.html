@@ -162,9 +162,9 @@
           </div>
           <div style="display:flex;align-items:center;gap:6px;margin-left:8px;">
             <label class="muted">Color</label>
-            <input type="color" id="colorPicker" value="#ff0000">
+            <input type="color" id="colorPicker" value="#ff0000" aria-label="Stroke color">
             <label class="muted">Width</label>
-            <input id="strokeWidth" type="number" min="1" max="24" value="3" style="width:60px">
+            <input id="strokeWidth" type="number" min="1" max="24" value="3" style="width:60px" inputmode="numeric" aria-label="Stroke width">
           </div>
         </div>
       </div>
@@ -179,7 +179,7 @@
         <aside class="controlsCol">
           <div class="controlBlock">
             <label>Or upload PDF:
-              <input id="fileUploader" type="file" accept="application/pdf">
+              <input id="fileUploader" type="file" accept="application/pdf" aria-label="Upload PDF">
             </label>
             <div class="controlRow">
               <label class="muted" style="flex:0 0 auto">Page:</label>
