@@ -10,7 +10,7 @@
 </head>
 <body>
   <header class="toolbar">
-    <button id="menuBtn">☰</button>
+    <button id="menuBtn" aria-label="Open menu" aria-expanded="false">☰</button>
     <h1>Exports Manager</h1>
     <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
       <label class="tool-card" style="display:flex;align-items:center;gap:6px;padding:6px 10px;">
@@ -23,7 +23,8 @@
   </header>
 
   <!-- off-canvas menu -->
-  <nav id="offcanvasMenu" style="position:fixed;left:-280px;top:0;bottom:0;width:260px;background:rgba(2,6,10,.95);padding:18px;z-index:99999;box-shadow: 6px 0 30px rgba(0,0,0,.6);transition:left .22s ease;">
+  <div id="menuBackdrop" style="position:fixed;inset:0;background:rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:opacity .2s ease;z-index:99998;"></div>
+  <nav id="offcanvasMenu" role="navigation" aria-label="Site" aria-hidden="true" style="position:fixed;left:-280px;top:0;bottom:0;width:260px;background:rgba(2,6,10,.95);padding:18px;z-index:99999;box-shadow: 6px 0 30px rgba(0,0,0,.6);transition:left .22s ease;">
     <button id="menuClose" class="iconBtn" style="margin-bottom:12px">×</button>
     <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
       <a class="tool-card" href="/" style="background:none;box-shadow:none;border:none;padding:8px;color:var(--text);text-decoration:none">Home</a>
@@ -34,7 +35,7 @@
   </nav>
   <main>
     <div style="padding:12px;">
-      <div id="exportsGrid" class="export-grid">Loading…</div>
+      <div id="exportsGrid" class="export-grid" aria-busy="false">Loading…</div>
     </div>
   </main>
   <style>
@@ -42,6 +43,7 @@
     .export-grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap:12px; }
     .export-card{ border-radius:12px; padding:12px; background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.06)); border:1px solid rgba(0,255,231,0.06); box-shadow: 0 10px 30px rgba(0,0,0,0.6); display:flex; gap:12px; align-items:center; justify-content:space-between; transition: transform .12s ease, box-shadow .12s ease; }
     .export-card:hover{ transform: translateY(-6px); box-shadow: 0 18px 44px rgba(0,255,231,0.12); }
+    .offcanvas-open #menuBackdrop{ opacity:1; pointer-events:auto; }
     .export-meta{ min-width:0; overflow:hidden; flex:1 }
     .export-name{ font-weight:900; color:var(--neon); font-size:0.95rem; white-space:normal; word-break:break-word }
     .export-sub{ color:var(--muted); font-size:12px; margin-top:6px }
@@ -55,8 +57,18 @@
   <script>
     /* Off-canvas menu handling */
     const off = document.getElementById('offcanvasMenu');
-    document.getElementById('menuBtn').onclick = ()=> { off.style.left = '0'; };
-    document.getElementById('menuClose').onclick = ()=> { off.style.left = '-280px'; };
+    const backdrop = document.getElementById('menuBackdrop');
+    const menuBtn = document.getElementById('menuBtn');
+    function setMenu(open){
+      document.body.classList.toggle('offcanvas-open', open);
+      off.style.left = open ? '0' : '-280px';
+      off.setAttribute('aria-hidden', open ? 'false' : 'true');
+      if (menuBtn) menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    if (menuBtn) menuBtn.onclick = ()=> setMenu(true);
+    document.getElementById('menuClose').onclick = ()=> setMenu(false);
+    if (backdrop) backdrop.onclick = ()=> setMenu(false);
+    document.addEventListener('keydown', (ev)=>{ if(ev.key === 'Escape') setMenu(false); });
 
     /* Snackbar / Undo helper */
     function showUndoSnack(message, undoLabel, undoCb) {
@@ -78,7 +90,7 @@
       sb._timeout = setTimeout(()=>{ sb.style.display='none'; }, 8000);
     }
 
-    function formatDate(ts){ if(!ts) return ''; try{ const d = new Date(ts); return d.toLocaleString(); }catch(e){ return ts; } }
+    function formatDate(ts){ if(!ts) return ''; try{ const d = new Date(ts); return d.toLocaleString('en-GB', { hour12: false }); }catch(e){ return ts; } }
 
     const selectedExportIds = new Set();
 
@@ -156,13 +168,15 @@
 
     async function loadExports() {
       const wrap = document.getElementById('exportsGrid');
+      wrap.setAttribute('aria-busy','true');
       wrap.innerHTML = '<div class="card">Loading…</div>';
       try{
         const res = await fetch('/api/list_exports.php');
-        if (!res.ok) { wrap.innerHTML = '<div class="card">Failed to load</div>'; return; }
+        if (!res.ok) { wrap.innerHTML = '<div class="card">Failed to load</div>'; wrap.setAttribute('aria-busy','false'); return; }
         const data = await res.json();
         if (!data.exports || data.exports.length === 0) {
           wrap.innerHTML = '<div class="card"><div style="display:flex;flex-direction:column;gap:6px"><div style="font-weight:800">No exports found</div><div style="color:var(--muted)">Try "Scan & Import" to add files found on disk.</div></div></div>';
+          wrap.setAttribute('aria-busy','false');
           return;
         }
         wrap.innerHTML = '';
@@ -211,7 +225,8 @@
           if (!exportIds.has(id)) selectedExportIds.delete(id);
         }
         updateBulkControls(exportIds.size);
-      }catch(e){ wrap.innerHTML = '<div class="card">Load error</div>'; }
+        wrap.setAttribute('aria-busy','false');
+      }catch(e){ wrap.innerHTML = '<div class="card">Load error</div>'; wrap.setAttribute('aria-busy','false'); }
     }
 
     loadExports();
@@ -235,11 +250,7 @@
       updateBulkControls(total);
     });
     document.getElementById('deleteSelectedBtn').addEventListener('click', deleteSelectedExports);
-    const menuBtn = document.getElementById('menuBtn');
-    if (menuBtn) menuBtn.onclick = () => {
-      alert('Menu coming soon');
-    };
-
+    off.querySelectorAll('a').forEach((link)=> link.addEventListener('click', ()=> setMenu(false)));
   </script>
 </body>
 </html>
