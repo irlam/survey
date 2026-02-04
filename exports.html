@@ -11,6 +11,11 @@
     <button id="menuBtn">☰</button>
     <h1>Exports Manager</h1>
     <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+      <label class="tool-card" style="display:flex;align-items:center;gap:6px;padding:6px 10px;">
+        <input id="selectAllExports" type="checkbox" aria-label="Select all exports">
+        <span>Select all</span>
+      </label>
+      <button id="deleteSelectedBtn" class="btn btnDanger" disabled>Delete selected</button>
       <button id="scanBtn" class="btn">Scan & Import</button>
     </div>
   </header>
@@ -35,12 +40,13 @@
     .export-grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap:12px; }
     .export-card{ border-radius:12px; padding:12px; background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.06)); border:1px solid rgba(0,255,231,0.06); box-shadow: 0 10px 30px rgba(0,0,0,0.6); display:flex; gap:12px; align-items:center; justify-content:space-between; transition: transform .12s ease, box-shadow .12s ease; }
     .export-card:hover{ transform: translateY(-6px); box-shadow: 0 18px 44px rgba(0,255,231,0.12); }
-    .export-meta{ min-width:0; overflow:hidden }
-    .export-name{ font-weight:900; color:var(--neon); font-size:0.95rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+    .export-meta{ min-width:0; overflow:hidden; flex:1 }
+    .export-name{ font-weight:900; color:var(--neon); font-size:0.95rem; white-space:normal; word-break:break-word }
     .export-sub{ color:var(--muted); font-size:12px; margin-top:6px }
-    .export-actions{ display:flex; gap:8px; align-items:center }
+    .export-actions{ display:flex; gap:8px; align-items:center; flex-shrink:0 }
     .iconBtnSmall{ min-width:36px; min-height:36px; border-radius:10px; border:1px solid rgba(255,255,255,0.06); background: rgba(0,0,0,0.36); color:var(--neon); box-shadow: none; cursor:pointer }
     .btnDanger{ background: linear-gradient(90deg, #ff6b6b, #ff3b3b); color:#041013; border:none; padding:8px 12px; border-radius:10px; font-weight:800 }
+    .export-check{ width:18px; height:18px; accent-color:#ff6b6b; cursor:pointer }
     @media (max-width:520px){ .export-grid{ grid-template-columns: 1fr; } .export-card{ padding:14px } .export-name{ font-size:1rem } }
   </style>
 
@@ -72,6 +78,30 @@
 
     function formatDate(ts){ if(!ts) return ''; try{ const d = new Date(ts); return d.toLocaleString(); }catch(e){ return ts; } }
 
+    const selectedExportIds = new Set();
+
+    function updateBulkControls(totalExports = 0) {
+      const selectAll = document.getElementById('selectAllExports');
+      const deleteBtn = document.getElementById('deleteSelectedBtn');
+      const selectedCount = selectedExportIds.size;
+      deleteBtn.disabled = selectedCount === 0;
+      if (totalExports === 0) {
+        selectAll.checked = false;
+        selectAll.indeterminate = false;
+        return;
+      }
+      if (selectedCount === 0) {
+        selectAll.checked = false;
+        selectAll.indeterminate = false;
+      } else if (selectedCount === totalExports) {
+        selectAll.checked = true;
+        selectAll.indeterminate = false;
+      } else {
+        selectAll.checked = false;
+        selectAll.indeterminate = true;
+      }
+    }
+
     async function deleteExport(id) {
       if (!confirm('Delete this export file? This will move it to trash and remove the DB record.')) return;
       try{
@@ -87,6 +117,27 @@
         });
         await loadExports();
       }catch(e){ alert('Delete failed: '+e.message); }
+    }
+
+    async function deleteSelectedExports() {
+      if (selectedExportIds.size === 0) return;
+      if (!confirm(`Delete ${selectedExportIds.size} export file(s)? This will move them to trash and remove the DB records.`)) return;
+      const ids = Array.from(selectedExportIds);
+      const failures = [];
+      for (const id of ids) {
+        try{
+          const res = await fetch('/api/delete_export.php', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ id }) });
+          const data = await res.json();
+          if (!res.ok || !data.ok) failures.push(id);
+        }catch(e){ failures.push(id); }
+      }
+      if (failures.length) {
+        alert(`Failed to delete ${failures.length} export(s).`);
+      } else {
+        showUndoSnack(`Deleted ${ids.length} export(s)`);
+      }
+      selectedExportIds.clear();
+      await loadExports();
     }
 
     async function scanImports() {
@@ -113,13 +164,35 @@
           return;
         }
         wrap.innerHTML = '';
+        const exportIds = new Set();
         for (const exp of data.exports) {
-          const card = document.createElement('div'); card.className = 'export-card card';
+          exportIds.add(Number(exp.id));
+          const card = document.createElement('div'); card.className = 'export-card card'; card.dataset.exportId = exp.id;
           const meta = document.createElement('div'); meta.className = 'export-meta';
           const name = document.createElement('div'); name.className = 'export-name'; name.textContent = exp.filename;
           const sub = document.createElement('div'); sub.className = 'export-sub'; sub.textContent = (exp.type ? exp.type.toUpperCase() + ' • ' : '') + formatDate(exp.created_at);
           meta.appendChild(name); meta.appendChild(sub);
           const actions = document.createElement('div'); actions.className = 'export-actions';
+
+          const checkWrap = document.createElement('label');
+          checkWrap.style.display = 'flex';
+          checkWrap.style.alignItems = 'center';
+          checkWrap.style.gap = '6px';
+          const check = document.createElement('input');
+          check.type = 'checkbox';
+          check.className = 'export-check';
+          check.checked = selectedExportIds.has(Number(exp.id));
+          check.setAttribute('aria-label', `Select export ${exp.filename}`);
+          check.addEventListener('change', () => {
+            if (check.checked) {
+              selectedExportIds.add(Number(exp.id));
+            } else {
+              selectedExportIds.delete(Number(exp.id));
+            }
+            updateBulkControls(exportIds.size);
+          });
+          checkWrap.appendChild(check);
+          actions.appendChild(checkWrap);
 
           const linkBtn = document.createElement('a'); linkBtn.className = 'iconBtnSmall'; linkBtn.href = '/storage/exports/' + encodeURIComponent(exp.filename);
           linkBtn.title = 'Open file'; linkBtn.target = '_blank'; linkBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14 3h7v7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 14L21 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -132,14 +205,34 @@
           card.appendChild(meta); card.appendChild(actions);
           wrap.appendChild(card);
         }
+        for (const id of Array.from(selectedExportIds)) {
+          if (!exportIds.has(id)) selectedExportIds.delete(id);
+        }
+        updateBulkControls(exportIds.size);
       }catch(e){ wrap.innerHTML = '<div class="card">Load error</div>'; }
     }
 
     loadExports();
-    const menuBtn = document.getElementById('menuBtn');
-    if (menuBtn) menuBtn.onclick = () => {
-      alert('Menu coming soon');
-    };
+    document.getElementById('selectAllExports').addEventListener('change', (event) => {
+      const checks = document.querySelectorAll('.export-check');
+      if (!checks.length) return;
+      if (event.target.checked) {
+        selectedExportIds.clear();
+        checks.forEach((check) => {
+          check.checked = true;
+          const card = check.closest('.export-card');
+          if (card && card.dataset.exportId) {
+            selectedExportIds.add(Number(card.dataset.exportId));
+          }
+        });
+      } else {
+        checks.forEach((check) => { check.checked = false; });
+        selectedExportIds.clear();
+      }
+      const total = checks.length;
+      updateBulkControls(total);
+    });
+    document.getElementById('deleteSelectedBtn').addEventListener('click', deleteSelectedExports);
   </script>
 </body>
 </html>
