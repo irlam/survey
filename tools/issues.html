@@ -222,6 +222,8 @@
       if (!sb) {
         sb = document.createElement('div');
         sb.id = 'snackbar';
+        sb.setAttribute('role','status');
+        sb.setAttribute('aria-live','polite');
         sb.style.position = 'fixed';
         sb.style.left = '50%';
         sb.style.transform = 'translateX(-50%)';
