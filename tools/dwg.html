@@ -75,7 +75,7 @@
               };
               return; 
             }
-            const a = document.createElement('a'); a.href = '/storage/exports/' + encodeURIComponent(data.filename); a.target='_blank'; a.textContent = 'Download: ' + data.filename; a.style.display='block'; out.innerHTML = ''; out.appendChild(a);
+            const a = document.createElement('a'); a.href = '/storage/exports/' + encodeURIComponent(data.filename); a.target='_blank'; a.rel = 'noopener'; a.textContent = 'Download: ' + data.filename; a.style.display='block'; out.innerHTML = ''; out.appendChild(a);
             // Open in DWG Viewer (same-origin)
             const openBtn = document.createElement('button'); openBtn.className='btn'; openBtn.textContent='Open in Viewer'; openBtn.style.marginLeft='8px'; openBtn.onclick = ()=>{
               const viewerUrl = '/tools/dwgviewer/?src=' + encodeURIComponent('/storage/exports/' + data.filename);

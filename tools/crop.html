@@ -398,7 +398,7 @@
           const res = await fetch('/api/crop_pdf.php', { method:'POST', body: payload });
           const txt = await res.text(); let data; try{ data = JSON.parse(txt); }catch{ data = null; }
           if(!res.ok || !data || !data.ok){ throw new Error((data && data.error) ? data.error : 'Server crop failed'); }
-          out.innerHTML = `<a href="/storage/exports/${encodeURIComponent(data.filename)}" target="_blank">Download cropped PDF (vector)</a>`;
+          out.innerHTML = `<a href="/storage/exports/${encodeURIComponent(data.filename)}" target="_blank" rel="noopener">Download cropped PDF (vector)</a>`;
         }catch(e){ const out = document.getElementById('previewOut'); out.textContent = 'Server crop failed: ' + e.message; }
         return;
       }

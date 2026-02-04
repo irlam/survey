@@ -134,7 +134,7 @@
 		function showError(msg){ outArea.innerHTML = '<div class="error">'+msg+'</div>'; }
 		function showResult(filename, path){
 			const url = path && path.indexOf('/')===0 ? path : ('/storage/exports/' + filename);
-			outArea.innerHTML = `<div>Conversion complete: <a href="${url}" target="_blank">${filename}</a></div>`;
+			outArea.innerHTML = `<div>Conversion complete: <a href="${url}" target="_blank" rel="noopener">${filename}</a></div>`;
 			if(formatSelect.value==='svg' || formatSelect.value==='pdf'){
 				const preview = document.createElement('div'); preview.style.marginTop='12px';
 				if(formatSelect.value==='svg'){
@@ -206,7 +206,7 @@
 				const f = files[i]; const statusEl = statusElems[i]; statusEl.textContent = 'Uploading...';
 				try{
 					const res = await convertFileXHR(f, opts, (p)=>{ statusEl.textContent = 'Uploading: '+p+'%'; });
-					statusEl.innerHTML = `Done — <a href="${res.path||('/storage/exports/'+res.filename)}" target="_blank">${res.filename}</a>`;
+					statusEl.innerHTML = `Done — <a href="${res.path||('/storage/exports/'+res.filename)}" target="_blank" rel="noopener">${res.filename}</a>`;
 					if(opts.preview && (opts.format==='svg' || opts.format==='pdf')){
 						const place = document.createElement('div'); place.style.marginTop='8px';
 						if(opts.format==='svg'){ const obj=document.createElement('object'); obj.type='image/svg+xml'; obj.data=res.path||('/storage/exports/'+res.filename); obj.style.width='100%'; obj.style.height='400px'; place.appendChild(obj); }
