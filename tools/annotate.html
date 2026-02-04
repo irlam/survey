@@ -755,7 +755,10 @@ function scaleShapeAroundCenter(target, original, cx, cy, sx, sy){
   document.getElementById('btnClear').onclick = ()=>{ if(confirm('Clear all annotations?')){ shapes=[]; redrawAnnotations(); } };
 
   document.getElementById('btnExport').onclick = async ()=>{
+    const exportBtn = document.getElementById('btnExport');
     if(!pdfDoc) return alert('Load a PDF first');
+    const prevLabel = exportBtn ? exportBtn.textContent : '';
+    if (exportBtn) { exportBtn.disabled = true; exportBtn.textContent = 'Exporting…'; }
     try{
       const page = await pdfDoc.getPage(curPage);
       // render at a higher scale for quality
@@ -776,10 +779,14 @@ function scaleShapeAroundCenter(target, original, cx, cy, sx, sy){
       const blob = await new Promise(r=> off.toBlob(r, 'image/jpeg', 0.95));
       const bytes = await blob.arrayBuffer(); const pdflib = window.PDFLib; const newPdf = await pdflib.PDFDocument.create(); const img = await newPdf.embedJpg(bytes); const p = newPdf.addPage([img.width,img.height]); p.drawImage(img,{x:0,y:0,width:img.width,height:img.height}); const pdfBytesOut = await newPdf.save(); const blobOut = new Blob([pdfBytesOut], {type:'application/pdf'}); const url = URL.createObjectURL(blobOut); const a = document.createElement('a'); a.href=url; a.download = `annot_page_${curPage}.pdf`; a.textContent='Download annotated PDF'; a.style.display='block'; out.innerHTML=''; out.appendChild(a);
     }catch(e){ out.textContent='Export failed: '+e.message; console.error(e); }
+    finally { if (exportBtn) { exportBtn.disabled = false; exportBtn.textContent = prevLabel; } }
   };
 
   // Save as plan: upload generated PDF to /api/upload_plan.php
   document.getElementById('btnSavePlan').onclick = async ()=>{
+    const saveBtn = document.getElementById('btnSavePlan');
+    const prevSave = saveBtn ? saveBtn.textContent : '';
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
     try{
       // trigger export first
       const page = await pdfDoc.getPage(curPage);
@@ -796,6 +803,7 @@ function scaleShapeAroundCenter(target, original, cx, cy, sx, sy){
       const res = await fetch('/api/upload_plan.php',{method:'POST', body:fd}); const txt = await res.text(); const j = JSON.parse(txt);
       if(!res.ok || !j.ok) throw new Error(j.error||'Upload failed'); out.innerHTML = `Saved as plan: <a href='/?plan_id=${j.plan.id}'>${j.plan.name} (#${j.plan.id})</a>`; try{ if(window.refreshPlans) window.refreshPlans(); }catch(e){}
     }catch(e){ out.textContent='Save failed: '+e.message; console.error(e); }
+    finally { if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = prevSave; } }
   };
 
   // open via pdf_url param
