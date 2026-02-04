@@ -59,7 +59,7 @@
           <button class="btnPrimary" type="submit">Upload</button>
           <div id="uploadOut" class="muted" style="margin-top:8px"></div>
         </div>
-        <input id="plansSearch" type="text" placeholder="Search plans…" style="margin:8px 0 6px;" />
+        <input id="plansSearch" type="text" placeholder="Search plans…" style="margin:8px 0 6px;" aria-label="Search plans" inputmode="search" />
         <div id="plansList" class="list"></div>
       </form>
     </aside>
@@ -124,8 +124,8 @@
       <span id="closeIssuesModal" class="close">&times;</span>
       <h2>Issues for this Plan</h2>
       <div class="issuesControls">
-        <input id="issuesSearch" type="text" placeholder="Search issues…" aria-label="Search issues" />
-        <input id="issuesAssigneeFilter" type="text" placeholder="Assignee…" aria-label="Filter by assignee" />
+        <input id="issuesSearch" type="text" placeholder="Search issues…" aria-label="Search issues" inputmode="search" />
+        <input id="issuesAssigneeFilter" type="text" placeholder="Assignee…" aria-label="Filter by assignee" inputmode="text" />
 
         <select id="issuesSort">
           <option value="manual">Manual order</option>
