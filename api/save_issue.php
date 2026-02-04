@@ -1,4 +1,5 @@
 <?php
+/* api/save_issue.php - Create/update issue records (04/02/2026) */
 require_once __DIR__ . '/config-util.php';
 require_once __DIR__ . '/db.php';
 
@@ -92,6 +93,7 @@ if ($id) {
   $out = $pdo->prepare('SELECT * FROM issues WHERE id=?');
   $out->execute([$id]);
   $issue = $out->fetch();
+  if (is_array($issue)) $issue = format_dates_in_row($issue);
 
   json_response(['ok' => true, 'issue' => $issue, 'updated' => true], 200);
 
@@ -125,6 +127,7 @@ if ($id) {
   $out = $pdo->prepare('SELECT * FROM issues WHERE id=?');
   $out->execute([$new_id]);
   $issue = $out->fetch();
+  if (is_array($issue)) $issue = format_dates_in_row($issue);
 
   json_response(['ok' => true, 'issue' => $issue, 'created' => true], 201);
 }

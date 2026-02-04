@@ -1,4 +1,5 @@
 <?php
+/* api/list_plans.php - List plan records (04/02/2026) */
 require_once __DIR__ . '/config-util.php';
 require_once __DIR__ . '/db.php';
 

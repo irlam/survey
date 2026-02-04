@@ -1,4 +1,5 @@
 <?php
+/* api/db.php - DB connection + JSON helpers (04/02/2026) */
 
 // Start output buffering to capture any unexpected HTML or warnings
 if (function_exists('ob_start') && ob_get_level() === 0) {
@@ -82,6 +83,7 @@ function db(): PDO {
   $pdo = new PDO($dsn, $user, $pass, [
     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+    PDO::ATTR_EMULATE_PREPARES => false,
   ]);
 
   return $pdo;

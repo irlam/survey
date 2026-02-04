@@ -1,4 +1,5 @@
 <?php
+/* api/upload_photo.php - Upload issue photos + optional thumbnail (04/02/2026) */
 require_once __DIR__ . '/config-util.php';
 require_once __DIR__ . '/db.php';
 require_method('POST');
@@ -13,11 +14,16 @@ if ($file['size'] > $max_bytes) {
     error_response('File too large', 413);
 }
 $finfo = finfo_open(FILEINFO_MIME_TYPE);
+if (!$finfo) error_response('File inspection failed', 500);
 $mime = finfo_file($finfo, $file['tmp_name']);
 $allowed = ['image/jpeg','image/png'];
 finfo_close($finfo);
 if (!in_array($mime, $allowed)) {
     error_response('Only JPEG/PNG allowed', 415);
+}
+// Ensure it is actually an image (defense-in-depth)
+if (@getimagesize($file['tmp_name']) === false) {
+    error_response('Invalid image file', 415);
 }
 $plan_id = safe_int($_POST['plan_id'] ?? null);
 $issue_id = safe_int($_POST['issue_id'] ?? null);

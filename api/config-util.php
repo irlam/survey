@@ -1,4 +1,5 @@
 <?php
+/* api/config-util.php - Config loader and shared helpers (04/02/2026) */
 
 function load_config() {
   $file = __DIR__ . '/config.php';
