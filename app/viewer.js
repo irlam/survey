@@ -605,6 +605,8 @@ function bindUiOnce(){ if(window.__viewerBound) return; window.__viewerBound = t
 
 // Issue modal with photo upload
 async function showIssueModal(pin){
+  pin = pin || {};
+  if (pin.page === undefined || pin.page === null) pin.page = currentPage || 1;
   const normalizeStatusLabel = (val)=>{
     if(!val) return 'Open';
     const norm = String(val).toLowerCase().replace(/[_\s]+/g,' ');
@@ -718,7 +720,11 @@ async function showIssueModal(pin){
     `;
     document.body.appendChild(modal);
   }
-    modal.style.display = 'block';
+  modal.style.display = 'block';
+  modal.style.visibility = 'visible';
+  modal.style.opacity = '1';
+
+  try{
 
     // Normalize pin coordinates to numbers to avoid TypeErrors (e.g., when values are strings from the API)
     try{
@@ -1373,6 +1379,10 @@ async function showIssueModal(pin){
   // remove listener when modal removed
   const oldRemove = modal.remove || (()=>{});
   modal.remove = function(){ document.removeEventListener('issueDeleted', issueDeletedHandler); oldRemove.call(this); };
+  }catch(e){
+    console.error('showIssueModal failed', e);
+    localShowToast('Issue dialog failed to open');
+  }
 }
 
 async function reloadDbPins() {
