@@ -20,6 +20,8 @@ let pendingHighlightIssueId = null;
 let photoCounts = {};
 let resizeTimer = null;
 let suppressPanForIssue = false; // blocks stage pan while detecting long-press to drop a pin
+let livePinchScale = 1; // temporary CSS scale during pinch for smoother zoom
+let livePinchActive = false;
 
 // Helpers
 function qs(sel){ return document.querySelector(sel); }
@@ -40,6 +42,7 @@ function bindTouchGestures(targetEl){
   const stage = qs('#pdfStage');
   const pointers = new Map();
   let pointerEventsUsed = false;
+  let pinchBaseZoom = userZoom;
   let startDist = 0;
   let startZoom = userZoom;
   let pinchActive = false;
@@ -81,6 +84,9 @@ function bindTouchGestures(targetEl){
     cancelIssueHold();
     pinchActive = true;
     hadPinch = true;
+    pinchBaseZoom = userZoom;
+    livePinchActive = true;
+    livePinchScale = 1;
     startDist = getDist();
     startZoom = userZoom;
     fitMode = false;
@@ -94,7 +100,7 @@ function bindTouchGestures(targetEl){
     pointerEventsUsed = true;
     e.preventDefault();
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pointers.size === 1 && !addIssueMode && !suppressPanForIssue) {
+    if (pointers.size === 1 && !suppressPanForIssue && (!addIssueMode || userZoom > 1.01 || !fitMode)) {
       panActive = true;
       panLastX = e.clientX;
       panLastY = e.clientY;
@@ -141,10 +147,10 @@ function bindTouchGestures(targetEl){
           panX = (panX - cx) * zoomRatio + cx;
           panY = (panY - cy) * zoomRatio + cy;
           userZoom = nextZoom;
+          livePinchScale = nextZoom / Math.max(0.01, pinchBaseZoom);
           fitMode = false;
           setBadges();
           zoomDirty = true;
-          scheduleRender();
         }
       }
       applyPanTransform();
@@ -163,9 +169,10 @@ function bindTouchGestures(targetEl){
       startDist = 0;
       startZoom = userZoom;
       lastCenter = null;
-      if (pdfDoc && (hadPinch || zoomDirty)) {
-        renderPage(currentPage);
-      }
+      livePinchActive = false;
+      livePinchScale = 1;
+      applyPanTransform();
+      if (pdfDoc && (hadPinch || zoomDirty)) renderPage(currentPage);
       hadPinch = false;
       zoomDirty = false;
     }
@@ -212,12 +219,13 @@ function bindTouchGestures(targetEl){
           panX = (panX - cx) * zoomRatio + cx;
           panY = (panY - cy) * zoomRatio + cy;
           userZoom = nextZoom;
+          livePinchScale = nextZoom / Math.max(0.01, pinchBaseZoom);
           fitMode = false;
           setBadges();
           zoomDirty = true;
-          scheduleRender();
         }
       }
+      livePinchActive = true;
       applyPanTransform();
     }
   }, { passive: false });
@@ -228,9 +236,10 @@ function bindTouchGestures(targetEl){
     startDist = 0;
     startZoom = userZoom;
     lastCenter = null;
-    if (pdfDoc && (hadPinch || zoomDirty)) {
-      renderPage(currentPage);
-    }
+    livePinchActive = false;
+    livePinchScale = 1;
+    applyPanTransform();
+    if (pdfDoc && (hadPinch || zoomDirty)) renderPage(currentPage);
     hadPinch = false;
     zoomDirty = false;
   }, { passive: false });
@@ -373,7 +382,9 @@ function clearOverlay(overlay){ overlay.innerHTML = ''; }
 function applyPanTransform(){
   const wrap = qs('#pdfContainer .pdfWrap');
   if(!wrap) return;
-  wrap.style.transform = `translate(${panX}px, ${panY}px)`;
+  const scale = livePinchActive ? livePinchScale : 1;
+  wrap.style.transformOrigin = '0 0';
+  wrap.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
 }
 
 function highlightPinById(issueId){
