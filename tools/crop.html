@@ -52,6 +52,11 @@
   #planSelect .selectList li:hover{ background: rgba(255,255,255,0.03); color: var(--neon) !important; }
   #planSelect .selectList li[aria-selected='true']{ background: linear-gradient(90deg, var(--neon), var(--neon2)); color:#000000 !important; }
   #planSelect .selectButton::after{ filter: invert(1); }
+  #planSelect .selectList{
+    max-height: 320px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
   
 </style>
 </head>
