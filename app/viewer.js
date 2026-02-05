@@ -193,9 +193,11 @@ function ensureWrapAndOverlay(){
   let canvas = wrap.querySelector('canvas'); if(!canvas){ canvas = document.createElement('canvas'); canvas.id = 'pdfCanvas'; wrap.appendChild(canvas); }
   let overlay = wrap.querySelector('.pdfOverlay'); if(!overlay){ overlay = document.createElement('div'); overlay.className = 'pdfOverlay'; wrap.appendChild(overlay);
     overlay.style.touchAction = 'none';
+    overlay.addEventListener('contextmenu', (e)=>{ e.preventDefault(); }, {capture:true});
       // Long-press (1s) to place an issue pin (desktop + touch). Small movement cancels to keep navigation smooth.
     overlay.addEventListener('pointerdown', (e)=>{
       if(e.pointerType === 'mouse' && e.button !== 0) return; // ignore right/middle clicks
+      if (e.pointerType === 'touch') { e.preventDefault(); e.stopPropagation(); }
       if (e.target && e.target.closest && e.target.closest('.pin')) return; // let pin drags/clicks through
       const canvasRect = canvas.getBoundingClientRect();
       if(e.clientX < canvasRect.left || e.clientX > canvasRect.right || e.clientY < canvasRect.top || e.clientY > canvasRect.bottom) return;
