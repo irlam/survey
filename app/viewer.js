@@ -1365,21 +1365,24 @@ async function showIssueModal(pin){
       addIssueMode = true;
       updateAddModeVisuals();
       localShowToast('Saved — long‑press to add another');
-      // after saving, upload any queued photos that were added before save
-      if(pendingPhotos && pendingPhotos.length){
-        pin.id = savedId || pin.id;
-        for(const [idx, pf] of pendingPhotos.entries()){
-          try{
-            // show progress while uploading
-            await uploadProcessedFile(pf, pin.id, (p)=>{ try{ pf.uploadProgress = p; renderPendingPhotos(); }catch(e){} });
-          }catch(e){ console.error('Queued photo upload failed', e); }
-        }
-        pendingPhotos = []; renderPendingPhotos();
-      }
       modal.style.display='none';
       window.removeEventListener('keydown', modal._keyHandler);
       await reloadDbPins();
       await renderPage(currentPage);
+      // after saving, upload any queued photos in the background to avoid UI freezes
+      if(pendingPhotos && pendingPhotos.length){
+        const queued = pendingPhotos.slice();
+        pendingPhotos = []; renderPendingPhotos();
+        pin.id = savedId || pin.id;
+        localShowToast('Uploading queued photos…');
+        (async ()=>{
+          for(const pf of queued){
+            try{
+              await uploadProcessedFile(pf, pin.id, (p)=>{ try{ pf.uploadProgress = p; }catch(e){} });
+            }catch(e){ console.error('Queued photo upload failed', e); }
+          }
+        })();
+      }
       if(!pin.id && savedId){ pin.id = savedId; await showIssueModal(pin); }
     }catch(e){ localShowToast('Error saving issue: '+e.message); try{ trackEvent('pin_save_failure', { error: e && e.message || String(e) }); }catch(x){} try{ if(navigator && typeof navigator.vibrate === 'function') navigator.vibrate(20); }catch(x){} }
   };
