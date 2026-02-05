@@ -33,6 +33,123 @@ function setTitle(text){ const el = qs('#planTitle'); if(el) el.textContent = te
 function setModeBadge(){ const b = qs('#modeBadge'); if(!b) return; b.style.display = addIssueMode ? 'inline-flex' : 'none'; }
 function setBadges(){ const pageBadge = qs('#pageBadge'); if(pageBadge) pageBadge.textContent = totalPages?`Page ${currentPage} / ${totalPages}`:'Page - / -'; const pageInput = qs('#pageInput'); if(pageInput && totalPages) pageInput.value = String(currentPage); const zoomBadge = qs('#zoomBadge'); if(zoomBadge) zoomBadge.textContent = `${Math.round(userZoom*100)}%`; }
 
+function bindTouchGestures(targetEl){
+  if (!targetEl || targetEl.__pinchBound) return;
+  targetEl.__pinchBound = true;
+  targetEl.style.touchAction = 'none';
+  const stage = qs('#pdfStage');
+  const pointers = new Map();
+  let startDist = 0;
+  let startZoom = userZoom;
+  let pinchActive = false;
+  let renderTimer = null;
+  let renderInFlight = false;
+  let renderPending = false;
+  let panActive = false;
+  let panLastX = 0;
+  let panLastY = 0;
+  let lastCenter = null;
+  const scheduleRender = () => {
+    if (renderTimer) { renderPending = true; return; }
+    renderTimer = setTimeout(async () => {
+      renderTimer = null;
+      if (!pdfDoc) return;
+      if (renderInFlight) { renderPending = true; return; }
+      renderInFlight = true;
+      try{ await renderPage(currentPage); }
+      finally{ renderInFlight = false; if (renderPending) { renderPending = false; scheduleRender(); } }
+    }, 50);
+  };
+  const getDist = () => {
+    const pts = Array.from(pointers.values());
+    if (pts.length < 2) return 0;
+    const dx = pts[0].x - pts[1].x;
+    const dy = pts[0].y - pts[1].y;
+    return Math.hypot(dx, dy);
+  };
+  const cancelIssueHold = () => {
+    if (targetEl._issueHold && targetEl._issueHold.timer) {
+      clearTimeout(targetEl._issueHold.timer);
+      targetEl._issueHold.timer = null;
+      suppressPanForIssue = false;
+    }
+  };
+  targetEl.addEventListener('pointerdown', (e) => {
+    if (e.pointerType !== 'touch') return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size === 1 && !addIssueMode && !suppressPanForIssue) {
+      panActive = true;
+      panLastX = e.clientX;
+      panLastY = e.clientY;
+      if (stage) stage.classList.add('dragging');
+    }
+    if (pointers.size === 2) {
+      cancelIssueHold();
+      pinchActive = true;
+      startDist = getDist();
+      startZoom = userZoom;
+      fitMode = false;
+      const pts = Array.from(pointers.values());
+      lastCenter = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+    }
+  });
+  targetEl.addEventListener('pointermove', (e) => {
+    if (e.pointerType !== 'touch') return;
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (!pinchActive && pointers.size === 1 && panActive && !suppressPanForIssue) {
+      const dx = e.clientX - panLastX;
+      const dy = e.clientY - panLastY;
+      panX += dx;
+      panY += dy;
+      panLastX = e.clientX;
+      panLastY = e.clientY;
+      applyPanTransform();
+      e.preventDefault();
+    }
+    if (pointers.size === 2) {
+      pinchActive = true;
+      const pts = Array.from(pointers.values());
+      const center = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+      if (lastCenter) {
+        panX += center.x - lastCenter.x;
+        panY += center.y - lastCenter.y;
+        applyPanTransform();
+      }
+      lastCenter = center;
+      const dist = getDist();
+      if (startDist > 0) {
+        const scale = dist / startDist;
+        const nextZoom = Math.max(0.25, Math.min(5.0, startZoom * scale));
+        if (Math.abs(nextZoom - userZoom) > 0.01) {
+          userZoom = nextZoom;
+          fitMode = false;
+          setBadges();
+          scheduleRender();
+        }
+      }
+      e.preventDefault();
+    }
+  }, { passive: false });
+  const endPinch = (e) => {
+    if (e.pointerType !== 'touch') return;
+    pointers.delete(e.pointerId);
+    if (pointers.size === 0) {
+      panActive = false;
+      if (stage) stage.classList.remove('dragging');
+    }
+    if (pointers.size < 2) {
+      pinchActive = false;
+      startDist = 0;
+      startZoom = userZoom;
+      lastCenter = null;
+      if (pdfDoc) renderPage(currentPage);
+    }
+  };
+  targetEl.addEventListener('pointerup', endPinch);
+  targetEl.addEventListener('pointercancel', endPinch);
+}
+
 // keep UI toggles in sync when add issue mode changes
 function updateAddModeVisuals(){
   const addBtn = qs('#btnAddIssueMode');
@@ -138,6 +255,7 @@ function ensureWrapAndOverlay(){
     }, {capture:true});
   }
   overlay.style.pointerEvents = 'auto';
+  bindTouchGestures(overlay);
   return {wrap, canvas, overlay};
 }
 
@@ -460,108 +578,7 @@ function bindUiOnce(){ if(window.__viewerBound) return; window.__viewerBound = t
   if(mAdd) mAdd.onclick = ()=>{ if(addBtn) addBtn.click(); };
   if(mIssues) mIssues.onclick = ()=>{ const btn = qs('#btnViewIssues'); if(btn) btn.click(); };
 
-  // Touch pinch-to-zoom on mobile
-  const stage = qs('#pdfStage');
-  if (stage && !stage.__pinchBound) {
-    stage.__pinchBound = true;
-    stage.style.touchAction = 'none';
-    const pointers = new Map();
-    let startDist = 0;
-    let startZoom = userZoom;
-    let pinchActive = false;
-    let renderTimer = null;
-    let panActive = false;
-    let panLastX = 0;
-    let panLastY = 0;
-    let lastCenter = null;
-    const scheduleRender = () => {
-      if (renderTimer) return;
-      renderTimer = setTimeout(async () => {
-        renderTimer = null;
-        if (pdfDoc) await renderPage(currentPage);
-      }, 80);
-    };
-    const getDist = () => {
-      const pts = Array.from(pointers.values());
-      if (pts.length < 2) return 0;
-      const dx = pts[0].x - pts[1].x;
-      const dy = pts[0].y - pts[1].y;
-      return Math.hypot(dx, dy);
-    };
-    stage.addEventListener('pointerdown', (e) => {
-      if (e.pointerType !== 'touch') return;
-      if (suppressPanForIssue) return; // ignore pan/pinch when we're holding to place a pin
-      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      if (pointers.size === 1 && !addIssueMode) {
-        panActive = true;
-        panLastX = e.clientX;
-        panLastY = e.clientY;
-        stage.classList.add('dragging');
-      }
-      if (pointers.size === 2) {
-        pinchActive = true;
-        startDist = getDist();
-        startZoom = userZoom;
-        fitMode = false;
-        const pts = Array.from(pointers.values());
-        lastCenter = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
-      }
-    });
-    stage.addEventListener('pointermove', (e) => {
-      if (e.pointerType !== 'touch') return;
-      if (suppressPanForIssue) return;
-      if (!pointers.has(e.pointerId)) return;
-      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      if (!pinchActive && pointers.size === 1 && panActive) {
-        const dx = e.clientX - panLastX;
-        const dy = e.clientY - panLastY;
-        panX += dx;
-        panY += dy;
-        panLastX = e.clientX;
-        panLastY = e.clientY;
-        applyPanTransform();
-        e.preventDefault();
-      }
-      if (pinchActive && pointers.size === 2) {
-        const pts = Array.from(pointers.values());
-        const center = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
-        if (lastCenter) {
-          panX += center.x - lastCenter.x;
-          panY += center.y - lastCenter.y;
-          applyPanTransform();
-        }
-        lastCenter = center;
-        const dist = getDist();
-        if (startDist > 0) {
-          const scale = dist / startDist;
-          const nextZoom = Math.max(0.25, Math.min(5.0, startZoom * scale));
-          if (Math.abs(nextZoom - userZoom) > 0.01) {
-            userZoom = nextZoom;
-            fitMode = false;
-            setBadges();
-            scheduleRender();
-          }
-        }
-      }
-    });
-    const endPinch = (e) => {
-      if (e.pointerType !== 'touch') return;
-      pointers.delete(e.pointerId);
-      if (pointers.size === 0) {
-        panActive = false;
-        stage.classList.remove('dragging');
-      }
-      if (pointers.size < 2) {
-        pinchActive = false;
-        startDist = 0;
-        startZoom = userZoom;
-        lastCenter = null;
-        if (pdfDoc) renderPage(currentPage);
-      }
-    };
-    stage.addEventListener('pointerup', endPinch);
-    stage.addEventListener('pointercancel', endPinch);
-  }
+  // Touch pinch-to-zoom handled on the overlay layer for reliable touch capture
   if(closeBtn){ closeBtn.onclick = ()=>{ const u = new URL(window.location.href); u.searchParams.delete('plan_id'); history.pushState({},'',u.pathname); setTitle('Select a plan'); setStatus(''); const c = qs('#pdfContainer'); if(c) c.innerHTML = ''; pdfDoc = null; totalPages = 0; currentPage = 1; userZoom = 1.0; panX = 0; panY = 0; addIssueMode = false; setModeBadge(); setBadges(); document.body.classList.remove('has-viewer'); }; }
   window.addEventListener('resize', ()=>{
     if(!pdfDoc) return;
