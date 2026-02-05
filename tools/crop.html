@@ -46,17 +46,72 @@
   .cropRect .sizeLabel{position:absolute;left:8px;top:8px;background:rgba(0,0,0,0.7);color:#fff;padding:4px 6px;border-radius:4px;font-size:12px;box-shadow:0 2px 6px rgba(0,0,0,0.4);z-index:9}
   .cropOverlay .mask{position:absolute;background:rgba(0,0,0,0.55);pointer-events:none;z-index:4}
   .toolsRow{display:flex;gap:8px;align-items:center;margin-bottom:8px}
-  /* Make the plan chooser text white for better visibility in this tool */
-  #planSelect .selectButton, #planSelect .selectButton .selectedLabel { color: #ffffff !important; text-shadow: 0 1px 0 rgba(0,0,0,0.6); }
-  #planSelect .selectList li { color: #ffffff !important; background: rgba(0,0,0,0.18); border: 1px solid rgba(255,255,255,0.03); }
-  #planSelect .selectList li:hover{ background: rgba(255,255,255,0.03); color: var(--neon) !important; }
-  #planSelect .selectList li[aria-selected='true']{ background: linear-gradient(90deg, var(--neon), var(--neon2)); color:#000000 !important; }
-  #planSelect .selectButton::after{ filter: invert(1); }
-  #planSelect .selectList{
-    max-height: 320px;
-    overflow-y: auto;
+  /* Crop tool dropdown redesign (custom + native) */
+  .cropSelect{
+    position:relative;
+    background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(0,0,0,0.35));
+    border:1px solid rgba(255,255,255,0.10);
+    border-radius:14px;
+    padding:4px;
+    box-shadow: 0 14px 30px rgba(0,0,0,0.35);
+  }
+  .cropSelect .selectButton{
+    background: rgba(7,10,15,0.9);
+    color:#ffffff;
+    border:1px solid rgba(255,255,255,0.12);
+    box-shadow: inset 0 0 0 1px rgba(0,255,231,0.14), 0 10px 24px rgba(0,0,0,0.45);
+    text-shadow: 0 1px 0 rgba(0,0,0,0.6);
+  }
+  .cropSelect .selectButton .selectedLabel{ color:#ffffff; font-weight:800; }
+  .cropSelect .selectButton::after{
+    filter:none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24'%3E%3Cpath fill='%23ffffff' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+  }
+  .cropSelect .selectList{
+    background: rgba(7,10,15,0.96);
+    border:1px solid rgba(255,255,255,0.12);
+    border-radius:12px;
+    padding:6px;
+    max-height:320px;
+    overflow-y:auto;
     overscroll-behavior: contain;
   }
+  .cropSelect .selectList li{
+    color:#f2f7ff !important;
+    background: transparent;
+    border:1px solid transparent;
+  }
+  .cropSelect .selectList li:hover{
+    background: rgba(0,255,231,0.08);
+    color:#ffffff !important;
+    border-color: rgba(0,255,231,0.25);
+  }
+  .cropSelect .selectList li[aria-selected='true']{
+    background: linear-gradient(90deg, rgba(0,255,231,0.85), rgba(57,255,20,0.85));
+    color:#041013 !important;
+    font-weight:900;
+  }
+
+  .cropNativeSelect{
+    min-height:44px;
+    border-radius:12px;
+    border:1px solid rgba(255,255,255,0.12);
+    background: rgba(7,10,15,0.9);
+    color:#ffffff;
+    padding:10px 40px 10px 12px;
+    box-shadow: inset 0 0 0 1px rgba(0,255,231,0.12), 0 10px 24px rgba(0,0,0,0.35);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24'%3E%3Cpath fill='%23ffffff' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;
+    background-position:right 12px center;
+    background-size:18px 18px;
+    -webkit-appearance:none;
+    appearance:none;
+  }
+  .cropNativeSelect:focus{
+    outline:none;
+    box-shadow: 0 0 0 4px rgba(0,255,231,0.14), inset 0 0 0 1px rgba(0,255,231,0.2);
+  }
+  .cropNativeSelect option{ color:#ffffff; background:#0b1220; }
   
 </style>
 </head>
@@ -72,13 +127,13 @@
       <div class="toolsRow">
         <label style="flex:1">
           Select plan:
-          <div id="planSelect" class="customSelect neonSelect" style="width:100%; min-width:320px;">
+          <div id="planSelect" class="customSelect cropSelect" style="width:100%; min-width:320px;">
             <button type="button" class="selectButton" aria-haspopup="listbox" aria-expanded="false">-- choose plan --</button>
             <ul class="selectList" role="listbox"></ul>
           </div>
         </label>
         <label style="width:230px">Or upload PDF: <input id="fileUploader" type="file" accept="application/pdf" style="min-width:44px;min-height:44px;" aria-label="Upload PDF file"></label>
-        <label style="width:220px">DPI: <select id="dpiSelect" class="neonSelect small"><option value="150">150</option><option value="300" selected>300</option><option value="600">600</option><option value="1200">1200</option></select></label>
+        <label style="width:220px">DPI: <select id="dpiSelect" class="cropNativeSelect"><option value="150">150</option><option value="300" selected>300</option><option value="600">600</option><option value="1200">1200</option></select></label>
         <label style="width:180px"><input id="vectorCrop" type="checkbox" style="min-width:44px;min-height:44px;"> Vector crop (server)</label>
         <button id="btnLoad" class="btn">Load</button>
       </div>
