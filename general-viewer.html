@@ -33,8 +33,13 @@
           <label>PDF</label>
           <input name="file" type="file" accept="application/pdf" required>
         </div>
-        <button class="btnPrimary" type="submit">Upload</button>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <button class="btnPrimary" type="submit">Upload</button>
+          <button id="generalNewFolderBtn" class="btn" type="button">New Folder</button>
+          <button id="generalUpBtn" class="btn" type="button" style="display:none;">Up</button>
+        </div>
         <div id="generalUploadOut" class="muted" style="margin-top:8px"></div>
+        <div id="generalBreadcrumb" class="muted" style="margin-top:8px"></div>
         <div id="generalList" class="list" role="list" aria-busy="false"></div>
       </form>
     </aside>

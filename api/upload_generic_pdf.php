@@ -4,6 +4,8 @@ require_once __DIR__ . '/config-util.php';
 require_once __DIR__ . '/db.php';
 require_method('POST');
 
+$folder_id = safe_int($_POST['folder_id'] ?? null);
+
 if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
     error_response('No file uploaded or upload error', 400);
 }
@@ -21,6 +23,13 @@ if ($mime !== 'application/pdf') {
     error_response('Only PDF files are allowed', 400);
 }
 
+if ($folder_id) {
+    $pdo = db();
+    $chk = $pdo->prepare('SELECT id FROM pdf_folders WHERE id=? AND deleted_at IS NULL');
+    $chk->execute([$folder_id]);
+    if (!$chk->fetch()) error_response('Folder not found', 404);
+}
+
 $ext = pathinfo($original, PATHINFO_EXTENSION);
 $rand = bin2hex(random_bytes(8));
 $filename = $rand . ($ext ? ('.' . $ext) : '.pdf');
@@ -31,7 +40,7 @@ if (!move_uploaded_file($file['tmp_name'], $dest)) {
 }
 
 $pdo = db();
-$stmt = $pdo->prepare('INSERT INTO files (plan_id, filename, original_name, size, mime) VALUES (NULL, ?, ?, ?, ?)');
-$stmt->execute([$filename, $original, $size, $mime]);
+$stmt = $pdo->prepare('INSERT INTO files (plan_id, folder_id, filename, original_name, size, mime) VALUES (NULL, ?, ?, ?, ?, ?)');
+$stmt->execute([$folder_id, $filename, $original, $size, $mime]);
 
 json_response(['ok'=>true, 'file_id'=>$pdo->lastInsertId(), 'filename'=>$filename]);
