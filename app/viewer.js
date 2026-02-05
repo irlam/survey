@@ -39,6 +39,7 @@ function bindTouchGestures(targetEl){
   targetEl.style.touchAction = 'none';
   const stage = qs('#pdfStage');
   const pointers = new Map();
+  let pointerEventsUsed = false;
   let startDist = 0;
   let startZoom = userZoom;
   let pinchActive = false;
@@ -76,8 +77,22 @@ function bindTouchGestures(targetEl){
       suppressPanForIssue = false;
     }
   };
+  const startPinch = () => {
+    cancelIssueHold();
+    pinchActive = true;
+    hadPinch = true;
+    startDist = getDist();
+    startZoom = userZoom;
+    fitMode = false;
+    const pts = Array.from(pointers.values());
+    if (pts.length >= 2) {
+      lastCenter = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+    }
+  };
   targetEl.addEventListener('pointerdown', (e) => {
     if (e.pointerType !== 'touch') return;
+    pointerEventsUsed = true;
+    e.preventDefault();
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.size === 1 && !addIssueMode && !suppressPanForIssue) {
       panActive = true;
@@ -86,18 +101,12 @@ function bindTouchGestures(targetEl){
       if (stage) stage.classList.add('dragging');
     }
     if (pointers.size === 2) {
-      cancelIssueHold();
-      pinchActive = true;
-      hadPinch = true;
-      startDist = getDist();
-      startZoom = userZoom;
-      fitMode = false;
-      const pts = Array.from(pointers.values());
-      lastCenter = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+      startPinch();
     }
   });
   targetEl.addEventListener('pointermove', (e) => {
     if (e.pointerType !== 'touch') return;
+    e.preventDefault();
     if (!pointers.has(e.pointerId)) return;
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (!pinchActive && pointers.size === 1 && panActive && !suppressPanForIssue) {
@@ -156,6 +165,62 @@ function bindTouchGestures(targetEl){
   };
   targetEl.addEventListener('pointerup', endPinch);
   targetEl.addEventListener('pointercancel', endPinch);
+
+  // Touch fallback for devices that don't deliver pointer events reliably
+  targetEl.addEventListener('touchstart', (e) => {
+    if (pointerEventsUsed) return;
+    if (!e.touches || e.touches.length < 2) return;
+    e.preventDefault();
+    pointers.clear();
+    for (const t of Array.from(e.touches)) {
+      pointers.set(t.identifier, { x: t.clientX, y: t.clientY });
+    }
+    startPinch();
+  }, { passive: false });
+  targetEl.addEventListener('touchmove', (e) => {
+    if (pointerEventsUsed) return;
+    if (!e.touches || e.touches.length < 2) return;
+    e.preventDefault();
+    pointers.clear();
+    for (const t of Array.from(e.touches)) {
+      pointers.set(t.identifier, { x: t.clientX, y: t.clientY });
+    }
+    const pts = Array.from(pointers.values());
+    if (pts.length >= 2) {
+      const center = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+      if (lastCenter) {
+        panX += center.x - lastCenter.x;
+        panY += center.y - lastCenter.y;
+        applyPanTransform();
+      }
+      lastCenter = center;
+      const dist = getDist();
+      if (startDist > 0) {
+        const scale = dist / startDist;
+        const nextZoom = Math.max(0.25, Math.min(5.0, startZoom * scale));
+        if (Math.abs(nextZoom - userZoom) > 0.01) {
+          userZoom = nextZoom;
+          fitMode = false;
+          setBadges();
+          zoomDirty = true;
+          scheduleRender();
+        }
+      }
+    }
+  }, { passive: false });
+  targetEl.addEventListener('touchend', (e) => {
+    if (pointerEventsUsed) return;
+    if (e.touches && e.touches.length >= 2) return;
+    pinchActive = false;
+    startDist = 0;
+    startZoom = userZoom;
+    lastCenter = null;
+    if (pdfDoc && (hadPinch || zoomDirty)) {
+      renderPage(currentPage);
+    }
+    hadPinch = false;
+    zoomDirty = false;
+  }, { passive: false });
 }
 
 // keep UI toggles in sync when add issue mode changes
