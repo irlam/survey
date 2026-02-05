@@ -42,6 +42,8 @@ function bindTouchGestures(targetEl){
   let startDist = 0;
   let startZoom = userZoom;
   let pinchActive = false;
+  let hadPinch = false;
+  let zoomDirty = false;
   let renderTimer = null;
   let renderInFlight = false;
   let renderPending = false;
@@ -86,6 +88,7 @@ function bindTouchGestures(targetEl){
     if (pointers.size === 2) {
       cancelIssueHold();
       pinchActive = true;
+      hadPinch = true;
       startDist = getDist();
       startZoom = userZoom;
       fitMode = false;
@@ -125,6 +128,7 @@ function bindTouchGestures(targetEl){
           userZoom = nextZoom;
           fitMode = false;
           setBadges();
+          zoomDirty = true;
           scheduleRender();
         }
       }
@@ -143,7 +147,11 @@ function bindTouchGestures(targetEl){
       startDist = 0;
       startZoom = userZoom;
       lastCenter = null;
-      if (pdfDoc) renderPage(currentPage);
+      if (pdfDoc && (hadPinch || zoomDirty)) {
+        renderPage(currentPage);
+      }
+      hadPinch = false;
+      zoomDirty = false;
     }
   };
   targetEl.addEventListener('pointerup', endPinch);
@@ -193,6 +201,10 @@ function ensureWrapAndOverlay(){
   let canvas = wrap.querySelector('canvas'); if(!canvas){ canvas = document.createElement('canvas'); canvas.id = 'pdfCanvas'; wrap.appendChild(canvas); }
   let overlay = wrap.querySelector('.pdfOverlay'); if(!overlay){ overlay = document.createElement('div'); overlay.className = 'pdfOverlay'; wrap.appendChild(overlay);
     overlay.style.touchAction = 'none';
+    overlay.style.userSelect = 'none';
+    overlay.style.webkitUserSelect = 'none';
+    overlay.style.webkitTouchCallout = 'none';
+    overlay.style.webkitTapHighlightColor = 'transparent';
     overlay.addEventListener('contextmenu', (e)=>{ e.preventDefault(); }, {capture:true});
       // Long-press (1s) to place an issue pin (desktop + touch). Small movement cancels to keep navigation smooth.
     overlay.addEventListener('pointerdown', (e)=>{
