@@ -126,7 +126,6 @@ function bindTouchGestures(targetEl){
       if (lastCenter) {
         panX += center.x - lastCenter.x;
         panY += center.y - lastCenter.y;
-        applyPanTransform();
       }
       lastCenter = center;
       const dist = getDist();
@@ -134,6 +133,13 @@ function bindTouchGestures(targetEl){
         const scale = dist / startDist;
         const nextZoom = Math.max(0.25, Math.min(5.0, startZoom * scale));
         if (Math.abs(nextZoom - userZoom) > 0.01) {
+          // Keep the pinch center anchored as zoom changes.
+          const rect = targetEl.getBoundingClientRect();
+          const cx = center.x - rect.left;
+          const cy = center.y - rect.top;
+          const zoomRatio = nextZoom / Math.max(0.01, userZoom);
+          panX = (panX - cx) * zoomRatio + cx;
+          panY = (panY - cy) * zoomRatio + cy;
           userZoom = nextZoom;
           fitMode = false;
           setBadges();
@@ -141,6 +147,7 @@ function bindTouchGestures(targetEl){
           scheduleRender();
         }
       }
+      applyPanTransform();
       e.preventDefault();
     }
   }, { passive: false });
@@ -191,7 +198,6 @@ function bindTouchGestures(targetEl){
       if (lastCenter) {
         panX += center.x - lastCenter.x;
         panY += center.y - lastCenter.y;
-        applyPanTransform();
       }
       lastCenter = center;
       const dist = getDist();
@@ -199,6 +205,12 @@ function bindTouchGestures(targetEl){
         const scale = dist / startDist;
         const nextZoom = Math.max(0.25, Math.min(5.0, startZoom * scale));
         if (Math.abs(nextZoom - userZoom) > 0.01) {
+          const rect = targetEl.getBoundingClientRect();
+          const cx = center.x - rect.left;
+          const cy = center.y - rect.top;
+          const zoomRatio = nextZoom / Math.max(0.01, userZoom);
+          panX = (panX - cx) * zoomRatio + cx;
+          panY = (panY - cy) * zoomRatio + cy;
           userZoom = nextZoom;
           fitMode = false;
           setBadges();
@@ -206,6 +218,7 @@ function bindTouchGestures(targetEl){
           scheduleRender();
         }
       }
+      applyPanTransform();
     }
   }, { passive: false });
   targetEl.addEventListener('touchend', (e) => {
