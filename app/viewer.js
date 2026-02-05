@@ -19,6 +19,7 @@ let panY = 0;
 let pendingHighlightIssueId = null;
 let photoCounts = {};
 let resizeTimer = null;
+let suppressPanForIssue = false; // blocks stage pan while detecting long-press to drop a pin
 
 // Helpers
 function qs(sel){ return document.querySelector(sel); }
@@ -81,6 +82,7 @@ function ensureWrapAndOverlay(){
       if (e.target && e.target.closest && e.target.closest('.pin')) return; // let pin drags/clicks through
       const canvasRect = canvas.getBoundingClientRect();
       if(e.clientX < canvasRect.left || e.clientX > canvasRect.right || e.clientY < canvasRect.top || e.clientY > canvasRect.bottom) return;
+      suppressPanForIssue = true; // avoid stage pan jitter cancelling the long-press on touch
       overlay._issueHold = overlay._issueHold || {};
       overlay._issueHold.startX = e.clientX; overlay._issueHold.startY = e.clientY;
       overlay._issueHold.currentX = e.clientX; overlay._issueHold.currentY = e.clientY;
@@ -93,10 +95,12 @@ function ensureWrapAndOverlay(){
       const cancelHold = ()=>{
         if(overlay._issueHold && overlay._issueHold.timer){ clearTimeout(overlay._issueHold.timer); overlay._issueHold.timer = null; }
         overlay.removeEventListener('pointermove', handleMove, true);
+        suppressPanForIssue = false;
       };
       overlay.addEventListener('pointermove', handleMove, true);
       overlay._issueHold.timer = setTimeout(()=>{
         overlay.removeEventListener('pointermove', handleMove, true);
+        suppressPanForIssue = false;
         if(!addIssueMode){ addIssueMode = true; updateAddModeVisuals(); }
         const overlayRect = overlay.getBoundingClientRect();
         let cx = overlay._issueHold.currentX;
@@ -486,6 +490,7 @@ function bindUiOnce(){ if(window.__viewerBound) return; window.__viewerBound = t
     };
     stage.addEventListener('pointerdown', (e) => {
       if (e.pointerType !== 'touch') return;
+      if (suppressPanForIssue) return; // ignore pan/pinch when we're holding to place a pin
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (pointers.size === 1 && !addIssueMode) {
         panActive = true;
@@ -504,6 +509,7 @@ function bindUiOnce(){ if(window.__viewerBound) return; window.__viewerBound = t
     });
     stage.addEventListener('pointermove', (e) => {
       if (e.pointerType !== 'touch') return;
+      if (suppressPanForIssue) return;
       if (!pointers.has(e.pointerId)) return;
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (!pinchActive && pointers.size === 1 && panActive) {
