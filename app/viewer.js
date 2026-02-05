@@ -296,6 +296,7 @@ function ensureWrapAndOverlay(){
       // Long-press (1s) to place an issue pin (desktop + touch). Small movement cancels to keep navigation smooth.
     overlay.addEventListener('pointerdown', (e)=>{
       if(e.pointerType === 'mouse' && e.button !== 0) return; // ignore right/middle clicks
+      if (window.__viewerMode === 'general') return;
       if (e.pointerType === 'touch') { e.preventDefault(); e.stopPropagation(); }
       if (e.target && e.target.closest && e.target.closest('.pin')) return; // let pin drags/clicks through
       const canvasRect = canvas.getBoundingClientRect();
@@ -682,7 +683,7 @@ function bindUiOnce(){ if(window.__viewerBound) return; window.__viewerBound = t
   if(mIssues) mIssues.onclick = ()=>{ const btn = qs('#btnViewIssues'); if(btn) btn.click(); };
 
   // Touch pinch-to-zoom handled on the overlay layer for reliable touch capture
-  if(closeBtn){ closeBtn.onclick = ()=>{ const u = new URL(window.location.href); u.searchParams.delete('plan_id'); history.pushState({},'',u.pathname); setTitle('Select a plan'); setStatus(''); const c = qs('#pdfContainer'); if(c) c.innerHTML = ''; pdfDoc = null; totalPages = 0; currentPage = 1; userZoom = 1.0; panX = 0; panY = 0; addIssueMode = false; setModeBadge(); setBadges(); document.body.classList.remove('has-viewer'); }; }
+  if(closeBtn){ closeBtn.onclick = ()=>{ const u = new URL(window.location.href); u.searchParams.delete('plan_id'); history.pushState({},'',u.pathname); const emptyTitle = window.__viewerMode === 'general' ? 'Select a PDF' : 'Select a plan'; setTitle(emptyTitle); setStatus(''); const c = qs('#pdfContainer'); if(c) c.innerHTML = ''; pdfDoc = null; totalPages = 0; currentPage = 1; userZoom = 1.0; panX = 0; panY = 0; addIssueMode = false; setModeBadge(); setBadges(); document.body.classList.remove('has-viewer'); }; }
   window.addEventListener('resize', ()=>{
     if(!pdfDoc) return;
     if(resizeTimer) clearTimeout(resizeTimer);
@@ -1559,6 +1560,7 @@ async function loadPdf(pdfUrl) {
 // Public: start viewer based on current URL plan_id
 async function startViewer() {
   bindUiOnce();
+  window.__viewerMode = 'plans';
   const planId = getPlanIdFromUrl();
   if (!planId) {
     setTitle('Select a plan');
@@ -1587,3 +1589,26 @@ async function startViewer() {
   }
 }
 window.startViewer = startViewer;
+
+// Public: open a general PDF (no issues/pins)
+async function openPdfUrlInApp(pdfUrl, title){
+  if (!pdfUrl) return;
+  bindUiOnce();
+  window.__viewerMode = 'general';
+  window.__currentPlanId = null;
+  addIssueMode = false;
+  updateAddModeVisuals();
+  setModeBadge();
+  document.body.classList.add('has-viewer');
+  setTitle(title || 'PDF Viewer');
+  fitMode = true;
+  userZoom = 1.0;
+  panX = 0;
+  panY = 0;
+  dbPins = [];
+  tempPins = [];
+  photoCounts = {};
+  await loadPdf(pdfUrl);
+  await renderPage(1);
+}
+window.openPdfUrlInApp = openPdfUrlInApp;
