@@ -33,14 +33,47 @@ if ($folder_id) {
 $ext = pathinfo($original, PATHINFO_EXTENSION);
 $rand = bin2hex(random_bytes(8));
 $filename = $rand . ($ext ? ('.' . $ext) : '.pdf');
-$dest = storage_dir('files/' . $filename);
+$fileRel = 'files/' . $filename;
+$dest = storage_dir($fileRel);
 
 if (!move_uploaded_file($file['tmp_name'], $dest)) {
     error_response('Failed to store file', 500);
 }
 
 $pdo = db();
-$stmt = $pdo->prepare('INSERT INTO files (plan_id, folder_id, filename, original_name, size, mime) VALUES (NULL, ?, ?, ?, ?, ?)');
-$stmt->execute([$folder_id, $filename, $original, $size, $mime]);
+$cols = $pdo->query("SHOW COLUMNS FROM files")->fetchAll(PDO::FETCH_COLUMN);
+$hasPlanId = in_array('plan_id', $cols, true);
+$hasLinkedPlanId = in_array('linked_plan_id', $cols, true);
+$hasFilename = in_array('filename', $cols, true);
+$hasFilePath = in_array('file_path', $cols, true);
+$hasName = in_array('name', $cols, true);
+$hasOriginal = in_array('original_name', $cols, true);
+$hasType = in_array('type', $cols, true);
+$hasFolderId = in_array('folder_id', $cols, true);
+$hasDeletedAt = in_array('deleted_at', $cols, true);
+$hasUpdatedAt = in_array('updated_at', $cols, true);
+
+$baseName = pathinfo($original, PATHINFO_FILENAME);
+$displayName = safe_string($baseName !== '' ? $baseName : $original, 255);
+
+$fields = [];
+$values = [];
+if ($hasPlanId) { $fields[] = 'plan_id'; $values[] = null; }
+if ($hasLinkedPlanId) { $fields[] = 'linked_plan_id'; $values[] = null; }
+if ($hasFolderId) { $fields[] = 'folder_id'; $values[] = $folder_id; }
+if ($hasFilePath) { $fields[] = 'file_path'; $values[] = $fileRel; }
+if ($hasFilename) { $fields[] = 'filename'; $values[] = $filename; }
+if ($hasName) { $fields[] = 'name'; $values[] = $displayName; }
+if ($hasOriginal) { $fields[] = 'original_name'; $values[] = $original; }
+$fields[] = 'size'; $values[] = $size;
+$fields[] = 'mime'; $values[] = $mime;
+if ($hasType) { $fields[] = 'type'; $values[] = 'reference'; }
+if ($hasDeletedAt) { $fields[] = 'deleted_at'; $values[] = null; }
+if ($hasUpdatedAt) { $fields[] = 'updated_at'; $values[] = date('Y-m-d H:i:s'); }
+
+$placeholders = implode(',', array_fill(0, count($fields), '?'));
+$sql = 'INSERT INTO files (' . implode(',', $fields) . ') VALUES (' . $placeholders . ')';
+$stmt = $pdo->prepare($sql);
+$stmt->execute($values);
 
 json_response(['ok'=>true, 'file_id'=>$pdo->lastInsertId(), 'filename'=>$filename]);

@@ -39,8 +39,17 @@ $pdo->beginTransaction();
 try {
     $stmt = $pdo->prepare("UPDATE pdf_folders SET deleted_at=? WHERE id IN ($placeholders)");
     $stmt->execute(array_merge([$now], $ids));
-    $stmt2 = $pdo->prepare("UPDATE files SET deleted_at=? WHERE plan_id IS NULL AND folder_id IN ($placeholders)");
-    $stmt2->execute(array_merge([$now], $ids));
+    $cols = $pdo->query("SHOW COLUMNS FROM files")->fetchAll(PDO::FETCH_COLUMN);
+    $hasPlanId = in_array('plan_id', $cols, true);
+    $hasLinkedPlanId = in_array('linked_plan_id', $cols, true);
+    $hasDeletedAt = in_array('deleted_at', $cols, true);
+    $where = [];
+    if ($hasPlanId) $where[] = 'plan_id IS NULL';
+    if ($hasLinkedPlanId) $where[] = 'linked_plan_id IS NULL';
+    $where[] = "folder_id IN ($placeholders)";
+    $sql = ($hasDeletedAt ? 'UPDATE files SET deleted_at=? WHERE ' : 'DELETE FROM files WHERE ') . implode(' AND ', $where);
+    $stmt2 = $pdo->prepare($sql);
+    $stmt2->execute($hasDeletedAt ? array_merge([$now], $ids) : $ids);
     $pdo->commit();
 } catch (Exception $e) {
     $pdo->rollBack();

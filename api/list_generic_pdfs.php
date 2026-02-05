@@ -7,6 +7,19 @@ require_method('GET');
 $pdo = db();
 $folder_id = safe_int($_GET['folder_id'] ?? null);
 
+$fileCols = $pdo->query("SHOW COLUMNS FROM files")->fetchAll(PDO::FETCH_COLUMN);
+$hasPlanId = in_array('plan_id', $fileCols, true);
+$hasLinkedPlanId = in_array('linked_plan_id', $fileCols, true);
+$hasFilename = in_array('filename', $fileCols, true);
+$hasFilePath = in_array('file_path', $fileCols, true);
+$hasName = in_array('name', $fileCols, true);
+$hasOriginal = in_array('original_name', $fileCols, true);
+$hasCreatedAt = in_array('created_at', $fileCols, true);
+$hasUploadedAt = in_array('uploaded_at', $fileCols, true);
+$hasType = in_array('type', $fileCols, true);
+$hasFolderId = in_array('folder_id', $fileCols, true);
+$hasDeletedAt = in_array('deleted_at', $fileCols, true);
+
 // folders for current parent
 if ($folder_id) {
     $chk = $pdo->prepare('SELECT id FROM pdf_folders WHERE id=? AND deleted_at IS NULL');
@@ -19,13 +32,48 @@ $foldersStmt->execute($folder_id ? [$folder_id] : []);
 $folders = $foldersStmt->fetchAll();
 $folders = format_dates_in_rows($folders);
 
-$filesStmt = $pdo->prepare('SELECT id, filename, original_name, size, mime, created_at FROM files WHERE plan_id IS NULL AND deleted_at IS NULL AND folder_id '.($folder_id ? '= ?' : 'IS NULL').' ORDER BY created_at DESC');
-$filesStmt->execute($folder_id ? [$folder_id] : []);
+$where = [];
+$params = [];
+if ($hasPlanId) {
+    $where[] = 'plan_id IS NULL';
+} elseif ($hasLinkedPlanId) {
+    $where[] = 'linked_plan_id IS NULL';
+}
+if ($hasType) $where[] = "type='reference'";
+if ($hasDeletedAt) $where[] = 'deleted_at IS NULL';
+if ($hasFolderId) {
+    $where[] = $folder_id ? 'folder_id = ?' : 'folder_id IS NULL';
+    if ($folder_id) $params[] = $folder_id;
+} elseif ($folder_id) {
+    error_response('Folders not supported by files table', 400);
+}
+
+$nameExpr = $hasOriginal ? 'original_name' : ($hasName ? 'name' : "''");
+$pathExpr = $hasFilePath ? 'file_path' : ($hasFilename ? 'filename' : "''");
+$dateExpr = $hasCreatedAt ? 'created_at' : ($hasUploadedAt ? 'uploaded_at AS created_at' : 'NULL AS created_at');
+$sql = "SELECT id, {$pathExpr} AS path_value, {$nameExpr} AS original_name, size, mime, {$dateExpr} FROM files";
+if ($where) $sql .= ' WHERE ' . implode(' AND ', $where);
+$orderCol = $hasCreatedAt ? 'created_at' : ($hasUploadedAt ? 'uploaded_at' : 'id');
+$sql .= " ORDER BY {$orderCol} DESC";
+
+$filesStmt = $pdo->prepare($sql);
+$filesStmt->execute($params);
 $files = $filesStmt->fetchAll();
 $files = format_dates_in_rows($files);
 $base = base_url();
 foreach ($files as &$row) {
-    $row['url'] = $base . '/storage/files/' . $row['filename'];
+    $path = $row['path_value'] ?? '';
+    if ($hasFilePath) {
+        $clean = ltrim($path, '/');
+        if (strpos($clean, 'storage/') === 0) {
+            $row['url'] = $base . '/' . $clean;
+        } else {
+            $row['url'] = $base . '/storage/' . $clean;
+        }
+    } else {
+        $row['url'] = $base . '/storage/files/' . $path;
+    }
+    unset($row['path_value']);
 }
 
 // breadcrumb path

@@ -11,8 +11,28 @@ if (!$id) error_response('File id required', 400);
 if ($newName === '') error_response('Name required', 400);
 
 $pdo = db();
-$stmt = $pdo->prepare('SELECT id, filename, original_name FROM files WHERE id=? AND plan_id IS NULL AND deleted_at IS NULL');
-$stmt->execute([$id]);
+$cols = $pdo->query("SHOW COLUMNS FROM files")->fetchAll(PDO::FETCH_COLUMN);
+$hasPlanId = in_array('plan_id', $cols, true);
+$hasLinkedPlanId = in_array('linked_plan_id', $cols, true);
+$hasFilename = in_array('filename', $cols, true);
+$hasFilePath = in_array('file_path', $cols, true);
+$hasName = in_array('name', $cols, true);
+$hasOriginal = in_array('original_name', $cols, true);
+$hasDeletedAt = in_array('deleted_at', $cols, true);
+$hasUpdatedAt = in_array('updated_at', $cols, true);
+
+$selectCols = ['id'];
+if ($hasFilename) $selectCols[] = 'filename';
+if ($hasFilePath) $selectCols[] = 'file_path';
+if ($hasName) $selectCols[] = 'name';
+if ($hasOriginal) $selectCols[] = 'original_name';
+$where = [];
+$params = [$id];
+if ($hasPlanId) $where[] = 'plan_id IS NULL';
+if ($hasLinkedPlanId) $where[] = 'linked_plan_id IS NULL';
+if ($hasDeletedAt) $where[] = 'deleted_at IS NULL';
+$stmt = $pdo->prepare('SELECT '.implode(',', $selectCols).' FROM files WHERE id=?'.($where ? ' AND ' . implode(' AND ', $where) : ''));
+$stmt->execute($params);
 $row = $stmt->fetch();
 if (!$row) error_response('File not found', 404);
 
@@ -31,21 +51,36 @@ $ext = $ext ? strtolower($ext) : 'pdf';
 if ($ext !== 'pdf') $ext = 'pdf';
 
 $target = $base . '.' . $ext;
-$storageBase = resolve_storage_path();
-$dest = storage_dir('files/' . $target);
+$dir = 'files';
+if ($hasFilePath && !empty($row['file_path'])) {
+    $dir = trim(dirname($row['file_path']), '/');
+    if ($dir === '' || $dir === '.') $dir = 'files';
+}
+$dest = storage_dir($dir . '/' . $target);
 $counter = 1;
 while (file_exists($dest)) {
     $target = $base . '-' . $counter . '.' . $ext;
-    $dest = storage_dir('files/' . $target);
+    $dest = storage_dir($dir . '/' . $target);
     $counter++;
     if ($counter > 200) error_response('Failed to find unique filename', 500);
 }
 
-$oldPath = storage_dir('files/' . $row['filename']);
+$oldRel = $hasFilePath ? ($row['file_path'] ?? '') : ('files/' . ($row['filename'] ?? ''));
+$oldPath = storage_dir($oldRel);
 if (!file_exists($oldPath)) error_response('Stored file missing', 500);
 if (!rename($oldPath, $dest)) error_response('Failed to rename file', 500);
 
-$upd = $pdo->prepare('UPDATE files SET filename=?, original_name=? WHERE id=?');
-$upd->execute([$target, $newName, $id]);
+$updFields = [];
+$updValues = [];
+if ($hasFilename) { $updFields[] = 'filename=?'; $updValues[] = $target; }
+if ($hasFilePath) { $updFields[] = 'file_path=?'; $updValues[] = $dir . '/' . $target; }
+if ($hasName) { $updFields[] = 'name=?'; $updValues[] = $base; }
+if ($hasOriginal) { $updFields[] = 'original_name=?'; $updValues[] = $newName; }
+if ($hasUpdatedAt) { $updFields[] = 'updated_at=?'; $updValues[] = date('Y-m-d H:i:s'); }
+if ($updFields) {
+    $updValues[] = $id;
+    $upd = $pdo->prepare('UPDATE files SET '.implode(',', $updFields).' WHERE id=?');
+    $upd->execute($updValues);
+}
 
 json_response(['ok'=>true, 'filename'=>$target]);
