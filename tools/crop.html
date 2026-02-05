@@ -91,6 +91,13 @@
             <button id="btnPrev" class="btn" style="min-width:44px;min-height:44px;">◀</button>
             <button id="btnNext" class="btn" style="min-width:44px;min-height:44px;">▶</button>
           </div>
+          <div style="margin-bottom:8px;display:flex;gap:8px;align-items:center;">
+            <span class="muted" style="min-width:52px;">Zoom:</span>
+            <button id="btnZoomOut" class="btn" style="min-width:44px;min-height:44px;" aria-label="Zoom out">−</button>
+            <div id="zoomLabel" class="muted" style="min-width:64px;text-align:center;">100%</div>
+            <button id="btnZoomIn" class="btn" style="min-width:44px;min-height:44px;" aria-label="Zoom in">+</button>
+            <button id="btnZoomFit" class="btn" style="min-width:44px;min-height:44px;" aria-label="Fit to width">Fit</button>
+          </div>
           <div style="margin-bottom:8px;">
             <button id="btnCropPreview" class="btn" style="min-width:44px;min-height:44px;">Preview Crop</button>
             <button id="btnExportPdf" class="btnPrimary" style="min-width:44px;min-height:44px;">Export Cropped PDF</button>
@@ -117,6 +124,9 @@
     let totalPages = 0;
     let scale = 1.0;
     let pageViewport = null;
+    let zoom = 1.0;
+    const zoomLabel = document.getElementById('zoomLabel');
+    const canvasWrap = document.getElementById('canvasWrap');
 
     pdfjsLib.GlobalWorkerOptions.workerSrc = '/vendor/pdfjs/pdf.worker.min.js';
 
@@ -187,7 +197,42 @@
       totalPages = pdfDoc.numPages; document.getElementById('pageInput').max = totalPages; document.getElementById('pageInput').value = 1; curPage = 1; await renderPage(curPage);
     }
 
-    async function renderPage(pageNo){ if(!pdfDoc) return; const page = await pdfDoc.getPage(pageNo); const viewport = page.getViewport({scale:1}); const w = Math.min(viewport.width, 1200); scale = w / viewport.width; pageViewport = page.getViewport({scale}); canvas.width = Math.floor(pageViewport.width); canvas.height = Math.floor(pageViewport.height); canvas.style.width = canvas.width + 'px'; canvas.style.height = canvas.height + 'px'; const renderContext = { canvasContext: ctx, viewport: pageViewport }; await page.render(renderContext).promise; updateDpiInfo(); }
+    async function renderPage(pageNo){
+      if(!pdfDoc) return;
+      const page = await pdfDoc.getPage(pageNo);
+      const viewport = page.getViewport({scale:1});
+      const w = Math.min(viewport.width, 1200);
+      scale = w / viewport.width;
+      pageViewport = page.getViewport({scale});
+      canvas.width = Math.floor(pageViewport.width);
+      canvas.height = Math.floor(pageViewport.height);
+      canvas.style.width = canvas.width + 'px';
+      canvas.style.height = canvas.height + 'px';
+      const renderContext = { canvasContext: ctx, viewport: pageViewport };
+      await page.render(renderContext).promise;
+      applyZoom();
+      updateDpiInfo();
+    }
+
+    function applyZoom(){
+      const clamped = Math.max(0.5, Math.min(5, zoom));
+      zoom = clamped;
+      if(canvasWrap){ canvasWrap.style.transform = `scale(${zoom})`; canvasWrap.style.transformOrigin = '0 0'; }
+      if(zoomLabel) zoomLabel.textContent = `${Math.round(zoom * 100)}%`;
+    }
+
+    function fitZoom(){
+      const stage = document.getElementById('cropStage');
+      if(!stage || !canvas.width) { zoom = 1; applyZoom(); return; }
+      const padding = 24;
+      const available = Math.max(200, stage.clientWidth - padding);
+      zoom = Math.max(0.5, Math.min(5, available / canvas.width));
+      applyZoom();
+    }
+
+    document.getElementById('btnZoomOut').onclick = ()=>{ zoom = Math.max(0.5, zoom - 0.25); applyZoom(); };
+    document.getElementById('btnZoomIn').onclick = ()=>{ zoom = Math.min(5, zoom + 0.25); applyZoom(); };
+    document.getElementById('btnZoomFit').onclick = ()=>{ fitZoom(); };
 
     document.getElementById('btnPrev').onclick = async ()=>{ if(curPage>1) { curPage--; document.getElementById('pageInput').value = curPage; await renderPage(curPage); } };
     document.getElementById('btnNext').onclick = async ()=>{ if(curPage<totalPages) { curPage++; document.getElementById('pageInput').value = curPage; await renderPage(curPage); } };
@@ -200,10 +245,16 @@
     let activeHandle = null;
     let startX=0, startY=0;
 
+    function getCanvasPoint(e){
+      const rBounds = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rBounds.width;
+      const scaleY = canvas.height / rBounds.height;
+      return { x: (e.clientX - rBounds.left) * scaleX, y: (e.clientY - rBounds.top) * scaleY };
+    }
+
     overlay.addEventListener('pointerdown', (e)=>{
       // start drawing a square selection
-      const rBounds = canvas.getBoundingClientRect();
-      const x = e.clientX - rBounds.left, y = e.clientY - rBounds.top;
+      const { x, y } = getCanvasPoint(e);
       mode = 'drawing'; startX = x; startY = y;
       rect = {x:startX, y:startY, w:0, h:0};
       createOrUpdateSelection();
@@ -211,8 +262,7 @@
     });
 
     overlay.addEventListener('pointermove', (e)=>{
-      const rBounds = canvas.getBoundingClientRect();
-      const x = e.clientX - rBounds.left, y = e.clientY - rBounds.top;
+      const { x, y } = getCanvasPoint(e);
       if(mode === 'drawing'){
         const dx = x - startX, dy = y - startY;
         const size = Math.max(Math.abs(dx), Math.abs(dy));
@@ -268,11 +318,11 @@
         // add handles
         ['nw','ne','sw','se'].forEach(corner=>{
           const h = document.createElement('div'); h.className='cropHandle'; h.dataset.corner = corner; h.style.position='absolute';
-          h.addEventListener('pointerdown', (ev)=>{ ev.stopPropagation(); ev.preventDefault(); mode='resizing'; activeHandle = h; const r = canvas.getBoundingClientRect(); startX = ev.clientX - r.left; startY = ev.clientY - r.top; overlay.setPointerCapture(ev.pointerId); });
+          h.addEventListener('pointerdown', (ev)=>{ ev.stopPropagation(); ev.preventDefault(); mode='resizing'; activeHandle = h; const pt = getCanvasPoint(ev); startX = pt.x; startY = pt.y; overlay.setPointerCapture(ev.pointerId); });
           selectionEl.appendChild(h);
         });
         // move handler
-        selectionEl.addEventListener('pointerdown', (ev)=>{ ev.stopPropagation(); mode='moving'; const r = canvas.getBoundingClientRect(); startX = ev.clientX - r.left; startY = ev.clientY - r.top; overlay.setPointerCapture(ev.pointerId); });
+        selectionEl.addEventListener('pointerdown', (ev)=>{ ev.stopPropagation(); mode='moving'; const pt = getCanvasPoint(ev); startX = pt.x; startY = pt.y; overlay.setPointerCapture(ev.pointerId); });
         // size label
         const label = document.createElement('div'); label.className='sizeLabel'; selectionEl.appendChild(label);
         overlay.appendChild(selectionEl);
@@ -522,7 +572,6 @@
   </script>
 </body>
 </html>
-
 
 
 
