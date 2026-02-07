@@ -123,14 +123,14 @@
         </div>
       </div>
 
-      <div style="display:flex;gap:12px;align-items:flex-start">
-        <div id="cropStage" style="position:relative;flex:1;">
+      <div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;">
+        <div id="cropStage" style="position:relative;flex:1 1 0;min-width:280px;overflow:auto;max-width:100%;">
           <div id="canvasWrap" style="position:relative;display:inline-block;">
             <canvas id="cropCanvas"></canvas>
             <div class="cropOverlay" id="overlayArea"></div>
           </div>
         </div>
-        <div style="width:320px;">
+        <div style="width:320px;flex:0 0 320px;max-width:100%;">
           <div style="margin-bottom:8px;">
             <label>Page: <input id="pageInput" type="number" min="1" value="1" style="width:80px;min-width:44px;min-height:44px;" inputmode="numeric" aria-label="Page number"></label>
             <button id="btnPrev" class="btn" style="min-width:44px;min-height:44px;">◀</button>
