@@ -1286,7 +1286,7 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
   max-width: 1200px;
   max-height: 90vh;
-  overflow: hidden;
+  overflow: auto;
   display: flex;
   flex-direction: column;
 }
