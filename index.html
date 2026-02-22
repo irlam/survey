@@ -10,6 +10,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Survey">
+  <link rel="stylesheet" href="/assets/issues-modal-modern.css?v=20260222_1">
   <link rel="stylesheet" href="/assets/ui.css?v=20260222_2">
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512-maskable.png">
@@ -121,48 +122,54 @@
 
   <!-- Issues Modal - Modern Redesign -->
   <div id="issuesModal" class="modal" style="display:none;">
-    <div class="modal-content modal-content-modern">
+    <div class="modal-content-modern">
       <div class="modal-header">
-        <button id="closeIssuesModal" class="modal-close" aria-label="Close">×</button>
         <h2>Issues for this Plan</h2>
         <div class="modal-stats" id="modalStats">0 issues</div>
+        <button id="closeIssuesModal" class="modal-close" aria-label="Close modal">×</button>
       </div>
       
       <div class="issuesControls">
         <div class="filter-row">
           <div class="search-box">
             <span class="search-icon">🔍</span>
-            <input id="issuesSearch" type="text" placeholder="Search issues…" aria-label="Search issues" inputmode="search" />
+            <input id="issuesSearch" type="text" placeholder="Search by title, notes, ID..." aria-label="Search issues" inputmode="search" />
           </div>
-          <button id="issuesAddBtn" class="btnPrimary btn-add-issue" type="button">＋ Add Issue</button>
+          <button id="issuesAddBtn" class="btn-add-issue" type="button">＋ New Issue</button>
         </div>
         
         <div class="filter-row">
-          <input id="issuesAssigneeFilter" type="text" placeholder="Assignee…" aria-label="Filter by assignee" inputmode="text" class="filter-input" />
-          <select id="issuesSort" class="filter-select">
-            <option value="manual">Manual order</option>
-            <option value="newest">Newest first</option>
-            <option value="oldest">Oldest first</option>
-          </select>
-          <select id="issuesStatusFilter" class="filter-select">
-            <option value="">All status</option>
+          <input id="issuesAssigneeFilter" type="text" placeholder="Assignee..." aria-label="Filter by assignee" inputmode="text" class="filter-input" />
+          <select id="issuesStatusFilter" class="filter-select" aria-label="Filter by status">
+            <option value="">Any Status</option>
             <option value="Open">Open</option>
             <option value="In Progress">In Progress</option>
             <option value="Closed">Closed</option>
           </select>
-          <select id="issuesPriorityFilter" class="filter-select">
-            <option value="">All priority</option>
+          <select id="issuesPriorityFilter" class="filter-select" aria-label="Filter by priority">
+            <option value="">Any Priority</option>
             <option value="Low">Low</option>
             <option value="Medium">Medium</option>
             <option value="High">High</option>
           </select>
+          <select id="issuesSort" class="filter-select" aria-label="Sort issues">
+            <option value="manual">Manual Order</option>
+            <option value="newest">Newest First</option>
+            <option value="oldest">Oldest First</option>
+          </select>
         </div>
         
         <div class="bulk-actions">
-          <label class="issuesSelectAll"><input id="issuesSelectAll" type="checkbox"> <span>Select all</span></label>
-          <button id="issuesExportSelected" class="btn" type="button">Export Selected</button>
+          <label class="issuesSelectAll">
+            <input id="issuesSelectAll" type="checkbox">
+            <span>Select All</span>
+          </label>
+          <button id="issuesExportSelected" class="btn" type="button">📤 Export Selected</button>
           <span id="issuesSelectedCount" class="muted" aria-live="polite">0 selected</span>
-          <label class="issuesCompactToggle"><input id="issuesCompactToggle" type="checkbox"> <span>Compact view</span></label>
+          <label class="issuesCompactToggle">
+            <input id="issuesCompactToggle" type="checkbox">
+            <span>Compact View</span>
+          </label>
         </div>
       </div>
       
@@ -171,12 +178,12 @@
       
       <div class="modal-footer">
         <button id="btnGeneratePdf" class="btnPrimary">📄 Generate PDF Report</button>
-        <button id="btnDownloadPdf" class="btn" style="display:none;">⬇ Download PDF</button>
+        <button id="btnDownloadPdf" class="btn" style="display:none;">⬇️ Download</button>
         <label class="checkbox-label">
           <input type="checkbox" id="chkIncludePin" checked>
-          <span>Include pin thumbnail</span>
-          <button id="imgHelp" title="Checking server capability..." style="display:none;border:none;background:transparent;color:var(--muted);font-size:14px;padding:6px;">❔</button>
+          <span>Include pin thumbnails</span>
         </label>
+        <button id="imgHelp" title="Checking server capability..." style="display:none;border:none;background:transparent;color:var(--muted);font-size:14px;padding:6px;">❔</button>
         <div id="pdfReportOut" class="muted" role="status" aria-live="polite"></div>
       </div>
     </div>

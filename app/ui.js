@@ -600,157 +600,284 @@ function showIssuesModal(planId) {
       // build enhanced list
       issuesList.innerHTML = '';
       const container = document.createElement('div');
-      container.style.display = 'flex'; container.style.flexDirection = 'column'; container.style.gap = '8px';
+      container.style.display = 'flex'; container.style.flexDirection = 'column'; container.style.gap = '0';
       for (const issue of filtered) {
-        const item = document.createElement('div'); item.className = 'card issueCard'; item.dataset.issueId = String(issue.id||''); item.setAttribute('role','listitem');
+        const item = document.createElement('div'); 
+        item.className = 'card issueCard'; 
+        item.dataset.issueId = String(issue.id||''); 
+        item.setAttribute('role','listitem');
         item.dataset.status = (issue.status || 'Open');
         item.dataset.priority = (issue.priority || 'Medium');
         item.dataset.category = (issue.category || 'Other');
-        const header = document.createElement('div'); header.className = 'issueHeader';
-        const titleWrap = document.createElement('div'); titleWrap.className = 'issueTitleWrap';
-        const selectWrap = document.createElement('label'); selectWrap.className = 'issueSelectWrap';
-        const selectBox = document.createElement('input'); selectBox.type='checkbox'; selectBox.className='issueSelect'; selectBox.value = String(issue.id||'');
-        selectBox.checked = selectedIds.has(selectBox.value);
-        selectBox.onchange = ()=>{ if(selectBox.checked) selectedIds.add(selectBox.value); else selectedIds.delete(selectBox.value); updateSelectedUi(); };
+        
+        const isSelected = selectedIds.has(String(issue.id||''));
+        if (isSelected) item.classList.add('selected');
+        
+        const inner = document.createElement('div');
+        inner.className = 'issueCardInner';
+        
+        // Checkbox column
+        const selectWrap = document.createElement('label'); 
+        selectWrap.className = 'issueSelectWrap';
+        const selectBox = document.createElement('input'); 
+        selectBox.type='checkbox'; 
+        selectBox.className='issueSelect'; 
+        selectBox.value = String(issue.id||'');
+        selectBox.checked = isSelected;
+        selectBox.onchange = ()=>{ 
+          if(selectBox.checked) selectedIds.add(selectBox.value); 
+          else selectedIds.delete(selectBox.value); 
+          item.classList.toggle('selected', selectBox.checked);
+          updateSelectedUi(); 
+        };
         selectWrap.appendChild(selectBox);
-        const dragHandle = document.createElement('button'); dragHandle.className='issueDragHandle'; dragHandle.type='button'; dragHandle.textContent='⋮⋮';
-        const title = document.createElement('div'); title.className = 'issueTitleText'; title.textContent = issue.title || ('Issue #' + issue.id);
-        const sub = document.createElement('div'); sub.className = 'issueSubText';
-        sub.textContent = `#${issue.id || ''} · Page ${issue.page || ''}`;
-        titleWrap.appendChild(title); titleWrap.appendChild(sub);
-        const badges = document.createElement('div'); badges.className = 'issueBadges';
-        // Create custom-styled select widgets (neon / customSelect) so dropdown list is styled consistently
-        function normalizeSelectValue(val, opts){
-          if (!val) return (opts[0] && opts[0].value) || '';
-          const raw = String(val).trim();
-          const norm = raw.toLowerCase().replace(/[_\s]+/g, ' ');
-          const match = opts.find(o => String(o.value).toLowerCase().replace(/[_\s]+/g, ' ') === norm)
-            || opts.find(o => String(o.label).toLowerCase().replace(/[_\s]+/g, ' ') === norm);
-          return (match && match.value) || (opts[0] && opts[0].value) || raw;
-        }
+        
+        // Main content
+        const mainContent = document.createElement('div');
+        mainContent.className = 'issueMainContent';
+        
+        const titleWrap = document.createElement('div'); 
+        titleWrap.className = 'issueTitleWrap';
+        const title = document.createElement('div'); 
+        title.className = 'issueTitleText'; 
+        title.textContent = issue.title || ('Issue #' + issue.id);
+        const sub = document.createElement('div'); 
+        sub.className = 'issueSubText';
+        sub.textContent = `#${issue.id || ''} • Page ${issue.page || ''} • ${formatDate(issue.created_at)}`;
+        titleWrap.appendChild(title); 
+        titleWrap.appendChild(sub);
+        
+        // Badges with custom selects
+        const badges = document.createElement('div'); 
+        badges.className = 'issueBadges';
+        
         function createCustomSelect(opts, val, extraClass){
-          const wrap = document.createElement('div'); wrap.className = (extraClass ? extraClass + ' ' : '') + 'customSelect neonSelect';
-          wrap.tabIndex = 0; wrap.setAttribute('role','combobox');
-          const btn = document.createElement('button'); btn.className = 'selectButton'; btn.setAttribute('aria-label','Select'); btn.innerHTML = '<span class="selectedLabel"></span>';
-          const ul = document.createElement('ul'); ul.className = 'selectList'; ul.setAttribute('role','listbox'); ul.tabIndex = -1;
-          for(const o of opts){ const li = document.createElement('li'); li.setAttribute('role','option'); li.dataset.value = o.value; li.textContent = o.label; if(o.value===val) li.setAttribute('aria-selected','true'); ul.appendChild(li); }
-          wrap.appendChild(btn); wrap.appendChild(ul);
-          // hidden value storage
-          wrap.value = normalizeSelectValue(val, opts);
-          const setSelected = (v)=>{ const sel = Array.from(ul.children).find(li=>li.dataset.value==v); if(sel){ wrap.querySelector('.selectedLabel').textContent = sel.textContent; wrap.value = v; ul.querySelectorAll('li').forEach(li=> li.setAttribute('aria-selected', li.dataset.value==v ? 'true' : 'false')); }};
-          const labelEl = wrap.querySelector('.selectedLabel'); labelEl.style.color = '#041013'; labelEl.style.fontWeight = '900';
-          btn.style.color = '#041013';
-          setSelected(wrap.value);
-          btn.onclick = (e)=>{ e.stopPropagation(); const open = ul.classList.toggle('open'); wrap.setAttribute('aria-expanded', open? 'true':'false'); if(open) ul.focus(); };
-          ul.querySelectorAll('li').forEach(li=>{ li.tabIndex=0; li.onclick = (ev)=>{ ev.stopPropagation(); setSelected(li.dataset.value); ul.classList.remove('open'); wrap.setAttribute('aria-expanded','false'); wrap.dispatchEvent(new Event('change')); }; li.onkeydown = (ev)=>{ if(ev.key==='Enter' || ev.key===' '){ ev.preventDefault(); li.click(); } }; });
-          wrap._closeList = ()=>{ ul.classList.remove('open'); wrap.setAttribute('aria-expanded','false'); };
+          const wrap = document.createElement('div'); 
+          wrap.className = (extraClass ? extraClass + ' ' : '') + 'customSelect neonSelect';
+          wrap.tabIndex = 0; 
+          wrap.setAttribute('role','combobox');
+          const btn = document.createElement('button'); 
+          btn.className = 'selectButton'; 
+          btn.setAttribute('aria-label','Select'); 
+          btn.innerHTML = '<span class="selectedLabel"></span>';
+          const ul = document.createElement('ul'); 
+          ul.className = 'selectList'; 
+          ul.setAttribute('role','listbox'); 
+          ul.tabIndex = -1;
+          for(const o of opts){ 
+            const li = document.createElement('li'); 
+            li.setAttribute('role','option'); 
+            li.dataset.value = o.value; 
+            li.textContent = o.label; 
+            if(o.value===val) li.setAttribute('aria-selected','true'); 
+            ul.appendChild(li); 
+          }
+          wrap.appendChild(btn); 
+          wrap.appendChild(ul);
+          
+          const setSelected = (v)=>{ 
+            const sel = Array.from(ul.children).find(li=>li.dataset.value==v); 
+            if(sel){ 
+              wrap.querySelector('.selectedLabel').textContent = sel.textContent; 
+              wrap.value = v; 
+              ul.querySelectorAll('li').forEach(li=> li.setAttribute('aria-selected', li.dataset.value==v ? 'true' : 'false'));
+            }
+          };
+          
+          const labelEl = wrap.querySelector('.selectedLabel'); 
+          labelEl.style.color = '#e6f0ff'; 
+          labelEl.style.fontWeight = '700';
+          btn.style.color = '#e6f0ff';
+          
+          setSelected(val);
+          
+          btn.onclick = (e)=>{ 
+            e.stopPropagation(); 
+            const open = ul.classList.toggle('open'); 
+            wrap.setAttribute('aria-expanded', open? 'true':'false'); 
+            if(open) ul.focus(); 
+          };
+          
+          ul.querySelectorAll('li').forEach(li=>{ 
+            li.tabIndex=0; 
+            li.onclick = (ev)=>{ 
+              ev.stopPropagation(); 
+              setSelected(li.dataset.value); 
+              ul.classList.remove('open'); 
+              wrap.setAttribute('aria-expanded','false'); 
+              wrap.dispatchEvent(new Event('change')); 
+            }; 
+            li.onkeydown = (ev)=>{ 
+              if(ev.key==='Enter' || ev.key===' '){ 
+                ev.preventDefault(); 
+                li.click(); 
+              } 
+            }; 
+          });
+          
+          wrap._closeList = ()=>{ 
+            ul.classList.remove('open'); 
+            wrap.setAttribute('aria-expanded','false'); 
+          };
+          
           return wrap;
         }
+        
         const statusSelect = createCustomSelect([
-          {value:'Open',label:'Open'},{value:'In Progress',label:'In Progress'},{value:'Closed',label:'Closed'}
+          {value:'Open',label:'🟢 Open'},
+          {value:'In Progress',label:'🟡 In Progress'},
+          {value:'Closed',label:'🔴 Closed'}
         ], issue.status || 'Open');
-        statusSelect.style.minWidth='110px'; statusSelect.title='Status'; statusSelect.setAttribute('aria-label','Issue status');
+        statusSelect.style.minWidth='130px';
+        
         const prioSelect = createCustomSelect([
-          {value:'Low',label:'Low'},{value:'Medium',label:'Medium'},{value:'High',label:'High'}
-        ], issue.priority || 'Medium', 'small');
-        prioSelect.style.minWidth='90px'; prioSelect.title='Priority'; prioSelect.setAttribute('aria-label','Issue priority');
-        const scheduleQuickSave = (() => {
-          let timer = null;
-          return () => {
-            if (timer) clearTimeout(timer);
-            timer = setTimeout(async () => {
-              try{
-                const payload = {
-                  id: issue.id,
-                  plan_id: planId,
-                  title: issue.title,
-                  notes: issue.notes,
-                  page: issue.page,
-                  x_norm: issue.x_norm,
-                  y_norm: issue.y_norm,
-                  status: statusSelect.value,
-                  priority: prioSelect.value
-                };
-                const r = await fetch('/api/save_issue.php',{
-                  method:'POST',
-                  headers:{'Content-Type':'application/json'},
-                  body: JSON.stringify(payload),
-                  credentials:'same-origin'
-                });
-                const txt = await r.text();
-                let resp; try{ resp = JSON.parse(txt); }catch(e){ resp = null; }
-                if(!r.ok || !resp || !resp.ok) throw new Error((resp && resp.error) ? resp.error : 'Save failed');
-                issue.status = statusSelect.value;
-                issue.priority = prioSelect.value;
-                showToast('Updated');
-              }catch(err){
-                showToast('Update failed: ' + err.message);
-              }
-            }, 550);
-          };
-        })();
-        statusSelect.addEventListener('change', scheduleQuickSave);
-        prioSelect.addEventListener('change', scheduleQuickSave);
-
-        const catChip = document.createElement('span'); catChip.className='issueChip'; catChip.textContent = issue.category || 'Other';
-        badges.appendChild(statusSelect); badges.appendChild(prioSelect); badges.appendChild(catChip);
-        header.appendChild(selectWrap); header.appendChild(dragHandle); header.appendChild(titleWrap); header.appendChild(badges);
-
-        const body = document.createElement('div'); body.className = 'issueBody';
-        const notes = document.createElement('div'); notes.className = 'issueNotesText'; notes.textContent = issue.notes || issue.description || 'No notes';
-        body.appendChild(notes);
-
-        const meta = document.createElement('div'); meta.className = 'issueMetaRow';
-        const createdDiv = document.createElement('div'); createdDiv.className = 'issueMetaItem';
-        if (issue.created_at) { const val = issue.created_at; if (typeof val === 'string' && val.indexOf('/') !== -1) { createdDiv.textContent = val + (issue.created_by ? (' — ' + issue.created_by) : ''); }
-          else { const d = new Date(val); const pad = (n) => n.toString().padStart(2,'0'); createdDiv.textContent = `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}` + (issue.created_by ? (' — ' + issue.created_by) : ''); } }
-        else if (issue.created_by) { createdDiv.textContent = issue.created_by; }
-        const assignee = document.createElement('div'); assignee.className = 'issueMetaItem';
+          {value:'Low',label:'🔵 Low'},
+          {value:'Medium',label:'🟡 Medium'},
+          {value:'High',label:'🔴 High'}
+        ], issue.priority || 'Medium');
+        prioSelect.style.minWidth='120px';
+        
+        const catChip = document.createElement('span'); 
+        catChip.className='issueChip'; 
+        catChip.textContent = issue.category || 'Other';
+        
+        badges.appendChild(statusSelect); 
+        badges.appendChild(prioSelect); 
+        badges.appendChild(catChip);
+        
+        mainContent.appendChild(titleWrap); 
+        mainContent.appendChild(badges);
+        
+        // Body with notes and meta
+        const body = document.createElement('div'); 
+        body.className = 'issueBody';
+        
+        if (issue.notes || issue.description) {
+          const notes = document.createElement('div'); 
+          notes.className = 'issueNotesText'; 
+          notes.textContent = issue.notes || issue.description;
+          body.appendChild(notes);
+        }
+        
+        const meta = document.createElement('div'); 
+        meta.className = 'issueMetaRow';
+        const createdDiv = document.createElement('div'); 
+        createdDiv.className = 'issueMetaItem';
+        if (issue.created_at) { 
+          const val = issue.created_at; 
+          if (typeof val === 'string' && val.indexOf('/') !== -1) { 
+            createdDiv.textContent = val + (issue.created_by ? (' • ' + issue.created_by) : ''); 
+          } else { 
+            const d = new Date(val); 
+            const pad = (n) => n.toString().padStart(2,'0'); 
+            createdDiv.textContent = `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}` + (issue.created_by ? (' • ' + issue.created_by) : ''); 
+          } 
+        } else if (issue.created_by) { 
+          createdDiv.textContent = issue.created_by; 
+        }
+        
+        const assignee = document.createElement('div'); 
+        assignee.className = 'issueMetaItem';
         const assigneeVal = issue.assigned_to || issue.assignee || '';
-        assignee.textContent = assigneeVal ? ('Assignee: ' + assigneeVal) : 'Unassigned';
-        const due = document.createElement('div'); due.className = 'issueMetaItem';
-        due.textContent = issue.due_date ? ('Due: ' + issue.due_date) : '';
-        meta.appendChild(createdDiv); meta.appendChild(assignee);
+        assignee.textContent = assigneeVal ? ('👤 ' + assigneeVal) : '👤 Unassigned';
+        
+        const due = document.createElement('div'); 
+        due.className = 'issueMetaItem';
+        due.textContent = issue.due_date ? ('📅 Due: ' + issue.due_date) : '';
+        
+        meta.appendChild(createdDiv); 
+        meta.appendChild(assignee);
         if (issue.due_date) meta.appendChild(due);
         body.appendChild(meta);
-
-        const previews = document.createElement('div'); previews.className = 'issuePreviews';
+        mainContent.appendChild(body);
+        
+        // Actions column
+        const actionsCol = document.createElement('div');
+        actionsCol.className = 'issueActionsCol';
+        
+        const dragHandle = document.createElement('button'); 
+        dragHandle.className='issueDragHandle'; 
+        dragHandle.type='button'; 
+        dragHandle.textContent='⋮⋮';
+        dragHandle.title = 'Drag to reorder';
+        actionsCol.appendChild(dragHandle);
+        
+        // Photos preview
+        const previews = document.createElement('div'); 
+        previews.className = 'issuePreviews';
         const phs = photosMap[String(issue.id)] || [];
-        const countBadge = document.createElement('span'); countBadge.className='pill issuePhotoCount'; countBadge.textContent = String(phs.length) + ' photos';
-        const thumbsWrap = document.createElement('div'); thumbsWrap.className = 'issueThumbs';
+        const countBadge = document.createElement('span'); 
+        countBadge.className='issuePhotoCount'; 
+        countBadge.textContent = `${phs.length} photo${phs.length !== 1 ? 's' : ''}`;
+        
         if(phs.length){
+          const thumbsWrap = document.createElement('div'); 
+          thumbsWrap.className = 'issueThumbs';
           for(let i=0;i<Math.min(4, phs.length); i++){
             const p = phs[i];
             const img = document.createElement('img');
             img.dataset.src = p.thumb_url || p.url;
+            img.src = p.thumb_url || p.url;
             img.alt = 'Issue photo';
             img.loading = 'lazy';
-            img.onclick = ()=>{ const w = window.open(p.url || p.thumb_url, '_blank', 'noopener'); if (w) w.opener = null; };
+            img.onclick = ()=>{ 
+              const w = window.open(p.url || p.thumb_url, '_blank', 'noopener'); 
+              if (w) w.opener = null; 
+            };
             thumbsWrap.appendChild(img);
           }
+          previews.appendChild(thumbsWrap);
         }
-        previews.appendChild(thumbsWrap);
         previews.appendChild(countBadge);
-
-        const pinPreview = document.createElement('div'); pinPreview.className = 'issuePinPreview';
-        const pinImg = document.createElement('img'); pinImg.alt = 'Pin preview'; pinImg.style.display = 'none'; pinImg.loading = 'lazy';
+        
+        const pinPreview = document.createElement('div'); 
+        pinPreview.className = 'issuePinPreview';
+        const pinImg = document.createElement('img'); 
+        pinImg.alt = 'Pin preview'; 
+        pinImg.style.display = 'none'; 
+        pinImg.loading = 'lazy';
         pinImg.onerror = ()=>{ pinImg.style.display = 'none'; };
         pinImg.onclick = ()=>{
           if(!pinImg.src) return;
           let lb = document.getElementById('imageLightbox');
           if(!lb){
-            lb = document.createElement('div'); lb.id = 'imageLightbox';
-            lb.style.position='fixed'; lb.style.left=0; lb.style.top=0; lb.style.width='100%'; lb.style.height='100%';
-            lb.style.background='rgba(0,0,0,0.85)'; lb.style.display='flex'; lb.style.alignItems='center'; lb.style.justifyContent='center'; lb.style.zIndex=200000; lb.onclick = ()=>{ lb.style.display='none'; };
-            const imgEl = document.createElement('img'); imgEl.style.maxWidth='95%'; imgEl.style.maxHeight='95%'; imgEl.id='imageLightboxImg'; lb.appendChild(imgEl); document.body.appendChild(lb);
+            lb = document.createElement('div'); 
+            lb.id = 'imageLightbox';
+            lb.style.position='fixed'; 
+            lb.style.left=0; 
+            lb.style.top=0; 
+            lb.style.width='100%'; 
+            lb.style.height='100%';
+            lb.style.background='rgba(0,0,0,0.9)'; 
+            lb.style.display='flex'; 
+            lb.style.alignItems='center'; 
+            lb.style.justifyContent='center'; 
+            lb.style.zIndex=200000; 
+            lb.onclick = ()=>{ lb.style.display='none'; };
+            const imgEl = document.createElement('img'); 
+            imgEl.style.maxWidth='95%'; 
+            imgEl.style.maxHeight='95%'; 
+            imgEl.style.borderRadius='12px';
+            imgEl.id='imageLightboxImg'; 
+            lb.appendChild(imgEl); 
+            document.body.appendChild(lb);
           }
-          const imgEl = document.getElementById('imageLightboxImg'); imgEl.src = pinImg.src; document.getElementById('imageLightbox').style.display='flex';
+          const imgEl = document.getElementById('imageLightboxImg'); 
+          imgEl.src = pinImg.src; 
+          document.getElementById('imageLightbox').style.display='flex';
         };
         pinPreview.appendChild(pinImg);
         previews.appendChild(pinPreview);
-        body.appendChild(previews);
-
-        // fetch pin preview
+        mainContent.appendChild(previews);
+        
+        // Assemble
+        inner.appendChild(selectWrap);
+        inner.appendChild(mainContent);
+        inner.appendChild(actionsCol);
+        item.appendChild(inner);
+        container.appendChild(item);
+      }
+      issuesList.appendChild(container);
         (async ()=>{
           try{
             const u = '/api/render_pin.php?plan_id='+encodeURIComponent(planId)+'&issue_id='+encodeURIComponent(issue.id);
