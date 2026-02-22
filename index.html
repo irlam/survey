@@ -119,49 +119,65 @@
     Built for real sites, by real people. Developed And Maintained By Chris Irlam
   </footer>
 
-  <!-- Issues Modal -->
+  <!-- Issues Modal - Modern Redesign -->
   <div id="issuesModal" class="modal" style="display:none;">
-    <div class="modal-content">
-      <span id="closeIssuesModal" class="close">&times;</span>
-      <h2>Issues for this Plan</h2>
-      <div class="issuesControls">
-        <input id="issuesSearch" type="text" placeholder="Search issues…" aria-label="Search issues" inputmode="search" />
-        <input id="issuesAssigneeFilter" type="text" placeholder="Assignee…" aria-label="Filter by assignee" inputmode="text" />
-
-        <select id="issuesSort">
-          <option value="manual">Manual order</option>
-          <option value="newest">Newest first</option>
-          <option value="oldest">Oldest first</option>
-        </select>
-        <select id="issuesStatusFilter">
-          <option value="">All status</option>
-          <option value="Open">Open</option>
-          <option value="In Progress">In Progress</option>
-          <option value="Closed">Closed</option>
-        </select>
-        <select id="issuesPriorityFilter">
-          <option value="">All priority</option>
-          <option value="Low">Low</option>
-          <option value="Medium">Medium</option>
-          <option value="High">High</option>
-        </select>
-        <button id="issuesAddBtn" class="btnPrimary" type="button">Add Issue</button>
-        <label class="issuesSelectAll"><input id="issuesSelectAll" type="checkbox"> Select all</label>
-        <button id="issuesExportSelected" class="btn" type="button">Export Selected</button>
-        <span id="issuesSelectedCount" class="muted" aria-live="polite">0 selected</span>
-        <label class="issuesCompactToggle"><input id="issuesCompactToggle" type="checkbox"> Compact view</label>
+    <div class="modal-content modal-content-modern">
+      <div class="modal-header">
+        <button id="closeIssuesModal" class="modal-close" aria-label="Close">×</button>
+        <h2>Issues for this Plan</h2>
+        <div class="modal-stats" id="modalStats">0 issues</div>
       </div>
+      
+      <div class="issuesControls">
+        <div class="filter-row">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input id="issuesSearch" type="text" placeholder="Search issues…" aria-label="Search issues" inputmode="search" />
+          </div>
+          <button id="issuesAddBtn" class="btnPrimary btn-add-issue" type="button">＋ Add Issue</button>
+        </div>
+        
+        <div class="filter-row">
+          <input id="issuesAssigneeFilter" type="text" placeholder="Assignee…" aria-label="Filter by assignee" inputmode="text" class="filter-input" />
+          <select id="issuesSort" class="filter-select">
+            <option value="manual">Manual order</option>
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+          </select>
+          <select id="issuesStatusFilter" class="filter-select">
+            <option value="">All status</option>
+            <option value="Open">Open</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Closed">Closed</option>
+          </select>
+          <select id="issuesPriorityFilter" class="filter-select">
+            <option value="">All priority</option>
+            <option value="Low">Low</option>
+            <option value="Medium">Medium</option>
+            <option value="High">High</option>
+          </select>
+        </div>
+        
+        <div class="bulk-actions">
+          <label class="issuesSelectAll"><input id="issuesSelectAll" type="checkbox"> <span>Select all</span></label>
+          <button id="issuesExportSelected" class="btn" type="button">Export Selected</button>
+          <span id="issuesSelectedCount" class="muted" aria-live="polite">0 selected</span>
+          <label class="issuesCompactToggle"><input id="issuesCompactToggle" type="checkbox"> <span>Compact view</span></label>
+        </div>
+      </div>
+      
       <div id="recentIssues" class="recentIssues" style="display:none;"></div>
       <div id="issuesList" role="list" aria-busy="false"></div>
-      <div style="display:flex;gap:8px;align-items:center;margin-top:16px;">
-        <button id="btnGeneratePdf" class="btnPrimary">Generate PDF Report</button>
-        <button id="btnDownloadPdf" class="btn" style="display:none;">Download PDF</button>
-        <label style="display:flex;align-items:center;gap:6px;margin-left:8px;"> 
+      
+      <div class="modal-footer">
+        <button id="btnGeneratePdf" class="btnPrimary">📄 Generate PDF Report</button>
+        <button id="btnDownloadPdf" class="btn" style="display:none;">⬇ Download PDF</button>
+        <label class="checkbox-label">
           <input type="checkbox" id="chkIncludePin" checked>
-          <span style="font-size:13px;color:var(--muted);">Include pin thumbnail</span>
+          <span>Include pin thumbnail</span>
           <button id="imgHelp" title="Checking server capability..." style="display:none;border:none;background:transparent;color:var(--muted);font-size:14px;padding:6px;">❔</button>
         </label>
-        <div id="pdfReportOut" class="muted" style="margin-left:8px;flex:1" role="status" aria-live="polite"></div>
+        <div id="pdfReportOut" class="muted" role="status" aria-live="polite"></div>
       </div>
     </div>
   </div>

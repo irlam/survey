@@ -353,6 +353,7 @@ function showIssuesModal(planId) {
   const downloadBtn = document.getElementById('btnDownloadPdf');
   const pdfOut = document.getElementById('pdfReportOut');
   const modalTitle = modal ? modal.querySelector('h2') : null;
+  const modalStats = document.getElementById('modalStats');
   const searchInput = document.getElementById('issuesSearch');
   const assigneeFilter = document.getElementById('issuesAssigneeFilter');
   const sortSelect = document.getElementById('issuesSort');
@@ -521,6 +522,11 @@ function showIssuesModal(planId) {
         }
         return true;
       });
+      
+      // Update stats
+      if (modalStats) {
+        modalStats.textContent = `${filtered.length} of ${allIssues.length} issue${allIssues.length !== 1 ? 's' : ''}`;
+      }
       const orderKey = `issues_order_${planId}`;
       const savedOrder = (localStorage.getItem(orderKey) || '').split(',').map(v => v.trim()).filter(Boolean);
       if (sortMode === 'newest') {
