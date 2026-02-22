@@ -4,17 +4,15 @@
 
 -- Renumber all issues sequentially per plan to ensure no duplicates
 -- This uses MySQL user variables for efficient renumbering
-SET @row_number := 0;
-SET @current_plan := 0;
 
 -- Create a temp table with the new issue numbers
 CREATE TEMPORARY TABLE _issue_renumber AS
 SELECT 
     id,
     plan_id,
-    @row_number := IF(@current_plan = plan_id, @row_number + 1, 1) AS new_issue_no,
-    @current_plan := plan_id
-FROM issues
+    (@row_number := IF(@current_plan = plan_id, @row_number + 1, 1)) AS new_issue_no,
+    (@current_plan := plan_id) AS cp
+FROM issues, (SELECT @row_number := 0, @current_plan := 0) AS vars
 ORDER BY plan_id, id;
 
 -- Update issues with new sequential numbers
