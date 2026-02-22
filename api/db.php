@@ -5,6 +5,49 @@
 if (function_exists('ob_start') && ob_get_level() === 0) {
   @ob_start();
 }
+
+/**
+ * Verify CSRF token for state-changing requests.
+ * Call this in POST/PUT/DELETE endpoints that modify data.
+ */
+function verify_csrf(): void {
+  // Skip CSRF check for GET requests (should be read-only)
+  $method = $_SERVER['REQUEST_METHOD'] ?? '';
+  if ($method === 'GET' || $method === 'OPTIONS' || $method === 'HEAD') {
+    return;
+  }
+  
+  // Get token from header or POST body
+  $token = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? $_POST['_csrf'] ?? '';
+  
+  // Start session if not already started
+  if (session_status() === PHP_SESSION_NONE) {
+    @session_start();
+  }
+  
+  $session_token = $_SESSION['csrf_token'] ?? '';
+  
+  if (empty($token) || empty($session_token) || !hash_equals($session_token, $token)) {
+    error_response('Invalid or missing CSRF token', 403);
+  }
+}
+
+/**
+ * Generate a CSRF token for use in forms or JavaScript.
+ * Store it in the session and return it.
+ */
+function generate_csrf_token(): string {
+  if (session_status() === PHP_SESSION_NONE) {
+    @session_start();
+  }
+  
+  if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+  }
+  
+  return $_SESSION['csrf_token'];
+}
+
 function require_method(string $method): void {
   if (($_SERVER['REQUEST_METHOD'] ?? '') !== $method) {
     error_response('Method not allowed', 405);

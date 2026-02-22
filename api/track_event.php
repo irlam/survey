@@ -7,9 +7,51 @@ require_method('POST');
 $data = read_json_body();
 
 $event = safe_string($data['event'] ?? '', 100);
-$payload = $data['payload'] ?? ($data['data'] ?? null);
 
+// Security: Validate event name format - only allow alphanumeric, underscore, dot, hyphen
+// This prevents injection of malicious event names
 if (trim($event) === '') error_response('Missing event name', 400);
+if (!preg_match('/^[a-zA-Z][a-zA-Z0-9._-]{0,99}$/', $event)) {
+  error_response('Invalid event name format. Must start with letter and contain only letters, numbers, dots, underscores, or hyphens', 400);
+}
+
+// Security: Whitelist of allowed event names
+// Add new events here as they are implemented
+$allowed_events = [
+  // Plan events
+  'plan.open', 'plan.close', 'plan.upload', 'plan.delete', 'plan.export',
+  'plan.page.change', 'plan.zoom',
+  
+  // Issue events
+  'issue.create', 'issue.update', 'issue.delete', 'issue.pin.place', 'issue.pin.remove',
+  
+  // Photo events
+  'photo.upload', 'photo.delete', 'photo.view',
+  
+  // Report events
+  'report.generate', 'report.download', 'report.email',
+  
+  // Navigation events
+  'nav.menu.open', 'nav.tab.change',
+  
+  // User events
+  'user.login', 'user.logout', 'user.settings.change',
+  
+  // Error events
+  'error.client', 'error.api',
+  
+  // Feature events
+  'feature.use', 'feature.error',
+];
+
+// Allow unknown events in debug mode, but enforce whitelist in production
+$cfg = load_config();
+if (empty($cfg['debug']) && !in_array($event, $allowed_events, true)) {
+  error_response('Unknown event type: ' . $event, 400);
+}
+
+// Extract and validate payload
+$payload = $data['payload'] ?? ($data['data'] ?? null);
 
 // Allow only arrays/objects or null in payload for safety
 if ($payload !== null && !is_array($payload)) {

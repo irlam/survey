@@ -7,8 +7,13 @@ return [
     'db_pass' => '',
     'db_charset' => 'utf8mb4',
     'storage_path' => '../storage',
-    'max_upload_mb' => 25,
+    // Note: Also set in php.ini: upload_max_filesize, post_max_size
+    // And in nginx: client_max_body_size
+    'max_upload_mb' => 128,
     'debug' => false,
+    
+    // Security: Enable CSRF protection for state-changing requests
+    'csrf_enabled' => true,
 
     // Optional DWG converter configuration. Ideally install system converters (dwg2pdf, dwg2svg, dwg2dxf, pdf2svg, ImageMagick) on the server.
     // If you cannot install system packages, you may provide a Docker image that bundles conversion utilities.

@@ -55,7 +55,26 @@ function ensure_dir($dir) {
 
 function storage_dir($subpath) {
   $base = resolve_storage_path();
-  $full = rtrim($base, '/\\') . '/' . ltrim($subpath, '/\\');
+  
+  // Security: Remove path traversal sequences
+  $subpath = str_replace(['../', '..\\', './', '.\\'], '', $subpath);
+  
+  // Remove leading slashes to prevent absolute path injection
+  $subpath = ltrim($subpath, '/\\');
+  
+  // Build the full path
+  $full = rtrim($base, '/\\') . '/' . $subpath;
+  
+  // Security: Resolve to real path and verify it's within base directory
+  // This prevents symlink attacks and other path manipulation
+  $realBase = realpath($base) ?: $base;
+  $realPath = realpath(dirname($full)) ?: dirname($full);
+  
+  // Ensure the resolved directory is within the base storage directory
+  if (strpos($realPath, $realBase) !== 0) {
+    error_response('Invalid storage path', 400);
+  }
+  
   ensure_dir(dirname($full));
   return $full;
 }

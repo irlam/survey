@@ -99,8 +99,17 @@ if ($id) {
 
 } else {
   // Create new issue — allocate next issue_no per plan (transaction + row lock)
+  // Note: A unique constraint on (plan_id, issue_no) should be added to the database
+  // to fully prevent race conditions: 
+  // ALTER TABLE issues ADD UNIQUE KEY uq_plan_issue_no (plan_id, issue_no);
   try {
     $pdo->beginTransaction();
+    
+    // Use a synthetic row lock approach: lock the plan row to serialize issue creation
+    $lockStmt = $pdo->prepare('SELECT id FROM plans WHERE id=? FOR UPDATE');
+    $lockStmt->execute([$plan_id]);
+    
+    // Now get the next issue number
     $stmtNo = $pdo->prepare('SELECT issue_no FROM issues WHERE plan_id=? ORDER BY issue_no DESC LIMIT 1 FOR UPDATE');
     $stmtNo->execute([$plan_id]);
     $row = $stmtNo->fetch();
@@ -117,6 +126,40 @@ if ($id) {
       $trade, $assigned_to, $due_date
     ]);
     $pdo->commit();
+  } catch (PDOException $e) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
+    // Check for duplicate key error (race condition fallback)
+    if ($e->getCode() === '23000' || strpos($e->getMessage(), 'Duplicate entry') !== false) {
+      // Retry once with a small delay
+      usleep(100000); // 100ms
+      try {
+        $pdo->beginTransaction();
+        $lockStmt = $pdo->prepare('SELECT id FROM plans WHERE id=? FOR UPDATE');
+        $lockStmt->execute([$plan_id]);
+        $stmtNo = $pdo->prepare('SELECT issue_no FROM issues WHERE plan_id=? ORDER BY issue_no DESC LIMIT 1 FOR UPDATE');
+        $stmtNo->execute([$plan_id]);
+        $row = $stmtNo->fetch();
+        $next_no = $row ? ((int)$row['issue_no'] + 1) : 1;
+        $stmt = $pdo->prepare('
+          INSERT INTO issues
+            (plan_id, issue_no, page, x_norm, y_norm, title, notes, category, status, priority, trade, assigned_to, due_date)
+          VALUES
+            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ');
+        $stmt->execute([
+          $plan_id, $next_no, $page, $x_norm, $y_norm, $title, $notes, $category, $status, $priority,
+          $trade, $assigned_to, $due_date
+        ]);
+        $pdo->commit();
+      } catch (PDOException $e2) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        $extra = $debug ? ['detail' => $e2->getMessage()] : [];
+        error_response('Failed to save issue (concurrent modification)', 500, $extra);
+      }
+    } else {
+      $extra = $debug ? ['detail' => $e->getMessage()] : [];
+      error_response('Failed to save issue', 500, $extra);
+    }
   } catch (Throwable $e) {
     if ($pdo->inTransaction()) $pdo->rollBack();
     $extra = $debug ? ['detail' => $e->getMessage()] : [];
