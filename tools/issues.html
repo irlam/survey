@@ -4,16 +4,36 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  
+
   <meta name="mobile-web-app-capable" content="yes" />
   <title>Issue Manager</title>
   <link rel="stylesheet" href="/assets/ui.css?v=20260204_2">
 </head>
 <body>
-  <header class="topbar">
-    <button onclick="history.back()" class="iconBtn" aria-label="Back">←</button>
+  <header class="toolbar">
+    <button id="menuBtn" aria-label="Open menu" aria-expanded="false">☰</button>
     <div class="brand">Issue Manager</div>
+    <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+      <span id="selectedCount" class="muted" aria-live="polite">0 selected</span>
+      <label style="display:flex;align-items:center;gap:6px;padding:6px 10px;">
+        <input id="selectAllIssues" type="checkbox" aria-label="Select all issues">
+        <span>Select all</span>
+      </label>
+      <button id="deleteSelectedBtn" class="btn btnDanger" disabled>Delete selected</button>
+    </div>
   </header>
+
+  <!-- off-canvas menu -->
+  <div id="menuBackdrop" style="position:fixed;inset:0;background:rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:opacity .2s ease;z-index:99998;"></div>
+  <nav id="offcanvasMenu" role="navigation" aria-label="Site" aria-hidden="true" style="position:fixed;left:-280px;top:0;bottom:0;width:260px;background:rgba(2,6,10,.95);padding:18px;z-index:99999;box-shadow: 6px 0 30px rgba(0,0,0,.6);transition:left .22s ease;">
+    <button id="menuClose" class="iconBtn" style="margin-bottom:12px" aria-label="Close menu">×</button>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
+      <a class="tool-card" href="/" style="background:none;box-shadow:none;border:none;padding:8px;color:var(--text);text-decoration:none">Home</a>
+      <a class="tool-card" href="/tools/index.html" style="background:none;box-shadow:none;border:none;padding:8px;color:var(--text);text-decoration:none">Tools</a>
+      <a class="tool-card" href="/exports.html" style="background:none;box-shadow:none;border:none;padding:8px;color:var(--text);text-decoration:none">Exports</a>
+      <a class="tool-card" href="/tools/issues.html" style="background:none;box-shadow:none;border:none;padding:8px;color:var(--text);text-decoration:none">Issue Manager</a>
+    </div>
+  </nav>
 
   <main style="padding:16px;">
     <div class="card">
@@ -22,9 +42,159 @@
     </div>
   </main>
 
+  <style>
+    /* Issue list styles */
+    #issuesList table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    #issuesList th, #issuesList td {
+      padding: 10px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    #issuesList th {
+      font-weight: 700;
+      color: var(--neon);
+    }
+    #issuesList tr:hover {
+      background: rgba(0,255,231,0.04);
+    }
+    .issue-check {
+      width: 18px;
+      height: 18px;
+      accent-color: #ff6b6b;
+      cursor: pointer;
+    }
+    .btnDanger {
+      background: linear-gradient(90deg, #ff6b6b, #ff3b3b);
+      color: #041013;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 10px;
+      font-weight: 800;
+    }
+    .btnDanger:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .delIssue {
+      background: rgba(255, 107, 107, 0.1);
+      border: 1px solid rgba(255, 107, 107, 0.3);
+      color: #ff7b7b;
+      padding: 6px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .delIssue:hover {
+      background: rgba(255, 107, 107, 0.2);
+    }
+  </style>
+
   <script>
     // Small helper for safe text
     function txt(v){ return (v === null || v === undefined) ? '' : String(v); }
+
+    const selectedIssueIds = new Set();
+
+    function updateBulkControls(totalIssues = 0) {
+      const selectAll = document.getElementById('selectAllIssues');
+      const deleteBtn = document.getElementById('deleteSelectedBtn');
+      const selectedLabel = document.getElementById('selectedCount');
+      const selectedCount = selectedIssueIds.size;
+      
+      deleteBtn.disabled = selectedCount === 0;
+      if (selectedLabel) selectedLabel.textContent = selectedCount + ' selected';
+      
+      if (totalIssues === 0) {
+        selectAll.checked = false;
+        selectAll.indeterminate = false;
+        return;
+      }
+      
+      if (selectedCount === 0) {
+        selectAll.checked = false;
+        selectAll.indeterminate = false;
+      } else if (selectedCount === totalIssues) {
+        selectAll.checked = true;
+        selectAll.indeterminate = false;
+      } else {
+        selectAll.checked = false;
+        selectAll.indeterminate = true;
+      }
+    }
+
+    async function deleteIssue(id, plan) {
+      if (!confirm('Delete issue ' + id + ' and all associated photos?')) return;
+
+      try{
+        const resp = await fetch('/api/delete_issue_with_photos.php', {
+          method: 'POST',
+          headers: { 'Content-Type':'application/json', 'Accept':'application/json' },
+          body: JSON.stringify({ id, plan_id: plan })
+        });
+
+        const raw = await resp.text();
+        let resj;
+        try { resj = JSON.parse(raw); } catch { resj = null; }
+
+        if (!resp.ok || !resj || !resj.ok) {
+          throw new Error((resj && resj.error) ? resj.error : ('HTTP ' + resp.status));
+        }
+
+        // show undo snackbar
+        showUndoSnack('Issue deleted', 'Undo', async ()=>{
+          const trash = resj.trash;
+          if(!trash) throw new Error('No trash info returned');
+          const r = await fetch('/api/restore_trash.php', {
+            method:'POST',
+            headers:{ 'Content-Type':'application/json', 'Accept':'application/json' },
+            body: JSON.stringify({ trash })
+          });
+          const raw2 = await r.text();
+          let jr;
+          try { jr = JSON.parse(raw2); } catch { jr = null; }
+          if(!r.ok || !jr || !jr.ok) throw new Error((jr && jr.error) ? jr.error : ('HTTP ' + r.status));
+          await loadIssues();
+        });
+
+        await loadIssues();
+      } catch(e) {
+        alert('Delete failed: ' + e.message);
+      }
+    }
+
+    async function deleteSelectedIssues() {
+      if (selectedIssueIds.size === 0) return;
+      
+      if (!confirm(`Delete ${selectedIssueIds.size} issue(s) and all associated photos?`)) return;
+      
+      const ids = Array.from(selectedIssueIds);
+      const failures = [];
+      
+      for (const {id, plan} of ids) {
+        try{
+          const resp = await fetch('/api/delete_issue_with_photos.php', {
+            method: 'POST',
+            headers: { 'Content-Type':'application/json', 'Accept':'application/json' },
+            body: JSON.stringify({ id, plan_id: plan })
+          });
+          const raw = await resp.text();
+          let resj;
+          try { resj = JSON.parse(raw); } catch { resj = null; }
+          if (!resp.ok || !resj || !resj.ok) failures.push(id);
+        }catch(e){ failures.push(id); }
+      }
+      
+      if (failures.length) {
+        alert(`Failed to delete ${failures.length} issue(s).`);
+      } else {
+        showUndoSnack(`Deleted ${ids.length} issue(s)`);
+      }
+      
+      selectedIssueIds.clear();
+      await loadIssues();
+    }
 
     async function loadIssues(){
       const wrap = document.getElementById('issuesList');
@@ -61,6 +231,18 @@
 
         const thead = document.createElement('thead');
         const hr = document.createElement('tr');
+        
+        // Checkbox column header
+        const thCheck = document.createElement('th');
+        thCheck.style.width = '40px';
+        const checkAll = document.createElement('input');
+        checkAll.type = 'checkbox';
+        checkAll.className = 'issue-check';
+        checkAll.id = 'selectAllIssues';
+        checkAll.setAttribute('aria-label', 'Select all issues');
+        thCheck.appendChild(checkAll);
+        hr.appendChild(thCheck);
+        
         ['ID','Plan','Page','Title','Coords','Photos','Actions'].forEach(h=>{
           const th = document.createElement('th');
           th.setAttribute('scope','col');
@@ -72,9 +254,34 @@
 
         const tbody = document.createElement('tbody');
         const frag = document.createDocumentFragment();
+        const issueIds = new Set();
 
         for (const iss of data.issues) {
+          issueIds.add(Number(iss.id));
           const tr = document.createElement('tr');
+
+          // Checkbox column
+          const tdCheck = document.createElement('td');
+          const checkWrap = document.createElement('label');
+          checkWrap.style.display = 'flex';
+          checkWrap.style.alignItems = 'center';
+          const check = document.createElement('input');
+          check.type = 'checkbox';
+          check.className = 'issue-check';
+          check.checked = selectedIssueIds.has(Number(iss.id));
+          check.setAttribute('aria-label', `Select issue ${txt(iss.id)}`);
+          check.addEventListener('change', () => {
+            const issueData = { id: Number(iss.id), plan: Number(iss.plan_id) };
+            if (check.checked) {
+              selectedIssueIds.add(issueData);
+            } else {
+              selectedIssueIds.delete(issueData);
+            }
+            updateBulkControls(issueIds.size);
+          });
+          checkWrap.appendChild(check);
+          tdCheck.appendChild(checkWrap);
+          tr.appendChild(tdCheck);
 
           const tdId = document.createElement('td');
           tdId.textContent = txt(iss.id);
@@ -124,6 +331,14 @@
         table.appendChild(tbody);
         wrap.innerHTML = '';
         wrap.appendChild(table);
+        
+        // Restore any previously selected issues that are still in the list
+        for (const selected of Array.from(selectedIssueIds)) {
+          if (!issueIds.has(selected.id)) {
+            selectedIssueIds.delete(selected);
+          }
+        }
+        updateBulkControls(issueIds.size);
         wrap.setAttribute('aria-busy', 'false');
 
         // Fetch photo counts per plan to reduce requests
@@ -180,52 +395,48 @@
       const plan = parseInt(btn.dataset.plan, 10);
       if (!Number.isFinite(id) || !Number.isFinite(plan)) return alert('Bad issue id / plan id');
 
-      if (!confirm('Delete issue ' + id + ' and all associated photos?')) return;
+      deleteIssue(id, plan);
+    });
 
-      btn.disabled = true;
-      const oldTxt = btn.textContent;
-      btn.textContent = 'Deleting…';
-
-      try{
-        const resp = await fetch('/api/delete_issue_with_photos.php', {
-          method: 'POST',
-          headers: { 'Content-Type':'application/json', 'Accept':'application/json' },
-          body: JSON.stringify({ id, plan_id: plan })
+    // Select all checkbox handler (header checkbox)
+    document.addEventListener('DOMContentLoaded', () => {
+      const selectAll = document.getElementById('selectAllIssues');
+      if (selectAll) {
+        selectAll.addEventListener('change', (event) => {
+          const checks = document.querySelectorAll('.issue-check:not(#selectAllIssues)');
+          if (!checks.length) return;
+          
+          if (event.target.checked) {
+            checks.forEach((check) => {
+              check.checked = true;
+              const tr = check.closest('tr');
+              if (tr) {
+                const idCell = tr.cells[1]; // ID is in second column (index 1)
+                const planCell = tr.cells[2]; // Plan is in third column (index 2)
+                if (idCell && planCell) {
+                  const id = parseInt(txt(idCell.textContent), 10);
+                  const plan = parseInt(txt(planCell.textContent), 10);
+                  if (Number.isFinite(id) && Number.isFinite(plan)) {
+                    selectedIssueIds.add({ id, plan });
+                  }
+                }
+              }
+            });
+          } else {
+            checks.forEach((check) => { check.checked = false; });
+            selectedIssueIds.clear();
+          }
+          
+          // Get total from table rows (excluding header)
+          const total = document.querySelectorAll('#issuesList tbody tr').length;
+          updateBulkControls(total);
         });
-
-        const raw = await resp.text();
-        let resj;
-        try { resj = JSON.parse(raw); } catch { resj = null; }
-
-        if (!resp.ok || !resj || !resj.ok) {
-          throw new Error((resj && resj.error) ? resj.error : ('HTTP ' + resp.status));
-        }
-
-        // show snackbar with undo
-        showUndoSnack('Issue deleted', 'Undo', async ()=>{
-          const trash = resj.trash;
-          if(!trash) throw new Error('No trash info returned');
-
-          const r = await fetch('/api/restore_trash.php', {
-            method:'POST',
-            headers:{ 'Content-Type':'application/json', 'Accept':'application/json' },
-            body: JSON.stringify({ trash })
-          });
-
-          const raw2 = await r.text();
-          let jr;
-          try { jr = JSON.parse(raw2); } catch { jr = null; }
-
-          if(!r.ok || !jr || !jr.ok) throw new Error((jr && jr.error) ? jr.error : ('HTTP ' + r.status));
-          await loadIssues();
-        });
-
-        await loadIssues();
-      } catch(e) {
-        alert('Delete failed: ' + e.message);
-      } finally {
-        btn.disabled = false;
-        btn.textContent = oldTxt;
+      }
+      
+      // Delete selected button handler
+      const deleteBtn = document.getElementById('deleteSelectedBtn');
+      if (deleteBtn) {
+        deleteBtn.addEventListener('click', deleteSelectedIssues);
       }
     });
 
@@ -276,37 +487,30 @@
       sb._timeout = setTimeout(()=>{ sb.style.display='none'; }, 8000);
     }
 
-    /* Offcanvas menu (won't crash if menuBtn missing) */
+    /* Off-canvas menu handling */
     (function initMenu(){
-      const off = document.createElement('nav');
-      off.id = 'offcanvasMenu';
-      off.style.position = 'fixed';
-      off.style.left = '-280px';
-      off.style.top = '0';
-      off.style.bottom = '0';
-      off.style.width = '260px';
-      off.style.background = 'rgba(2,6,10,.95)';
-      off.style.padding = '18px';
-      off.style.zIndex = '99999';
-      off.style.boxShadow = '6px 0 30px rgba(0,0,0,.6)';
-      off.style.transition = 'left .22s ease';
-
-      off.innerHTML = `
-        <button id="menuClose" class="iconBtn" aria-label="Back" type="button">×</button>
-        <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
-          <a href="/" style="color:var(--text);text-decoration:none">Home</a>
-          <a href="/tools/index.html" style="color:var(--text);text-decoration:none">Tools</a>
-          <a href="/exports.html" style="color:var(--text);text-decoration:none">Exports</a>
-        </div>
-      `;
-
-      document.body.appendChild(off);
-
+      const off = document.getElementById('offcanvasMenu');
+      const backdrop = document.getElementById('menuBackdrop');
       const menuBtn = document.getElementById('menuBtn');
-      if (menuBtn) menuBtn.onclick = ()=>{ off.style.left = '0'; };
-
+      
+      function setMenu(open){
+        document.body.classList.toggle('offcanvas-open', open);
+        off.style.left = open ? '0' : '-280px';
+        off.setAttribute('aria-hidden', open ? 'false' : 'true');
+        if (menuBtn) menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      }
+      
+      if (menuBtn) menuBtn.onclick = ()=> setMenu(true);
+      
       const closeBtn = document.getElementById('menuClose');
-      if (closeBtn) closeBtn.onclick = ()=>{ off.style.left = '-280px'; };
+      if (closeBtn) closeBtn.onclick = ()=> setMenu(false);
+      if (backdrop) backdrop.onclick = ()=> setMenu(false);
+      document.addEventListener('keydown', (ev)=>{ if(ev.key === 'Escape') setMenu(false); });
+      
+      // Close menu when clicking a link
+      off.querySelectorAll('a').forEach((link)=> {
+        link.addEventListener('click', ()=> setMenu(false));
+      });
     })();
 
     // Start
