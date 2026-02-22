@@ -1286,12 +1286,14 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
   max-width: 1200px;
   max-height: 90vh;
+  height: 90vh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
 .modal-header {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -1355,6 +1357,7 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
 }
 
 .issuesControls {
+  flex-shrink: 0;
   padding: 16px 24px;
   background: rgba(0, 0, 0, 0.2);
   border-bottom: 1px solid var(--border);
@@ -1455,6 +1458,7 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
 }
 
 .modal-footer {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -1485,7 +1489,9 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
   padding: 24px;
   overflow-y: auto;
   flex: 1;
-  max-height: calc(90vh - 300px);
+  min-height: 200px;
+  max-height: calc(90vh - 350px);
+  background: rgba(0, 0, 0, 0.1);
 }
 
 #issuesList .card {
@@ -1685,6 +1691,7 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
 
 /* Recent Issues */
 .recentIssues {
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
