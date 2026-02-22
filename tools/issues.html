@@ -1,29 +1,494 @@
-<!-- File: tools/issues.html - Issue manager tool UI. -->
+<!-- File: tools/issues.html - Modern Issue Manager with beautiful UI -->
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-
   <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#070A0F" />
   <title>Issue Manager</title>
   <link rel="stylesheet" href="/assets/ui.css?v=20260204_2">
+  <style>
+    /* Modern Issue Manager Styles */
+    :root {
+      --status-open: #ff6b6b;
+      --status-progress: #ffd93d;
+      --status-closed: #6bcb77;
+      --priority-low: #4d96ff;
+      --priority-medium: #ffd93d;
+      --priority-high: #ff6b6b;
+    }
+
+    body {
+      background: linear-gradient(135deg, #070A0F 0%, #0a0f1a 50%, #0d1424 100%);
+    }
+
+    .toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 14px 20px;
+      background: rgba(7, 10, 15, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .toolbar .brand {
+      font-size: 20px;
+      font-weight: 800;
+      background: linear-gradient(90deg, var(--neon), var(--neon2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .toolbar-actions {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .toolbar-stats {
+      font-size: 13px;
+      color: var(--muted);
+      padding: 6px 12px;
+      background: rgba(0, 255, 231, 0.06);
+      border-radius: 20px;
+      border: 1px solid rgba(0, 255, 231, 0.15);
+    }
+
+    .main-content {
+      padding: 24px;
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    /* Filter Bar */
+    .filter-bar {
+      display: grid;
+      grid-template-columns: 1fr auto auto auto;
+      gap: 12px;
+      margin-bottom: 24px;
+      padding: 16px 20px;
+      background: rgba(11, 18, 32, 0.6);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(10px);
+    }
+
+    .search-box {
+      position: relative;
+    }
+
+    .search-box input {
+      width: 100%;
+      padding: 12px 16px 12px 44px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(0, 255, 231, 0.15);
+      border-radius: 12px;
+      color: var(--text);
+      font-size: 14px;
+      transition: all 0.2s ease;
+    }
+
+    .search-box input:focus {
+      outline: none;
+      border-color: var(--neon);
+      box-shadow: 0 0 20px rgba(0, 255, 231, 0.15);
+    }
+
+    .search-box::before {
+      content: '🔍';
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 16px;
+      opacity: 0.6;
+    }
+
+    .filter-select {
+      padding: 12px 16px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(0, 255, 231, 0.15);
+      border-radius: 12px;
+      color: var(--text);
+      font-size: 14px;
+      cursor: pointer;
+      min-width: 140px;
+    }
+
+    .filter-select:focus {
+      outline: none;
+      border-color: var(--neon);
+    }
+
+    /* Issue Cards Grid */
+    .issues-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+      gap: 16px;
+    }
+
+    .issue-card {
+      background: linear-gradient(145deg, rgba(11, 18, 32, 0.8), rgba(7, 10, 15, 0.9));
+      border: 1px solid rgba(0, 255, 231, 0.08);
+      border-radius: var(--radius);
+      padding: 18px;
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .issue-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--neon), var(--neon2));
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    .issue-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(0, 255, 231, 0.2);
+      box-shadow: 0 12px 40px rgba(0, 255, 231, 0.1);
+    }
+
+    .issue-card:hover::before {
+      opacity: 1;
+    }
+
+    .issue-card.selected {
+      border-color: var(--neon);
+      box-shadow: 0 0 30px rgba(0, 255, 231, 0.15);
+    }
+
+    .issue-card.selected::before {
+      opacity: 1;
+    }
+
+    /* Card Header */
+    .issue-card-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .issue-checkbox {
+      width: 20px;
+      height: 20px;
+      accent-color: var(--neon);
+      cursor: pointer;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .issue-id-badge {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.05);
+      padding: 4px 8px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .issue-title {
+      flex: 1;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.4;
+      word-break: break-word;
+    }
+
+    /* Status & Priority Badges */
+    .issue-badges {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 5px 10px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .badge-status {
+      background: rgba(255, 107, 107, 0.15);
+      color: var(--status-open);
+      border: 1px solid rgba(255, 107, 107, 0.3);
+    }
+
+    .badge-status.in-progress {
+      background: rgba(255, 217, 61, 0.15);
+      color: var(--status-progress);
+      border-color: rgba(255, 217, 61, 0.3);
+    }
+
+    .badge-status.closed {
+      background: rgba(107, 203, 119, 0.15);
+      color: var(--status-closed);
+      border-color: rgba(107, 203, 119, 0.3);
+    }
+
+    .badge-priority {
+      background: rgba(77, 150, 255, 0.15);
+      color: var(--priority-low);
+      border: 1px solid rgba(77, 150, 255, 0.3);
+    }
+
+    .badge-priority.medium {
+      background: rgba(255, 217, 61, 0.15);
+      color: var(--priority-medium);
+      border-color: rgba(255, 217, 61, 0.3);
+    }
+
+    .badge-priority.high {
+      background: rgba(255, 107, 107, 0.15);
+      color: var(--priority-high);
+      border-color: rgba(255, 107, 107, 0.3);
+    }
+
+    /* Issue Meta */
+    .issue-meta {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 14px;
+      padding: 12px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 10px;
+    }
+
+    .meta-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .meta-label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .meta-value {
+      font-size: 13px;
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    /* Issue Notes Preview */
+    .issue-notes-preview {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+      margin-bottom: 14px;
+      padding: 12px;
+      background: rgba(0, 0, 0, 0.15);
+      border-radius: 10px;
+      border-left: 3px solid var(--neon);
+      max-height: 80px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+    }
+
+    /* Card Actions */
+    .issue-actions {
+      display: flex;
+      gap: 8px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .btn-view {
+      flex: 1;
+      padding: 10px 16px;
+      background: rgba(0, 255, 231, 0.1);
+      border: 1px solid rgba(0, 255, 231, 0.3);
+      color: var(--neon);
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-view:hover {
+      background: rgba(0, 255, 231, 0.2);
+      box-shadow: 0 0 20px rgba(0, 255, 231, 0.2);
+    }
+
+    .btn-delete {
+      padding: 10px 16px;
+      background: rgba(255, 107, 107, 0.1);
+      border: 1px solid rgba(255, 107, 107, 0.3);
+      color: var(--status-open);
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-delete:hover {
+      background: rgba(255, 107, 107, 0.2);
+      box-shadow: 0 0 20px rgba(255, 107, 107, 0.2);
+    }
+
+    /* Bulk Actions Bar */
+    .bulk-actions-bar {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: rgba(7, 10, 15, 0.95);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--neon);
+      border-radius: 16px;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 12px 40px rgba(0, 255, 231, 0.2);
+      z-index: 1000;
+      transition: transform 0.3s ease;
+    }
+
+    .bulk-actions-bar.visible {
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .bulk-count {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--neon);
+    }
+
+    .btn-bulk-delete {
+      padding: 10px 20px;
+      background: linear-gradient(90deg, #ff6b6b, #ff3b3b);
+      border: none;
+      color: #041013;
+      border-radius: 10px;
+      font-weight: 800;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-bulk-delete:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 30px rgba(255, 107, 107, 0.4);
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 80px 24px;
+      color: var(--muted);
+    }
+
+    .empty-state-icon {
+      font-size: 80px;
+      margin-bottom: 24px;
+      opacity: 0.5;
+    }
+
+    .empty-state-title {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--text);
+      margin-bottom: 12px;
+    }
+
+    .empty-state-text {
+      font-size: 15px;
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+
+    /* Loading State */
+    .loading-state {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+      gap: 16px;
+    }
+
+    .loading-card {
+      background: rgba(11, 18, 32, 0.5);
+      border-radius: var(--radius);
+      padding: 18px;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 1; }
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .filter-bar {
+        grid-template-columns: 1fr;
+      }
+
+      .issues-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .toolbar {
+        padding: 12px 16px;
+      }
+
+      .toolbar-stats {
+        display: none;
+      }
+
+      .bulk-actions-bar {
+        left: 16px;
+        right: 16px;
+        transform: translateX(0) translateY(100px);
+        width: auto;
+      }
+
+      .bulk-actions-bar.visible {
+        transform: translateX(0) translateY(0);
+      }
+    }
+  </style>
 </head>
 <body>
   <header class="toolbar">
-    <button id="menuBtn" aria-label="Open menu" aria-expanded="false">☰</button>
+    <button id="menuBtn" class="iconBtn" aria-label="Open menu" aria-expanded="false">☰</button>
     <div class="brand">Issue Manager</div>
-    <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
-      <span id="selectedCount" class="muted" aria-live="polite">0 selected</span>
-      <label style="display:flex;align-items:center;gap:6px;padding:6px 10px;">
-        <input id="selectAllIssues" type="checkbox" aria-label="Select all issues">
-        <span>Select all</span>
-      </label>
-      <button id="deleteSelectedBtn" class="btn btnDanger" disabled>Delete selected</button>
+    <div class="toolbar-actions">
+      <span id="toolbarStats" class="toolbar-stats">0 issues</span>
+      <button id="deleteSelectedBtn" class="btn btnDanger" disabled style="display:none;">Delete Selected</button>
     </div>
   </header>
 
-  <!-- off-canvas menu -->
+  <!-- Off-canvas menu -->
   <div id="menuBackdrop" style="position:fixed;inset:0;background:rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:opacity .2s ease;z-index:99998;"></div>
   <nav id="offcanvasMenu" role="navigation" aria-label="Site" aria-hidden="true" style="position:fixed;left:-280px;top:0;bottom:0;width:260px;background:rgba(2,6,10,.95);padding:18px;z-index:99999;box-shadow: 6px 0 30px rgba(0,0,0,.6);transition:left .22s ease;">
     <button id="menuClose" class="iconBtn" style="margin-bottom:12px" aria-label="Close menu">×</button>
@@ -35,103 +500,297 @@
     </div>
   </nav>
 
-  <main style="padding:16px;">
-    <div class="card">
-      <h2>All issues</h2>
-      <div id="issuesList" aria-busy="false" role="status" aria-live="polite">Loading…</div>
+  <main class="main-content">
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="Search issues by title, ID, or plan..." aria-label="Search issues">
+      </div>
+      <select id="statusFilter" class="filter-select" aria-label="Filter by status">
+        <option value="">All Status</option>
+        <option value="Open">Open</option>
+        <option value="In Progress">In Progress</option>
+        <option value="Closed">Closed</option>
+      </select>
+      <select id="priorityFilter" class="filter-select" aria-label="Filter by priority">
+        <option value="">All Priority</option>
+        <option value="Low">Low</option>
+        <option value="Medium">Medium</option>
+        <option value="High">High</option>
+      </select>
+      <select id="sortSelect" class="filter-select" aria-label="Sort issues">
+        <option value="newest">Newest First</option>
+        <option value="oldest">Oldest First</option>
+        <option value="id-desc">Highest ID</option>
+        <option value="id-asc">Lowest ID</option>
+      </select>
+    </div>
+
+    <!-- Issues Grid -->
+    <div id="issuesGrid" class="issues-grid" aria-busy="false" role="list">
+      <!-- Loading cards will be inserted here -->
     </div>
   </main>
 
-  <style>
-    /* Issue list styles */
-    #issuesList table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    #issuesList th, #issuesList td {
-      padding: 10px;
-      text-align: left;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-    }
-    #issuesList th {
-      font-weight: 700;
-      color: var(--neon);
-    }
-    #issuesList tr:hover {
-      background: rgba(0,255,231,0.04);
-    }
-    .issue-check {
-      width: 18px;
-      height: 18px;
-      accent-color: #ff6b6b;
-      cursor: pointer;
-    }
-    .btnDanger {
-      background: linear-gradient(90deg, #ff6b6b, #ff3b3b);
-      color: #041013;
-      border: none;
-      padding: 8px 12px;
-      border-radius: 10px;
-      font-weight: 800;
-    }
-    .btnDanger:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-    .delIssue {
-      background: rgba(255, 107, 107, 0.1);
-      border: 1px solid rgba(255, 107, 107, 0.3);
-      color: #ff7b7b;
-      padding: 6px 10px;
-      border-radius: 8px;
-      cursor: pointer;
-    }
-    .delIssue:hover {
-      background: rgba(255, 107, 107, 0.2);
-    }
-  </style>
+  <!-- Bulk Actions Bar -->
+  <div id="bulkActionsBar" class="bulk-actions-bar" role="toolbar" aria-label="Bulk actions">
+    <span id="bulkCount" class="bulk-count">0 selected</span>
+    <button id="bulkDeleteBtn" class="btn-bulk-delete">Delete Selected</button>
+    <button id="bulkCancelBtn" class="btn-view" style="flex:0 0 auto;">Cancel</button>
+  </div>
 
   <script>
-    // Small helper for safe text
-    function txt(v){ return (v === null || v === undefined) ? '' : String(v); }
+    // State
+    const state = {
+      issues: [],
+      filtered: [],
+      selected: new Set(),
+      filters: {
+        search: '',
+        status: '',
+        priority: '',
+        sort: 'newest'
+      }
+    };
 
-    const selectedIssueIds = new Set();
+    // Helpers
+    function txt(v) { return (v === null || v === undefined) ? '' : String(v); }
+    function formatDate(ts) {
+      if (!ts) return '';
+      try {
+        const d = new Date(ts);
+        return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+      } catch { return ts; }
+    }
 
-    function updateBulkControls(totalIssues = 0) {
-      const selectAll = document.getElementById('selectAllIssues');
-      const deleteBtn = document.getElementById('deleteSelectedBtn');
-      const selectedLabel = document.getElementById('selectedCount');
-      const selectedCount = selectedIssueIds.size;
-      
-      deleteBtn.disabled = selectedCount === 0;
-      if (selectedLabel) selectedLabel.textContent = selectedCount + ' selected';
-      
-      if (totalIssues === 0) {
-        selectAll.checked = false;
-        selectAll.indeterminate = false;
+    // Status/Priority badge classes
+    function getStatusClass(status) {
+      if (!status) return '';
+      const s = status.toLowerCase();
+      if (s === 'in progress') return 'in-progress';
+      if (s === 'closed') return 'closed';
+      return '';
+    }
+
+    function getPriorityClass(priority) {
+      if (!priority) return '';
+      const p = priority.toLowerCase();
+      if (p === 'high') return 'high';
+      if (p === 'medium') return 'medium';
+      return '';
+    }
+
+    // Create issue card
+    function createIssueCard(issue) {
+      const card = document.createElement('div');
+      card.className = 'issue-card';
+      card.dataset.issueId = issue.id;
+      card.setAttribute('role', 'listitem');
+
+      const isSelected = state.selected.has(issue.id);
+      if (isSelected) card.classList.add('selected');
+
+      card.innerHTML = `
+        <div class="issue-card-header">
+          <input type="checkbox" class="issue-checkbox" ${isSelected ? 'checked' : ''} aria-label="Select issue ${txt(issue.id)}">
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+              <span class="issue-id-badge">#${txt(issue.id)}</span>
+              <span class="issue-id-badge">Plan #${txt(issue.plan_id)}</span>
+            </div>
+            <div class="issue-title">${txt(issue.title)}</div>
+          </div>
+        </div>
+
+        <div class="issue-badges">
+          <span class="badge badge-status ${getStatusClass(issue.status)}">${txt(issue.status)}</span>
+          <span class="badge badge-priority ${getPriorityClass(issue.priority)}">${txt(issue.priority)} Priority</span>
+        </div>
+
+        <div class="issue-meta">
+          <div class="meta-item">
+            <span class="meta-label">Page</span>
+            <span class="meta-value">${txt(issue.page)}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Coordinates</span>
+            <span class="meta-value">${issue.x_norm ? Number(issue.x_norm).toFixed(2) : '-'}, ${issue.y_norm ? Number(issue.y_norm).toFixed(2) : '-'}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Created</span>
+            <span class="meta-value">${formatDate(issue.created_at)}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Assignee</span>
+            <span class="meta-value">${txt(issue.assigned_to) || 'Unassigned'}</span>
+          </div>
+        </div>
+
+        ${issue.notes ? `<div class="issue-notes-preview" title="${txt(issue.notes)}">${txt(issue.notes)}</div>` : ''}
+
+        <div class="issue-actions">
+          <button class="btn-view" data-action="view" data-id="${txt(issue.id)}">View Details</button>
+          <button class="btn-delete" data-action="delete" data-id="${txt(issue.id)}">Delete</button>
+        </div>
+      `;
+
+      // Checkbox handler
+      const checkbox = card.querySelector('.issue-checkbox');
+      checkbox.addEventListener('change', (e) => {
+        e.stopPropagation();
+        if (checkbox.checked) {
+          state.selected.add(issue.id);
+          card.classList.add('selected');
+        } else {
+          state.selected.delete(issue.id);
+          card.classList.remove('selected');
+        }
+        updateBulkActions();
+      });
+
+      // Action buttons
+      card.querySelector('[data-action="view"]').addEventListener('click', () => viewIssue(issue));
+      card.querySelector('[data-action="delete"]').addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteIssue(issue.id, issue.plan_id);
+      });
+
+      // Card click to toggle selection
+      card.addEventListener('click', (e) => {
+        if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'INPUT') {
+          checkbox.checked = !checkbox.checked;
+          checkbox.dispatchEvent(new Event('change'));
+        }
+      });
+
+      return card;
+    }
+
+    // Render issues
+    function renderIssues() {
+      const grid = document.getElementById('issuesGrid');
+      grid.innerHTML = '';
+
+      if (state.filtered.length === 0) {
+        grid.innerHTML = `
+          <div class="empty-state" style="grid-column: 1 / -1;">
+            <div class="empty-state-icon">📋</div>
+            <div class="empty-state-title">No issues found</div>
+            <div class="empty-state-text">
+              ${state.issues.length === 0 
+                ? "There are no issues yet. Create your first issue from the main viewer."
+                : "Try adjusting your filters to see more results."}
+            </div>
+          </div>
+        `;
         return;
       }
-      
-      if (selectedCount === 0) {
-        selectAll.checked = false;
-        selectAll.indeterminate = false;
-      } else if (selectedCount === totalIssues) {
-        selectAll.checked = true;
-        selectAll.indeterminate = false;
+
+      const frag = document.createDocumentFragment();
+      state.filtered.forEach(issue => {
+        frag.appendChild(createIssueCard(issue));
+      });
+      grid.appendChild(frag);
+    }
+
+    // Filter and sort issues
+    function applyFilters() {
+      let filtered = [...state.issues];
+
+      // Search
+      if (state.filters.search) {
+        const s = state.filters.search.toLowerCase();
+        filtered = filtered.filter(i => 
+          txt(i.title).toLowerCase().includes(s) ||
+          txt(i.id).toLowerCase().includes(s) ||
+          txt(i.plan_id).toLowerCase().includes(s)
+        );
+      }
+
+      // Status
+      if (state.filters.status) {
+        filtered = filtered.filter(i => txt(i.status) === state.filters.status);
+      }
+
+      // Priority
+      if (state.filters.priority) {
+        filtered = filtered.filter(i => txt(i.priority) === state.filters.priority);
+      }
+
+      // Sort
+      filtered.sort((a, b) => {
+        switch (state.filters.sort) {
+          case 'newest':
+            return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+          case 'oldest':
+            return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+          case 'id-desc':
+            return parseInt(b.id) - parseInt(a.id);
+          case 'id-asc':
+            return parseInt(a.id) - parseInt(b.id);
+          default:
+            return 0;
+        }
+      });
+
+      state.filtered = filtered;
+      renderIssues();
+      updateToolbarStats();
+    }
+
+    // Update bulk actions bar
+    function updateBulkActions() {
+      const bar = document.getElementById('bulkActionsBar');
+      const count = document.getElementById('bulkCount');
+      const deleteBtn = document.getElementById('bulkDeleteBtn');
+      const cancelBtn = document.getElementById('bulkCancelBtn');
+      const toolbarDeleteBtn = document.getElementById('deleteSelectedBtn');
+
+      const selectedCount = state.selected.size;
+      count.textContent = `${selectedCount} selected`;
+
+      if (selectedCount > 0) {
+        bar.classList.add('visible');
+        deleteBtn.disabled = false;
+        if (toolbarDeleteBtn) {
+          toolbarDeleteBtn.style.display = 'inline-block';
+          toolbarDeleteBtn.disabled = false;
+        }
       } else {
-        selectAll.checked = false;
-        selectAll.indeterminate = true;
+        bar.classList.remove('visible');
+        deleteBtn.disabled = true;
+        if (toolbarDeleteBtn) {
+          toolbarDeleteBtn.style.display = 'none';
+        }
       }
     }
 
-    async function deleteIssue(id, plan) {
-      if (!confirm('Delete issue ' + id + ' and all associated photos?')) return;
+    // Update toolbar stats
+    function updateToolbarStats() {
+      const stats = document.getElementById('toolbarStats');
+      if (stats) {
+        const total = state.issues.length;
+        const showing = state.filtered.length;
+        stats.textContent = total === showing 
+          ? `${total} issue${total !== 1 ? 's' : ''}`
+          : `${showing} of ${total} issues`;
+      }
+    }
 
-      try{
+    // View issue (placeholder - could open modal or navigate)
+    function viewIssue(issue) {
+      alert(`Issue #${issue.id}\n\nTitle: ${issue.title}\nPlan: ${issue.plan_id}\nPage: ${issue.page}\nStatus: ${issue.status}\nPriority: ${issue.priority}\n\nNotes: ${issue.notes || 'No notes'}`);
+    }
+
+    // Delete single issue
+    async function deleteIssue(id, planId) {
+      if (!confirm(`Delete issue #${id} and all associated photos?\n\nThis action can be undone via the trash.`)) return;
+
+      try {
         const resp = await fetch('/api/delete_issue_with_photos.php', {
           method: 'POST',
-          headers: { 'Content-Type':'application/json', 'Accept':'application/json' },
-          body: JSON.stringify({ id, plan_id: plan })
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({ id, plan_id: planId })
         });
 
         const raw = await resp.text();
@@ -142,66 +801,95 @@
           throw new Error((resj && resj.error) ? resj.error : ('HTTP ' + resp.status));
         }
 
-        // show undo snackbar
-        showUndoSnack('Issue deleted', 'Undo', async ()=>{
+        showUndoSnack('Issue deleted', 'Undo', async () => {
           const trash = resj.trash;
-          if(!trash) throw new Error('No trash info returned');
+          if (!trash) throw new Error('No trash info returned');
           const r = await fetch('/api/restore_trash.php', {
-            method:'POST',
-            headers:{ 'Content-Type':'application/json', 'Accept':'application/json' },
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
             body: JSON.stringify({ trash })
           });
           const raw2 = await r.text();
           let jr;
           try { jr = JSON.parse(raw2); } catch { jr = null; }
-          if(!r.ok || !jr || !jr.ok) throw new Error((jr && jr.error) ? jr.error : ('HTTP ' + r.status));
+          if (!r.ok || !jr || !jr.ok) throw new Error((jr && jr.error) ? jr.error : ('HTTP ' + r.status));
           await loadIssues();
         });
 
         await loadIssues();
-      } catch(e) {
+      } catch (e) {
         alert('Delete failed: ' + e.message);
       }
     }
 
+    // Delete selected issues
     async function deleteSelectedIssues() {
-      if (selectedIssueIds.size === 0) return;
-      
-      if (!confirm(`Delete ${selectedIssueIds.size} issue(s) and all associated photos?`)) return;
-      
-      const ids = Array.from(selectedIssueIds);
+      if (state.selected.size === 0) return;
+
+      if (!confirm(`Delete ${state.selected.size} issue(s) and all associated photos?\n\nThis action can be undone via the trash.`)) return;
+
+      const ids = Array.from(state.selected);
       const failures = [];
-      
-      for (const {id, plan} of ids) {
-        try{
+
+      for (const id of ids) {
+        const issue = state.issues.find(i => i.id == id);
+        if (!issue) continue;
+
+        try {
           const resp = await fetch('/api/delete_issue_with_photos.php', {
             method: 'POST',
-            headers: { 'Content-Type':'application/json', 'Accept':'application/json' },
-            body: JSON.stringify({ id, plan_id: plan })
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ id: issue.id, plan_id: issue.plan_id })
           });
+
           const raw = await resp.text();
           let resj;
           try { resj = JSON.parse(raw); } catch { resj = null; }
+
           if (!resp.ok || !resj || !resj.ok) failures.push(id);
-        }catch(e){ failures.push(id); }
+        } catch (e) {
+          failures.push(id);
+        }
       }
-      
+
       if (failures.length) {
         alert(`Failed to delete ${failures.length} issue(s).`);
       } else {
         showUndoSnack(`Deleted ${ids.length} issue(s)`);
       }
-      
-      selectedIssueIds.clear();
+
+      state.selected.clear();
+      updateBulkActions();
       await loadIssues();
     }
 
-    async function loadIssues(){
-      const wrap = document.getElementById('issuesList');
-      wrap.setAttribute('aria-busy', 'true');
-      wrap.textContent = 'Loading…';
+    // Load issues
+    async function loadIssues() {
+      const grid = document.getElementById('issuesGrid');
+      grid.setAttribute('aria-busy', 'true');
 
-      try{
+      // Show loading skeleton
+      grid.innerHTML = '';
+      for (let i = 0; i < 6; i++) {
+        const skeleton = document.createElement('div');
+        skeleton.className = 'loading-card';
+        skeleton.innerHTML = `
+          <div style="height:20px;background:rgba(255,255,255,0.05);border-radius:6px;margin-bottom:12px;"></div>
+          <div style="height:14px;background:rgba(255,255,255,0.05);border-radius:4px;width:60%;margin-bottom:16px;"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+            <div style="height:40px;background:rgba(255,255,255,0.05);border-radius:6px;"></div>
+            <div style="height:40px;background:rgba(255,255,255,0.05);border-radius:6px;"></div>
+          </div>
+          <div style="height:60px;background:rgba(255,255,255,0.05);border-radius:6px;margin-bottom:16px;"></div>
+          <div style="display:flex;gap:8px;">
+            <div style="flex:1;height:36px;background:rgba(255,255,255,0.05);border-radius:6px;"></div>
+            <div style="width:100px;height:36px;background:rgba(255,255,255,0.05);border-radius:6px;"></div>
+          </div>
+        `;
+        grid.appendChild(skeleton);
+      }
+
+      try {
         const res = await fetch('/api/list_issues.php', {
           headers: { 'Accept': 'application/json' },
           cache: 'no-store'
@@ -210,263 +898,58 @@
         const raw = await res.text();
         let data;
         try { data = JSON.parse(raw); }
-        catch {
-          throw new Error('API did not return JSON. First chars: ' + raw.slice(0,120));
-        }
+        catch { throw new Error('API did not return JSON'); }
 
-        if (!res.ok) throw new Error('HTTP ' + res.status + (data && data.error ? (': ' + data.error) : ''));
+        if (!res.ok) throw new Error('HTTP ' + res.status);
         if (!data.ok) throw new Error(data.error || 'unknown');
 
-        if (!Array.isArray(data.issues) || data.issues.length === 0) {
-          wrap.innerHTML = '<div>No issues found</div>';
-          wrap.setAttribute('aria-busy', 'false');
-          return;
-        }
+        state.issues = Array.isArray(data.issues) ? data.issues : [];
+        state.selected.clear();
+        applyFilters();
 
-        // Build table safely (no innerHTML with user content)
-        const table = document.createElement('table');
-        table.setAttribute('aria-label', 'Issue list');
-        table.style.width = '100%';
-        table.style.borderCollapse = 'collapse';
-
-        const thead = document.createElement('thead');
-        const hr = document.createElement('tr');
-        
-        // Checkbox column header
-        const thCheck = document.createElement('th');
-        thCheck.style.width = '40px';
-        const checkAll = document.createElement('input');
-        checkAll.type = 'checkbox';
-        checkAll.className = 'issue-check';
-        checkAll.id = 'selectAllIssues';
-        checkAll.setAttribute('aria-label', 'Select all issues');
-        thCheck.appendChild(checkAll);
-        hr.appendChild(thCheck);
-        
-        ['ID','Plan','Page','Title','Coords','Photos','Actions'].forEach(h=>{
-          const th = document.createElement('th');
-          th.setAttribute('scope','col');
-          th.textContent = h;
-          hr.appendChild(th);
-        });
-        thead.appendChild(hr);
-        table.appendChild(thead);
-
-        const tbody = document.createElement('tbody');
-        const frag = document.createDocumentFragment();
-        const issueIds = new Set();
-
-        for (const iss of data.issues) {
-          issueIds.add(Number(iss.id));
-          const tr = document.createElement('tr');
-
-          // Checkbox column
-          const tdCheck = document.createElement('td');
-          const checkWrap = document.createElement('label');
-          checkWrap.style.display = 'flex';
-          checkWrap.style.alignItems = 'center';
-          const check = document.createElement('input');
-          check.type = 'checkbox';
-          check.className = 'issue-check';
-          check.checked = selectedIssueIds.has(Number(iss.id));
-          check.setAttribute('aria-label', `Select issue ${txt(iss.id)}`);
-          check.addEventListener('change', () => {
-            const issueData = { id: Number(iss.id), plan: Number(iss.plan_id) };
-            if (check.checked) {
-              selectedIssueIds.add(issueData);
-            } else {
-              selectedIssueIds.delete(issueData);
-            }
-            updateBulkControls(issueIds.size);
-          });
-          checkWrap.appendChild(check);
-          tdCheck.appendChild(checkWrap);
-          tr.appendChild(tdCheck);
-
-          const tdId = document.createElement('td');
-          tdId.textContent = txt(iss.id);
-          tr.appendChild(tdId);
-
-          const tdPlan = document.createElement('td');
-          tdPlan.textContent = txt(iss.plan_name || iss.plan_id);
-          tr.appendChild(tdPlan);
-
-          const tdPage = document.createElement('td');
-          tdPage.textContent = txt(iss.page);
-          tr.appendChild(tdPage);
-
-          const tdTitle = document.createElement('td');
-          tdTitle.textContent = txt(iss.title);
-          tr.appendChild(tdTitle);
-
-          const tdCoords = document.createElement('td');
-          if (iss.x_norm !== null && iss.y_norm !== null && iss.x_norm !== undefined && iss.y_norm !== undefined) {
-            const x = Number(iss.x_norm);
-            const y = Number(iss.y_norm);
-            tdCoords.textContent = (Number.isFinite(x) && Number.isFinite(y)) ? (x.toFixed(2) + ', ' + y.toFixed(2)) : '';
-          } else {
-            tdCoords.textContent = '';
-          }
-          tr.appendChild(tdCoords);
-
-          const tdPhotos = document.createElement('td');
-          tdPhotos.id = 'ph-' + txt(iss.id);
-          tdPhotos.textContent = 'Loading…';
-          tr.appendChild(tdPhotos);
-
-          const tdActions = document.createElement('td');
-          const delBtn = document.createElement('button');
-          delBtn.className = 'delIssue';
-          delBtn.type = 'button';
-          delBtn.textContent = 'Delete';
-          delBtn.dataset.id = txt(iss.id);
-          delBtn.dataset.plan = txt(iss.plan_id);
-          delBtn.setAttribute('aria-label', 'Delete issue ' + txt(iss.id));
-          tdActions.appendChild(delBtn);
-          tr.appendChild(tdActions);
-
-          frag.appendChild(tr);
-        }
-        tbody.appendChild(frag);
-        table.appendChild(tbody);
-        wrap.innerHTML = '';
-        wrap.appendChild(table);
-        
-        // Restore any previously selected issues that are still in the list
-        for (const selected of Array.from(selectedIssueIds)) {
-          if (!issueIds.has(selected.id)) {
-            selectedIssueIds.delete(selected);
-          }
-        }
-        updateBulkControls(issueIds.size);
-        wrap.setAttribute('aria-busy', 'false');
-
-        // Fetch photo counts per plan to reduce requests
-        const issuesByPlan = new Map();
-        for (const iss of data.issues) {
-          const pid = txt(iss.plan_id);
-          if (!issuesByPlan.has(pid)) issuesByPlan.set(pid, []);
-          issuesByPlan.get(pid).push(iss);
-        }
-        for (const [pid, issues] of issuesByPlan.entries()) {
-          try{
-            const r = await fetch(`/api/list_photos.php?plan_id=${encodeURIComponent(pid)}`, {
-              headers: { 'Accept':'application/json' },
-              cache: 'no-store'
-            });
-            const raw2 = await r.text();
-            let j;
-            try { j = JSON.parse(raw2); } catch { j = null; }
-            const counts = {};
-            if (j && j.ok && Array.isArray(j.photos)) {
-              for (const ph of j.photos) {
-                const key = txt(ph.issue_id);
-                if (!key) continue;
-                counts[key] = (counts[key] || 0) + 1;
-              }
-            }
-            for (const iss of issues) {
-              const phWrap = document.getElementById('ph-' + txt(iss.id));
-              if (!phWrap) continue;
-              const c = counts[txt(iss.id)] || 0;
-              phWrap.textContent = c + ' photo(s)';
-            }
-          } catch(e) {
-            for (const iss of issues) {
-              const phWrap = document.getElementById('ph-' + txt(iss.id));
-              if (phWrap) phWrap.textContent = '0';
-            }
-          }
-        }
-
-      } catch(e) {
-        wrap.textContent = 'Failed to load: ' + e.message;
-        wrap.setAttribute('aria-busy', 'false');
-        console.error(e);
+      } catch (e) {
+        grid.innerHTML = `
+          <div class="empty-state" style="grid-column: 1 / -1;">
+            <div class="empty-state-icon">❌</div>
+            <div class="empty-state-title">Failed to load issues</div>
+            <div class="empty-state-text">${e.message}</div>
+            <button class="btnPrimary" onclick="loadIssues()">Retry</button>
+          </div>
+        `;
       }
+
+      grid.removeAttribute('aria-busy');
     }
 
-    // Event delegation for delete buttons (works after reload)
-    document.addEventListener('click', async (ev) => {
-      const btn = ev.target && ev.target.closest ? ev.target.closest('.delIssue') : null;
-      if (!btn) return;
-
-      const id = parseInt(btn.dataset.id, 10);
-      const plan = parseInt(btn.dataset.plan, 10);
-      if (!Number.isFinite(id) || !Number.isFinite(plan)) return alert('Bad issue id / plan id');
-
-      deleteIssue(id, plan);
-    });
-
-    // Select all checkbox handler (header checkbox)
-    document.addEventListener('DOMContentLoaded', () => {
-      const selectAll = document.getElementById('selectAllIssues');
-      if (selectAll) {
-        selectAll.addEventListener('change', (event) => {
-          const checks = document.querySelectorAll('.issue-check:not(#selectAllIssues)');
-          if (!checks.length) return;
-          
-          if (event.target.checked) {
-            checks.forEach((check) => {
-              check.checked = true;
-              const tr = check.closest('tr');
-              if (tr) {
-                const idCell = tr.cells[1]; // ID is in second column (index 1)
-                const planCell = tr.cells[2]; // Plan is in third column (index 2)
-                if (idCell && planCell) {
-                  const id = parseInt(txt(idCell.textContent), 10);
-                  const plan = parseInt(txt(planCell.textContent), 10);
-                  if (Number.isFinite(id) && Number.isFinite(plan)) {
-                    selectedIssueIds.add({ id, plan });
-                  }
-                }
-              }
-            });
-          } else {
-            checks.forEach((check) => { check.checked = false; });
-            selectedIssueIds.clear();
-          }
-          
-          // Get total from table rows (excluding header)
-          const total = document.querySelectorAll('#issuesList tbody tr').length;
-          updateBulkControls(total);
-        });
-      }
-      
-      // Delete selected button handler
-      const deleteBtn = document.getElementById('deleteSelectedBtn');
-      if (deleteBtn) {
-        deleteBtn.addEventListener('click', deleteSelectedIssues);
-      }
-    });
-
-    /* Snackbar */
+    // Snackbar / Undo helper
     function showUndoSnack(message, undoLabel, undoCb) {
       let sb = document.getElementById('snackbar');
       if (!sb) {
         sb = document.createElement('div');
         sb.id = 'snackbar';
-        sb.setAttribute('role','status');
-        sb.setAttribute('aria-live','polite');
+        sb.setAttribute('role', 'status');
+        sb.setAttribute('aria-live', 'polite');
         sb.style.position = 'fixed';
         sb.style.left = '50%';
         sb.style.transform = 'translateX(-50%)';
-        sb.style.bottom = '20px';
-        sb.style.zIndex = 99999;
+        sb.style.bottom = '100px';
+        sb.style.zIndex = '1001';
         sb.style.background = 'linear-gradient(90deg, rgba(6,56,56,0.95), rgba(0,255,160,0.06))';
         sb.style.color = '#fff';
-        sb.style.padding = '12px 16px';
-        sb.style.borderRadius = '10px';
-        sb.style.boxShadow = '0 12px 30px rgba(0,0,0,.5)';
+        sb.style.padding = '14px 20px';
+        sb.style.borderRadius = '12px';
+        sb.style.boxShadow = '0 12px 40px rgba(0,0,0,.6)';
         sb.style.display = 'flex';
-        sb.style.gap = '12px';
+        sb.style.gap = '16px';
         sb.style.alignItems = 'center';
+        sb.style.border = '1px solid rgba(0,255,231,0.2)';
         document.body.appendChild(sb);
       }
 
       sb.innerHTML = '';
       const t = document.createElement('div');
       t.textContent = message;
+      t.style.fontWeight = '600';
       sb.appendChild(t);
 
       if (undoCb) {
@@ -474,9 +957,11 @@
         undo.className = 'btnPrimary';
         undo.type = 'button';
         undo.textContent = undoLabel || 'Undo';
-        undo.onclick = async ()=>{
+        undo.style.padding = '8px 16px';
+        undo.style.fontSize = '13px';
+        undo.onclick = async () => {
           try { await undoCb(); }
-          catch(e){ alert('Undo failed: ' + (e.message || 'unknown')); }
+          catch (e) { alert('Undo failed: ' + (e.message || 'unknown')); }
           sb.style.display = 'none';
         };
         sb.appendChild(undo);
@@ -484,42 +969,69 @@
 
       sb.style.display = 'flex';
       clearTimeout(sb._timeout);
-      sb._timeout = setTimeout(()=>{ sb.style.display='none'; }, 8000);
+      sb._timeout = setTimeout(() => { sb.style.display = 'none'; }, 8000);
     }
 
-    /* Off-canvas menu handling */
-    (function initMenu(){
+    // Off-canvas menu
+    function initMenu() {
       const off = document.getElementById('offcanvasMenu');
       const backdrop = document.getElementById('menuBackdrop');
       const menuBtn = document.getElementById('menuBtn');
-      
-      function setMenu(open){
+
+      function setMenu(open) {
         document.body.classList.toggle('offcanvas-open', open);
         off.style.left = open ? '0' : '-280px';
         off.setAttribute('aria-hidden', open ? 'false' : 'true');
         if (menuBtn) menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
       }
-      
-      if (menuBtn) menuBtn.onclick = ()=> setMenu(true);
-      
-      const closeBtn = document.getElementById('menuClose');
-      if (closeBtn) closeBtn.onclick = ()=> setMenu(false);
-      if (backdrop) backdrop.onclick = ()=> setMenu(false);
-      document.addEventListener('keydown', (ev)=>{ if(ev.key === 'Escape') setMenu(false); });
-      
-      // Close menu when clicking a link
-      off.querySelectorAll('a').forEach((link)=> {
-        link.addEventListener('click', ()=> setMenu(false));
-      });
-    })();
 
-    // Start
-    loadIssues();
+      if (menuBtn) menuBtn.onclick = () => setMenu(true);
+      const closeBtn = document.getElementById('menuClose');
+      if (closeBtn) closeBtn.onclick = () => setMenu(false);
+      if (backdrop) backdrop.onclick = () => setMenu(false);
+      document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') setMenu(false); });
+      off.querySelectorAll('a').forEach(link => {
+        link.addEventListener('click', () => setMenu(false));
+      });
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      initMenu();
+
+      // Filter handlers
+      document.getElementById('searchInput').addEventListener('input', (e) => {
+        state.filters.search = e.target.value;
+        applyFilters();
+      });
+
+      document.getElementById('statusFilter').addEventListener('change', (e) => {
+        state.filters.status = e.target.value;
+        applyFilters();
+      });
+
+      document.getElementById('priorityFilter').addEventListener('change', (e) => {
+        state.filters.priority = e.target.value;
+        applyFilters();
+      });
+
+      document.getElementById('sortSelect').addEventListener('change', (e) => {
+        state.filters.sort = e.target.value;
+        applyFilters();
+      });
+
+      // Bulk action handlers
+      document.getElementById('bulkDeleteBtn').addEventListener('click', deleteSelectedIssues);
+      document.getElementById('bulkCancelBtn').addEventListener('click', () => {
+        state.selected.clear();
+        updateBulkActions();
+        renderIssues();
+      });
+      document.getElementById('deleteSelectedBtn').addEventListener('click', deleteSelectedIssues);
+
+      // Load issues
+      loadIssues();
+    });
   </script>
 </body>
 </html>
-
-
-
-
-
