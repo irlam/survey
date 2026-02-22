@@ -1438,13 +1438,28 @@ async function showIssueModal(pin){
     })();
 
     modal.querySelector('#issueSaveBtn').onclick = async ()=>{
+    const saveBtn = modal.querySelector('#issueSaveBtn');
+    const originalText = saveBtn.textContent;
+    
+    // Disable button and show loading state
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving...';
+    saveBtn.style.opacity = '0.7';
+    
     const planId = getActivePlanId(pin);
     const title = modal.querySelector('#issueTitle').value.trim();
     const notes = modal.querySelector('#issueNotes').value.trim();
     const status = modal.querySelector('#issueStatusSelect') ? modal.querySelector('#issueStatusSelect').value : (pin.status||'Open');
     const priority = modal.querySelector('#issuePrioritySelect') ? modal.querySelector('#issuePrioritySelect').value : (pin.priority||null);
     const assigned_to = modal.querySelector('#issueAssignee') ? modal.querySelector('#issueAssignee').value.trim() : (pin.assigned_to||pin.assignee||null);
-    if(!title){ localShowToast('Title is required'); return; }
+    if(!title){
+      // Restore button state
+      saveBtn.disabled = false;
+      saveBtn.textContent = originalText;
+      saveBtn.style.opacity = '1';
+      localShowToast('Title is required');
+      return;
+    }
     const issue = { plan_id: planId, page: pin.page, x_norm: pin.x_norm, y_norm: pin.y_norm, title, notes, status, priority, assigned_to };
     if(pin.id) issue.id = pin.id;
     try{
@@ -1474,7 +1489,16 @@ async function showIssueModal(pin){
         })();
       }
       if(!pin.id && savedId){ pin.id = savedId; await showIssueModal(pin); }
-    }catch(e){ localShowToast('Error saving issue: '+e.message); try{ trackEvent('pin_save_failure', { error: e && e.message || String(e) }); }catch(x){} try{ if(navigator && typeof navigator.vibrate === 'function') navigator.vibrate(20); }catch(x){} }
+    }catch(e){
+      localShowToast('Error saving issue: '+e.message);
+      try{ trackEvent('pin_save_failure', { error: e && e.message || String(e) }); }catch(x){}
+      try{ if(navigator && typeof navigator.vibrate === 'function') navigator.vibrate(20); }catch(x){}
+    } finally {
+      // Restore button state
+      saveBtn.disabled = false;
+      saveBtn.textContent = originalText;
+      saveBtn.style.opacity = '1';
+    }
   };
 
   // Cancel handler and close modal

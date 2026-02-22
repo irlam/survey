@@ -162,7 +162,20 @@ async function refreshPlans() {
       return name.includes(search);
     });
     if (!plans.length) {
-      box.innerHTML = data.plans.length ? '<div class="muted">No plans match your search.</div>' : '<div class="muted">No plans yet. Upload one.</div>';
+      if (data.plans.length === 0) {
+        // Empty state - no plans at all
+        box.innerHTML = `
+          <div class="emptyState">
+            <div class="emptyIcon">📄</div>
+            <div class="emptyTitle">No plans yet</div>
+            <div class="emptyText">Upload your first PDF plan to get started</div>
+            <button class="btnPrimary" onclick="document.getElementById('btnPlans').click()">Upload Plan</button>
+          </div>
+        `;
+      } else {
+        // Empty search results
+        box.innerHTML = '<div class="muted">No plans match your search.</div>';
+      }
       box.setAttribute('aria-busy', 'false');
       return;
     }
