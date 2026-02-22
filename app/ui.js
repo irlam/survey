@@ -520,6 +520,8 @@ function showIssuesModal(planId) {
           const hay = `${i.title||''} ${i.notes||i.description||''} ${i.id||''} ${i.assigned_to||i.assignee||''} ${i.due_date||''}`.toLowerCase();
           if (!hay.includes(q)) return false;
         }
+        // Filter out E2E test issues
+        if (i.title && i.title.startsWith('E2E')) return false;
         return true;
       });
       
