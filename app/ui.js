@@ -544,9 +544,13 @@ function showIssuesModal(planId) {
           return parseIssueDate(a) - parseIssueDate(b);
         });
       }
-      // recent issues (top 3 by date)
+      // recent issues (top 3 by date, excluding E2E tests)
       if (recentBox) {
-        const recent = allIssues.slice().sort((a,b)=> parseIssueDate(b) - parseIssueDate(a)).slice(0,3);
+        const recent = allIssues
+          .filter(i => !i.title || !i.title.startsWith('E2E'))
+          .slice()
+          .sort((a,b)=> parseIssueDate(b) - parseIssueDate(a))
+          .slice(0,3);
         if (recent.length) {
           recentBox.style.display = '';
           recentBox.innerHTML = '';

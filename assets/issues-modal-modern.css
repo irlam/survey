@@ -46,6 +46,18 @@
   animation: modalSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+.modal-content-modern > .issuesControls,
+.modal-content-modern > .recentIssues,
+.modal-content-modern > .modal-footer {
+  flex-shrink: 0;
+}
+
+.modal-content-modern > #issuesList {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
 @keyframes modalSlideIn {
   from {
     opacity: 0;
@@ -306,28 +318,11 @@
 
 /* Issues List Container */
 #issuesList {
-  padding: 0;
-  overflow-y: auto;
+  padding: 24px;
+  overflow-y: visible;
   flex: 1;
   min-height: 0;
-  background: rgba(0, 0, 0, 0.1);
-}
-
-#issuesList::-webkit-scrollbar {
-  width: 8px;
-}
-
-#issuesList::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
-}
-
-#issuesList::-webkit-scrollbar-thumb {
-  background: rgba(0, 255, 231, 0.2);
-  border-radius: 4px;
-}
-
-#issuesList::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 255, 231, 0.3);
+  background: transparent;
 }
 
 /* Issue Cards */
