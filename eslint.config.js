@@ -43,15 +43,15 @@ export default [
     },
     rules: {
       "no-unused-vars": ["warn", { 
-        "argsIgnorePattern": "^_",
-        "varsIgnorePattern": "^_|^e$",
-        "caughtErrorsIgnorePattern": "^_|^e$"
+        "argsIgnorePattern": "^_|^e$|^ev$",
+        "varsIgnorePattern": "^_|^e$|^err$",
+        "caughtErrorsIgnorePattern": "^_|^e$|^err$"
       }],
       "no-console": "off",
       "no-undef": "off",
       "no-implicit-globals": "off",
       "semi": ["warn", "always"],
-      "quotes": ["warn", "single"],
+      "quotes": ["warn", "single", { "allowTemplateLiterals": true, "avoidEscape": true }],
       "no-var": "off",
       "prefer-const": "warn",
       "no-eval": "error",
