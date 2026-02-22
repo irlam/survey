@@ -70,12 +70,22 @@ foreach ($migrations as $migration) {
         echo "OK\n";
         $appliedCount++;
     } catch (PDOException $e) {
-        echo "ERROR: " . $e->getMessage() . "\n";
-        $errorCount++;
-        
-        // Stop on first error to prevent partial migrations
-        echo "\nMigration stopped due to error. Please fix and re-run.\n";
-        break;
+        $msg = $e->getMessage();
+        // Check if it's a "already exists" error - if so, still mark as applied
+        if (strpos($msg, 'already exists') !== false || strpos($msg, 'Duplicate') !== false) {
+            echo "OK (already applied)\n";
+            // Mark as applied anyway to continue
+            $stmt = $pdo->prepare('INSERT IGNORE INTO _migrations (filename) VALUES (?)');
+            $stmt->execute([$filename]);
+            $skippedCount++;
+        } else {
+            echo "ERROR: " . $msg . "\n";
+            $errorCount++;
+            
+            // Stop on first error to prevent partial migrations
+            echo "\nMigration stopped due to error. Please fix and re-run.\n";
+            break;
+        }
     }
 }
 
