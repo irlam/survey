@@ -39,21 +39,21 @@
   max-width: 1400px;
   width: calc(100% - 40px);
   max-height: calc(100vh - 40px);
-  height: calc(100vh - 40px);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: auto;
   animation: modalSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .modal-content-modern > .issuesControls,
 .modal-content-modern > .recentIssues,
-.modal-content-modern > .modal-footer {
+.modal-content-modern > .modal-footer,
+.modal-content-modern > .modal-header {
   flex-shrink: 0;
 }
 
 .modal-content-modern > #issuesList {
-  overflow-y: auto;
+  overflow-y: visible;
   flex: 1;
   min-height: 0;
 }
@@ -67,6 +67,25 @@
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+}
+
+/* Modal scrollbar */
+.modal-content-modern::-webkit-scrollbar {
+  width: 10px;
+}
+
+.modal-content-modern::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 5px;
+}
+
+.modal-content-modern::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 231, 0.3);
+  border-radius: 5px;
+}
+
+.modal-content-modern::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 255, 231, 0.5);
 }
 
 /* Modal Header */
