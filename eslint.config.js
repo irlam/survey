@@ -44,8 +44,8 @@ export default [
     rules: {
       "no-unused-vars": ["warn", { 
         "argsIgnorePattern": "^_|^e$|^ev$",
-        "varsIgnorePattern": "^_|^e$|^err$",
-        "caughtErrorsIgnorePattern": "^_|^e$|^err$"
+        "varsIgnorePattern": "^_|^e$|^err$|^ignore$|^fitMode$|^ctx$|^scheduleRender$|^idbModule$",
+        "caughtErrorsIgnorePattern": "^_|^e$|^err$|^ignore$"
       }],
       "no-console": "off",
       "no-undef": "off",
