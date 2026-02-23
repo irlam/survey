@@ -544,28 +544,9 @@ function showIssuesModal(planId) {
           return parseIssueDate(a) - parseIssueDate(b);
         });
       }
-      // recent issues (top 3 by date, excluding E2E tests)
+      // Recent issues section - DISABLED
       if (recentBox) {
-        const recent = allIssues
-          .filter(i => !i.title || !i.title.startsWith('E2E'))
-          .slice()
-          .sort((a,b)=> parseIssueDate(b) - parseIssueDate(a))
-          .slice(0,3);
-        if (recent.length) {
-          recentBox.style.display = '';
-          recentBox.innerHTML = '';
-          for (const r of recent) {
-            const card = document.createElement('div'); card.className='recentIssueCard';
-            const left = document.createElement('div');
-            left.innerHTML = `<div class="recentIssueTitle">${escapeHtml(r.title || ('Issue #' + r.id))}</div><div class="recentIssueMeta">Page ${escapeHtml(String(r.page||''))}</div>`;
-            const btn = document.createElement('button'); btn.className='btn'; btn.textContent='Jump';
-            btn.onclick = ()=>{ const go = ()=>{ if(window.viewerJumpToIssue) window.viewerJumpToIssue(r); }; if(window.startViewer) window.startViewer().then(go).catch(()=>go()); else go(); };
-            card.appendChild(left); card.appendChild(btn);
-            recentBox.appendChild(card);
-          }
-        } else {
-          recentBox.style.display = 'none';
-        }
+        recentBox.style.display = 'none';
       }
       if(!filtered.length){
         const hasFilters = Boolean(q || aVal || sVal || pVal);
