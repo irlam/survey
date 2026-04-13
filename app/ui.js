@@ -46,7 +46,7 @@ function setupLazyImages(container){
         obs.unobserve(img);
       }
     });
-  }, { root: container, rootMargin: '80px' });
+  }, { root: null, rootMargin: '200px' });
   imgs.forEach(img => obs.observe(img));
 }
 
@@ -707,9 +707,9 @@ function showIssuesModal(planId) {
           for(let i=0;i<Math.min(4, phs.length); i++){
             const p = phs[i];
             const img = document.createElement('img');
-            img.dataset.src = p.thumb_url || p.url;
+            img.src = p.thumb_url || p.url;
             img.alt = 'Issue photo';
-            img.loading = 'lazy';
+            img.onerror = ()=>{ if(p.url && img.src !== p.url){ img.src = p.url; } else { img.style.display='none'; } };
             img.onclick = ()=>{ const w = window.open(p.url || p.thumb_url, '_blank', 'noopener'); if (w) w.opener = null; };
             thumbsWrap.appendChild(img);
           }

@@ -1013,6 +1013,7 @@ async function showIssueModal(pin){
         const img = document.createElement('img');
         const src = t.thumb_url ? t.thumb_url : t.url;
         img.src = src; img.alt='Photo'; img.style.maxWidth='64px'; img.style.maxHeight='64px'; img.style.margin='2px'; img.style.cursor='zoom-in';
+        img.onerror = ()=>{ if(t.url && img.src !== t.url){ img.src = t.url; } else { img.style.display='none'; } };
         // clicking a thumbnail opens a simple lightbox
         img.onclick = ()=>{
           let lb = document.getElementById('imageLightbox');
