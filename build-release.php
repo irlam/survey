@@ -32,7 +32,7 @@ $version   = null;
 foreach (array_slice($argv ?? [], 1) as $arg) {
     if ($arg === '--zip') {
         $createZip = true;
-    } elseif (str_starts_with($arg, '--version=')) {
+    } elseif (strpos($arg, '--version=') === 0) {
         $version = substr($arg, strlen('--version='));
     } elseif ($arg === '--help' || $arg === '-h') {
         echo "Usage: php build-release.php [--zip] [--version=X.Y.Z]\n";
@@ -64,7 +64,7 @@ function log_skip(string $msg): void {
     echo "  – " . $msg . "\n";
 }
 
-function abort(string $msg): never {
+function abort(string $msg): void {
     echo "\n  ✖ ERROR: " . $msg . "\n\n";
     exit(1);
 }

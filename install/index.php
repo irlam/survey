@@ -112,11 +112,11 @@ function db_import(PDO $pdo, string $sqlFile): array {
         $trimmed = rtrim($line);
         $ltrimmed = ltrim($trimmed);
         // Skip comment-only lines and empty lines
-        if ($ltrimmed === '' || str_starts_with($ltrimmed, '--') || str_starts_with($ltrimmed, '/*')) {
+        if ($ltrimmed === '' || substr($ltrimmed, 0, 2) === '--' || substr($ltrimmed, 0, 2) === '/*') {
             continue;
         }
         $current .= $trimmed . "\n";
-        if (str_ends_with(rtrim($trimmed), ';')) {
+        if (substr(rtrim($trimmed), -1) === ';') {
             $stmt = trim($current);
             if ($stmt !== '') {
                 $statements[] = $stmt;
@@ -347,12 +347,10 @@ function parse_bytes(string $val): int {
     if ($val === '') return 0;
     $last = strtolower(substr($val, -1));
     $num  = (int)$val;
-    return match($last) {
-        'g' => $num * 1024 * 1024 * 1024,
-        'm' => $num * 1024 * 1024,
-        'k' => $num * 1024,
-        default => $num,
-    };
+    if ($last === 'g') return $num * 1024 * 1024 * 1024;
+    if ($last === 'm') return $num * 1024 * 1024;
+    if ($last === 'k') return $num * 1024;
+    return $num;
 }
 
 function fmt_bytes(int $b): string {
