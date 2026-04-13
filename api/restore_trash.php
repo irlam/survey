@@ -57,23 +57,9 @@ try {
     $file_path = $p['file_path'] ?? null;
     $stmt->execute([$p['name'] ?? null, $p['revision'] ?? null, $file_path, $p['sha1'] ?? null]);
     $restoredPlanId = (int)$pdo->lastInsertId();
-    // restore photos rows
-    if (!empty($manifest['photos']) && is_array($manifest['photos'])) {
-      $added = 0;
-      // Use the real schema columns: file_path and thumb_path (not the old filename/thumb names).
-      $stmtIns = $pdo->prepare('INSERT INTO photos (plan_id, issue_id, file_path, thumb_path, created_at) VALUES (?, ?, ?, ?, ?)');
-      foreach ($manifest['photos'] as $ph) {
-        $file_path  = $ph['file_path']  ?? (isset($ph['filename']) ? 'photos/' . basename($ph['filename']) : null);
-        $thumb_path = $ph['thumb_path'] ?? $ph['thumb'] ?? null;
-        $created_at = $ph['created_at'] ?? null;
-        // issue_id may be null if photos were not linked to a specific issue in the manifest
-        $issue_id   = isset($ph['issue_id']) ? (int)$ph['issue_id'] : null;
-        $stmtIns->execute([$restoredPlanId, $issue_id, $file_path, $thumb_path, $created_at]);
-        $added++;
-      }
-      $results['photos_added'] = $added;
-    }
-    // restore issues rows
+
+    // Restore issues rows first so we can build an old-id → new-id map for photos
+    $issueIdMap = []; // old issue id => new issue id
     if (!empty($manifest['issues']) && is_array($manifest['issues'])) {
       $addedIssues = 0;
       // issue_no is NOT NULL in the schema; restore the original value where present.
@@ -102,10 +88,36 @@ try {
           $iss['due_date']    ?? null,
           $iss['created_at']  ?? null,
         ]);
+        $newIssueId = (int)$pdo->lastInsertId();
+        // Record mapping from old ID to new ID so photos can be remapped
+        if (!empty($iss['id'])) {
+          $issueIdMap[(int)$iss['id']] = $newIssueId;
+        }
         $nextNo = max($nextNo, $issueNo) + 1;
         $addedIssues++;
       }
       $results['issues_added'] = $addedIssues;
+    }
+
+    // Restore photos rows, remapping issue_id to newly-assigned IDs
+    if (!empty($manifest['photos']) && is_array($manifest['photos'])) {
+      $added = 0;
+      // Use the real schema columns: file_path and thumb_path (not the old filename/thumb names).
+      $stmtIns = $pdo->prepare('INSERT INTO photos (plan_id, issue_id, file_path, thumb_path, created_at) VALUES (?, ?, ?, ?, ?)');
+      foreach ($manifest['photos'] as $ph) {
+        $file_path  = $ph['file_path']  ?? (isset($ph['filename']) ? 'photos/' . basename($ph['filename']) : null);
+        $thumb_path = $ph['thumb_path'] ?? $ph['thumb'] ?? null;
+        $created_at = $ph['created_at'] ?? null;
+        $issue_id   = isset($ph['issue_id']) ? (int)$ph['issue_id'] : null;
+        // Remap old issue_id to the new ID assigned during this restore;
+        // if the old ID is not in the map (e.g. orphaned photo), leave issue_id as NULL.
+        if ($issue_id !== null) {
+          $issue_id = $issueIdMap[$issue_id] ?? null;
+        }
+        $stmtIns->execute([$restoredPlanId, $issue_id, $file_path, $thumb_path, $created_at]);
+        $added++;
+      }
+      $results['photos_added'] = $added;
     }
   }
 

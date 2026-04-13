@@ -1,7 +1,7 @@
 /* service-worker.js - PWA caching strategy (04/02/2026) */
 
-const STATIC_CACHE = 'survey-pwa-static-v55';
-const RUNTIME_CACHE = 'survey-pwa-runtime-v55';
+const STATIC_CACHE = 'survey-pwa-static-v56';
+const RUNTIME_CACHE = 'survey-pwa-runtime-v56';
 const ASSETS = [
   '/',
   '/index.html',
@@ -19,11 +19,12 @@ const ASSETS = [
   '/tools/batch-print.html',
   '/offline.html',
   '/manifest.json',
-  '/assets/ui.css?v=20260204_2',
+  '/assets/issues-modal-modern.css?v=20260222_3',
+  '/assets/ui.css?v=20260222_2',
   '/app/app.js?v=20260125_1',
   '/app/router.js',
-  '/app/viewer.js?v=20260204_2',
-  '/app/ui.js?v=20260204_13',
+  '/app/viewer.js?v=20260222_1',
+  '/app/ui.js?v=20260222_2',
   '/app/idb.js',
   '/app/sync.js',
   '/app/overlay.js',
