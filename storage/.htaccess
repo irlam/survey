@@ -1,0 +1,7 @@
+# Prevent directory listing and direct PHP execution in storage
+Options -Indexes
+
+# Block direct access to PHP files in storage
+<FilesMatch "\.php$">
+    Require all denied
+</FilesMatch>

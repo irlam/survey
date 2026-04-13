@@ -1,0 +1,28 @@
+SURVEY PDF EDITOR — QUICK START
+================================
+
+1. CREATE DATABASE
+   In your hosting control panel (Plesk/cPanel):
+   - Create a new MySQL database
+   - Create a database user with all privileges on that database
+   - Note down: host, database name, username, password
+
+2. UPLOAD FILES
+   Upload all files from this package to your web root
+   (httpdocs / public_html / www)
+
+3. SET PERMISSIONS
+   Ensure these directories are writable:
+   - storage/  (and all subdirectories)
+   - api/
+
+4. RUN INSTALLER
+   Visit: https://yoursite.com/install/
+   - Step 1: Check requirements pass
+   - Step 2: Enter database details + base URL
+   - Click "Run Installation"
+
+5. DONE
+   Click "Open Application" on the success screen.
+
+NEED HELP?  See README-INSTALL.md for full instructions.
