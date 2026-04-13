@@ -457,6 +457,7 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
   overflow: visible !important;
   height: calc(100vh - 230px);
   padding: 10px;
+  cursor: grab;
 }
 .pdfStage.dragging{cursor: grabbing}
 
@@ -509,6 +510,7 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
   margin: 0 auto;
   overflow: visible !important;
   touch-action: none;
+  will-change: transform;
 }
 
 /* Overlay for PDF pins */
@@ -520,8 +522,12 @@ button:not(.iconBtn):not(.selectButton):not(.toolBtn):focus{ outline:none; box-s
   height: 100%;
   pointer-events: none; /* viewer.js toggles to auto when Add Issue Mode is ON */
   z-index: 1000; /* ensure overlay is above canvas */
+  cursor: grab;
   /* border: 2px dashed red;  TEMP: debug overlay position */
   /* background: rgba(255,0,0,0.08); TEMP: debug overlay visibility */
+}
+.pdfStage.dragging .pdfOverlay {
+  cursor: grabbing;
 }
 
 .pin{

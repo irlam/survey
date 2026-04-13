@@ -180,6 +180,87 @@ function bindTouchGestures(targetEl){
   targetEl.addEventListener('pointerup', endPinch);
   targetEl.addEventListener('pointercancel', endPinch);
 
+  // ── Mouse drag-to-pan ──────────────────────────────────────────────────────
+  const MOUSE_DRAG_THRESHOLD_PX = 4; // pixels of movement before pan starts
+  let mousePanActive = false;
+  let mousePanStartX = 0;
+  let mousePanStartY = 0;
+  let mousePanLastX = 0;
+  let mousePanLastY = 0;
+  let mouseDragged = false;
+
+  targetEl.addEventListener('pointerdown', (e) => {
+    if (e.pointerType !== 'mouse' || e.button !== 0) return;
+    mousePanActive = true;
+    mouseDragged = false;
+    mousePanStartX = mousePanLastX = e.clientX;
+    mousePanStartY = mousePanLastY = e.clientY;
+    try { targetEl.setPointerCapture(e.pointerId); } catch(captureErr) { /* not critical – pointer capture is a perf hint only */ }
+  });
+
+  targetEl.addEventListener('pointermove', (e) => {
+    if (e.pointerType !== 'mouse') return;
+    if (!mousePanActive) return;
+    const dx = e.clientX - mousePanLastX;
+    const dy = e.clientY - mousePanLastY;
+    if (!mouseDragged && Math.hypot(e.clientX - mousePanStartX, e.clientY - mousePanStartY) > MOUSE_DRAG_THRESHOLD_PX) {
+      mouseDragged = true;
+      cancelIssueHold();
+      fitMode = false;
+      if (stage) stage.classList.add('dragging');
+    }
+    if (mouseDragged) {
+      panX += dx;
+      panY += dy;
+      mousePanLastX = e.clientX;
+      mousePanLastY = e.clientY;
+      applyPanTransform();
+    }
+  });
+
+  const endMousePan = (e) => {
+    if (e.pointerType !== 'mouse') return;
+    if (!mousePanActive) return;
+    mousePanActive = false;
+    if (stage) stage.classList.remove('dragging');
+    if (mouseDragged) {
+      // Swallow the subsequent click so pins / long-press logic are not triggered
+      targetEl.addEventListener('click', (ev) => { ev.stopPropagation(); ev.preventDefault(); }, { capture: true, once: true });
+      mouseDragged = false;
+    }
+  };
+  targetEl.addEventListener('pointerup', endMousePan);
+  targetEl.addEventListener('pointercancel', endMousePan);
+
+  // ── Mouse-wheel zoom (centred on cursor position) ──────────────────────────
+  // ZOOM_WHEEL_SENSITIVITY: per-pixel factor < 1 means scroll-down zooms out.
+  // Lower values (e.g. 0.998) give faster zoom; higher values slower.
+  const ZOOM_WHEEL_SENSITIVITY = 0.999;
+  const WHEEL_LINE_TO_PIXEL = 32;   // approx px per line (deltaMode === 1)
+  const WHEEL_PAGE_TO_PIXEL = 400;  // approx px per page (deltaMode === 2)
+  targetEl.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    // Normalise delta across different wheel modes (pixels, lines, pages)
+    let delta = e.deltaY;
+    if (e.deltaMode === 1) delta *= WHEEL_LINE_TO_PIXEL;
+    if (e.deltaMode === 2) delta *= WHEEL_PAGE_TO_PIXEL;
+    const zoomFactor = Math.pow(ZOOM_WHEEL_SENSITIVITY, delta); // smooth continuous zoom
+    const nextZoom = Math.max(0.25, Math.min(5.0, userZoom * zoomFactor));
+    if (Math.abs(nextZoom - userZoom) < 0.001) return;
+    // Anchor zoom to cursor position
+    const rect = targetEl.getBoundingClientRect();
+    const cx = e.clientX - rect.left;
+    const cy = e.clientY - rect.top;
+    const zoomRatio = nextZoom / Math.max(0.01, userZoom);
+    panX = (panX - cx) * zoomRatio + cx;
+    panY = (panY - cy) * zoomRatio + cy;
+    userZoom = nextZoom;
+    fitMode = false;
+    setBadges();
+    applyPanTransform();
+    scheduleRender();
+  }, { passive: false });
+
   // Touch fallback for devices that don't deliver pointer events reliably
   targetEl.addEventListener('touchstart', (e) => {
     if (pointerEventsUsed) return;
@@ -385,7 +466,7 @@ function applyPanTransform(){
   if(!wrap) return;
   const scale = livePinchActive ? livePinchScale : 1;
   wrap.style.transformOrigin = '0 0';
-  wrap.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+  wrap.style.transform = `translate3d(${panX}px, ${panY}px, 0) scale(${scale})`;
 }
 
 function highlightPinById(issueId){
