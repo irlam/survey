@@ -235,7 +235,8 @@ function render_pin_thumbnail($planFile, $page, $x_norm, $y_norm, $thumbWidthPx 
     }
 
     // Fallback: try external pdftoppm (Poppler) to render the page to PNG, then use GD to composite the pin
-    $pdftoppm = trim(shell_exec('command -v pdftoppm 2>/dev/null'));
+    // shell_exec() returns null when the binary is missing; trim(null) throws on PHP 8.x — cast first.
+    $pdftoppm = trim((string)(shell_exec('command -v pdftoppm 2>/dev/null') ?? ''));
     if ($pdftoppm) {
         $prefix = sys_get_temp_dir() . '/pinr_' . bin2hex(random_bytes(6));
         $outPng = $prefix . '.png';
@@ -286,7 +287,8 @@ function render_pin_thumbnail($planFile, $page, $x_norm, $y_norm, $thumbWidthPx 
     }
 
     // Another fallback: try GhostScript (gs) to render a single page, then composite with GD like above
-    $gs = trim(shell_exec('command -v gs 2>/dev/null'));
+    // shell_exec() returns null when the binary is missing; trim(null) throws on PHP 8.x — cast first.
+    $gs = trim((string)(shell_exec('command -v gs 2>/dev/null') ?? ''));
     if ($gs) {
         $prefix = sys_get_temp_dir() . '/pinr_' . bin2hex(random_bytes(6));
         $outPng = $prefix . '.png';
@@ -393,7 +395,8 @@ function render_plan_thumbnail($planFile, $page = 1, $thumbWidthPx = 1200) {
     }
 
     // Fallback: use pdftoppm if available
-    $pdftoppm = trim(shell_exec('command -v pdftoppm 2>/dev/null'));
+    // shell_exec() returns null when the binary is missing; trim(null) throws on PHP 8.x — cast first.
+    $pdftoppm = trim((string)(shell_exec('command -v pdftoppm 2>/dev/null') ?? ''));
     if ($pdftoppm) {
         $prefix = sys_get_temp_dir() . '/planr_' . bin2hex(random_bytes(6));
         $outPng = $prefix . '.png';
@@ -427,7 +430,8 @@ function render_plan_thumbnail($planFile, $page = 1, $thumbWidthPx = 1200) {
     }
 
     // Another fallback: use GhostScript
-    $gs = trim(shell_exec('command -v gs 2>/dev/null'));
+    // shell_exec() returns null when the binary is missing; trim(null) throws on PHP 8.x — cast first.
+    $gs = trim((string)(shell_exec('command -v gs 2>/dev/null') ?? ''));
     if ($gs) {
         $prefix = sys_get_temp_dir() . '/planr_' . bin2hex(random_bytes(6));
         $outPng = $prefix . '.png';

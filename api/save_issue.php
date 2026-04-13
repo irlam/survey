@@ -125,6 +125,8 @@ if ($id) {
       $plan_id, $next_no, $page, $x_norm, $y_norm, $title, $notes, $category, $status, $priority,
       $trade, $assigned_to, $due_date
     ]);
+    // Capture lastInsertId() BEFORE commit — PDO/MySQL resets it to 0 after commit in some drivers.
+    $new_id = (int)$pdo->lastInsertId();
     $pdo->commit();
   } catch (PDOException $e) {
     if ($pdo->inTransaction()) $pdo->rollBack();
@@ -150,6 +152,8 @@ if ($id) {
           $plan_id, $next_no, $page, $x_norm, $y_norm, $title, $notes, $category, $status, $priority,
           $trade, $assigned_to, $due_date
         ]);
+        // Capture before commit here too
+        $new_id = (int)$pdo->lastInsertId();
         $pdo->commit();
       } catch (PDOException $e2) {
         if ($pdo->inTransaction()) $pdo->rollBack();
@@ -166,7 +170,7 @@ if ($id) {
     error_response('Failed to save issue', 500, $extra);
   }
 
-  $new_id = (int)$pdo->lastInsertId();
+  // $new_id was set before commit() in each branch above
   $out = $pdo->prepare('SELECT * FROM issues WHERE id=?');
   $out->execute([$new_id]);
   $issue = $out->fetch();

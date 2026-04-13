@@ -45,6 +45,9 @@ if (!class_exists('\setasign\Fpdi\Fpdi')) {
     error_response('FPDI classes not available', 500);
 }
 try {
+    // Use a single FPDI instance for both import and output.
+    // Templates are instance-scoped in FPDI; using a second instance for useTemplate() always
+    // throws "Template does not exist!" because the template ID is not shared between instances.
     $pdf = new \setasign\Fpdi\Fpdi();
     $pageCount = $pdf->setSourceFile($sourceFile);
     if ($page > $pageCount) error_response('Page out of range', 400);
@@ -62,16 +65,15 @@ try {
     $cropH = $h_norm * $pageHeight;
     $y = $pageHeight - $y_top - $cropH; // bottom coordinate
 
-    // create new PDF sized to crop box
-    $outPdf = new \setasign\Fpdi\Fpdi();
-    $outPdf->AddPage('P', [$cropW, $cropH]);
-    // place template shifted so the desired crop region is at the origin
-    $outPdf->useTemplate($tpl, -$x, -$y, $pageWidth, $pageHeight);
+    // Add the output page to the same instance and place the imported template
+    $pdf->AddPage('P', [$cropW, $cropH]);
+    // Shift template so the desired crop region is at the page origin
+    $pdf->useTemplate($tpl, -$x, -$y, $pageWidth, $pageHeight);
 
     // Write output file
     $filename = 'crop_' . ($plan_id ? 'plan_' . $plan_id . '_' : '') . 'page_' . $page . '_' . time() . '.pdf';
     $path = storage_dir('exports/' . $filename);
-    $outPdf->Output('F', $path);
+    $pdf->Output('F', $path);
     clearstatcache(true, $path);
     if (!is_file($path) || filesize($path) <= 0) error_response('Failed to write output PDF', 500);
     json_response(['ok'=>true, 'filename'=>$filename, 'path'=>$path, 'size'=>filesize($path)]);

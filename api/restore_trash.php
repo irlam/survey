@@ -60,12 +60,15 @@ try {
     // restore photos rows
     if (!empty($manifest['photos']) && is_array($manifest['photos'])) {
       $added = 0;
-      $stmtIns = $pdo->prepare('INSERT INTO photos (plan_id, issue_id, filename, thumb, created_at) VALUES (?, ?, ?, ?, ?)');
+      // Use the real schema columns: file_path and thumb_path (not the old filename/thumb names).
+      $stmtIns = $pdo->prepare('INSERT INTO photos (plan_id, issue_id, file_path, thumb_path, created_at) VALUES (?, ?, ?, ?, ?)');
       foreach ($manifest['photos'] as $ph) {
-        $filename = $ph['filename'] ?? (isset($ph['file_path']) ? basename($ph['file_path']) : null);
-        $thumb = $ph['thumb'] ?? null;
+        $file_path  = $ph['file_path']  ?? (isset($ph['filename']) ? 'photos/' . basename($ph['filename']) : null);
+        $thumb_path = $ph['thumb_path'] ?? $ph['thumb'] ?? null;
         $created_at = $ph['created_at'] ?? null;
-        $stmtIns->execute([$restoredPlanId, null, $filename, $thumb, $created_at]);
+        // issue_id may be null if photos were not linked to a specific issue in the manifest
+        $issue_id   = isset($ph['issue_id']) ? (int)$ph['issue_id'] : null;
+        $stmtIns->execute([$restoredPlanId, $issue_id, $file_path, $thumb_path, $created_at]);
         $added++;
       }
       $results['photos_added'] = $added;
@@ -73,9 +76,33 @@ try {
     // restore issues rows
     if (!empty($manifest['issues']) && is_array($manifest['issues'])) {
       $addedIssues = 0;
-      $stmtInsI = $pdo->prepare('INSERT INTO issues (plan_id, page, x_norm, y_norm, title, notes, status, priority, assigned_to, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+      // issue_no is NOT NULL in the schema; restore the original value where present.
+      $stmtInsI = $pdo->prepare('
+        INSERT INTO issues
+          (plan_id, issue_no, page, x_norm, y_norm, title, notes, category, status, priority, trade, assigned_to, due_date, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ');
+      $nextNo = 1;
       foreach ($manifest['issues'] as $iss) {
-        $stmtInsI->execute([$restoredPlanId, $iss['page'] ?? null, $iss['x_norm'] ?? null, $iss['y_norm'] ?? null, $iss['title'] ?? null, $iss['notes'] ?? null, $iss['status'] ?? null, $iss['priority'] ?? null, $iss['assigned_to'] ?? null, $iss['created_at'] ?? null]);
+        // Prefer the stored issue_no; fall back to a counter in case it was missing from an old manifest.
+        $issueNo = isset($iss['issue_no']) ? (int)$iss['issue_no'] : $nextNo;
+        $stmtInsI->execute([
+          $restoredPlanId,
+          $issueNo,
+          $iss['page']        ?? null,
+          $iss['x_norm']      ?? null,
+          $iss['y_norm']      ?? null,
+          $iss['title']       ?? null,
+          $iss['notes']       ?? null,
+          $iss['category']    ?? 'Other',
+          $iss['status']      ?? 'Open',
+          $iss['priority']    ?? 'Medium',
+          $iss['trade']       ?? null,
+          $iss['assigned_to'] ?? null,
+          $iss['due_date']    ?? null,
+          $iss['created_at']  ?? null,
+        ]);
+        $nextNo = max($nextNo, $issueNo) + 1;
         $addedIssues++;
       }
       $results['issues_added'] = $addedIssues;
