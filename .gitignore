@@ -5,6 +5,9 @@
 !/storage/files/.gitkeep
 !/storage/exports/.gitkeep
 !/storage/tmp/.gitkeep
+!/storage/trash/.gitkeep
+!/storage/.htaccess
+/install/install.lock
 /api/config.php
 # OS/editor junk
 .DS_Store
@@ -23,4 +26,7 @@ tools/dwgviewer/console-capture*.txt
 # Ignore test results
 test-results/
 playwright-report/
-"api/config.php"  
+
+# Release build output
+/release/
+/survey-release.zip

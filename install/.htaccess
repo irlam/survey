@@ -1,0 +1,8 @@
+# install/.htaccess
+# Deny direct access to the lock file
+<Files "install.lock">
+    Require all denied
+</Files>
+
+# Block directory listing
+Options -Indexes
