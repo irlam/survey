@@ -214,6 +214,65 @@ $dirsToCopy = [
     ['install','install',['install.lock']], // exclude any existing lock file
     ['sql',    'sql',    []],
     ['vendor', 'vendor', []],
+    // tools/ is linked from the main navigation (index.html, general-viewer.html,
+    // exports.html) and pre-cached by service-worker.js — it must ship in the release.
+    // Dev-only artefacts (debug scripts, test data, playwright helpers, backup dirs)
+    // are excluded to keep the package clean.
+    ['tools',  'tools',  [
+        // backup snapshot
+        'backup-21-01-2026-1812',
+        // analysis / debug JS
+        'analyze_survey_code.js',
+        'analyze_viewer.js',
+        'run_smoke_http.js',
+        'show_lines.js',
+        // playwright / capture scripts (tools/ and tools/dwgviewer/)
+        'capture-issues-playwright.js',
+        'capture-console-playwright.js',
+        'capture-console.js',
+        'capture-with-dwg.js',
+        'check-fab-playwright.js',
+        'check-viewer-playwright.js',
+        // Python helpers
+        'capture_issue_modal.py',
+        'generate_pin.py',
+        // debug / test PHP
+        'check_braces.php',
+        'dump_lines.php',
+        'generate_pin_sample_pdf.php',
+        'itest_export_pin.php',
+        'show_pin_preview.php',
+        'simulate_export.php',
+        'test_pdf_embed.php',
+        'test_render_pin.php',
+        'test_render_plan.php',
+        'trace_braces.php',
+        // debug HTML
+        'export_raw_response.html',
+        // test data: JSON response snapshots
+        'export_response.json',
+        'export_response2.json',
+        'export_response_after_fix.json',
+        'export_response_after_fix2.json',
+        'export_response_after_fix3.json',
+        'export_response_pin_smaller.json',
+        'export_response_pin_smaller2.json',
+        'export_response_size_change.json',
+        'export_response_thumb_doubled.json',
+        'export_response_thumb_doubled_again.json',
+        'export_response_thumb_restored.json',
+        'export_response_thumb_smaller.json',
+        'render_debug.json',
+        'render_debug_after_fix2.json',
+        // test data: PDFs and images
+        'latest_export_after_fix.pdf',
+        'latest_export_after_fix_small.pdf',
+        'latest_export_thumb_smaller.pdf',
+        'plan_eec6.pdf',
+        'before.png',
+        // sample DWG used only for local testing
+        'arc_2000.dwg',
+    ]],
 ];
 
 foreach ($dirsToCopy as [$srcRel, $dstRel, $excludes]) {
