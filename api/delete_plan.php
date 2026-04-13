@@ -64,12 +64,7 @@ try {
   $stmt->execute([$plan_id]);
   $deleted['issues_deleted'] = $stmt->rowCount();
 
-  // Fetch photos to delete files
-  $stmtp = $pdo->prepare('SELECT * FROM photos WHERE plan_id=?');
-  $stmtp->execute([$plan_id]);
-  $photos = $stmtp->fetchAll(PDO::FETCH_ASSOC);
-
-  // Delete photo rows
+  // Delete photo rows (file paths already collected above in $photos)
   $stmt = $pdo->prepare('DELETE FROM photos WHERE plan_id=?');
   $stmt->execute([$plan_id]);
   $deleted['photos_deleted'] = $stmt->rowCount();

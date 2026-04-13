@@ -8,25 +8,29 @@ if (function_exists('ob_start') && ob_get_level() === 0) {
 
 /**
  * Verify CSRF token for state-changing requests.
- * Call this in POST/PUT/DELETE endpoints that modify data.
+ * Skipped when csrf_enabled is false/absent in config.
  */
 function verify_csrf(): void {
-  // Skip CSRF check for GET requests (should be read-only)
+  // Respect the csrf_enabled config flag; skip if disabled
+  $cfg = load_config();
+  if (empty($cfg['csrf_enabled'])) return;
+
+  // Skip CSRF check for safe methods
   $method = $_SERVER['REQUEST_METHOD'] ?? '';
   if ($method === 'GET' || $method === 'OPTIONS' || $method === 'HEAD') {
     return;
   }
-  
+
   // Get token from header or POST body
   $token = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? $_POST['_csrf'] ?? '';
-  
+
   // Start session if not already started
   if (session_status() === PHP_SESSION_NONE) {
     @session_start();
   }
-  
+
   $session_token = $_SESSION['csrf_token'] ?? '';
-  
+
   if (empty($token) || empty($session_token) || !hash_equals($session_token, $token)) {
     error_response('Invalid or missing CSRF token', 403);
   }
@@ -51,6 +55,10 @@ function generate_csrf_token(): string {
 function require_method(string $method): void {
   if (($_SERVER['REQUEST_METHOD'] ?? '') !== $method) {
     error_response('Method not allowed', 405);
+  }
+  // Enforce CSRF protection for all state-changing requests
+  if (in_array($method, ['POST', 'PUT', 'DELETE', 'PATCH'], true)) {
+    verify_csrf();
   }
 }
 

@@ -5,6 +5,12 @@ require_once __DIR__ . '/config-util.php';
 require_once __DIR__ . '/db.php';
 require_method('GET');
 
+// Only expose diagnostics when debug mode is enabled in config
+$cfg = load_config();
+if (empty($cfg['debug'])) {
+  error_response('Diagnostics not available', 403);
+}
+
 $info = [
   'ok' => true,
   'time' => date('c'),
