@@ -611,12 +611,28 @@
   transform: scale(1.1);
 }
 
+/* Reset issueCard layout when inside modern modal (uses issueCardInner grid instead) */
+#issuesList .card.issueCard {
+  display: block;
+  padding: 0;
+}
+
 /* Actions Column */
 .issueActionsCol {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  align-items: flex-end;
+  align-items: stretch;
+}
+
+.issueActionBtn {
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  min-height: 36px;
+  white-space: nowrap;
+  width: 100%;
+  text-align: center;
 }
 
 .issueDragHandle {

@@ -549,11 +549,12 @@ function showIssuesModal(planId) {
       if(!filtered.length){
         const hasFilters = Boolean(q || aVal || sVal || pVal);
         issuesList.innerHTML = `
-          <div class="card" style="display:flex;flex-direction:column;gap:10px;align-items:flex-start;">
-            <div style="font-weight:800;">${hasFilters ? 'No matching issues' : 'No issues yet'}</div>
-            <div class="muted">${hasFilters ? 'Try clearing filters or search terms.' : 'Tap Add Issue mode, then long‑press on the plan to drop your first pin.'}</div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <button id="issuesEmptyAdd" class="btnPrimary" type="button">Add Issue</button>
+          <div class="empty-state">
+            <div class="empty-state-icon">${hasFilters ? '🔍' : '📋'}</div>
+            <div class="empty-state-title">${hasFilters ? 'No matching issues' : 'No issues yet'}</div>
+            <div class="empty-state-text">${hasFilters ? 'Try clearing filters or search terms.' : 'Tap Add Issue mode, then long-press on the plan to drop your first pin.'}</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
+              <button id="issuesEmptyAdd" class="btnPrimary" type="button">＋ Add Issue</button>
               <button id="issuesEmptyClose" class="btn" type="button">Close</button>
             </div>
           </div>
@@ -583,52 +584,58 @@ function showIssuesModal(planId) {
       // build enhanced list
       issuesList.innerHTML = '';
       const container = document.createElement('div');
-      container.style.display = 'flex'; container.style.flexDirection = 'column'; container.style.gap = '8px';
+      container.style.display = 'flex'; container.style.flexDirection = 'column';
+      // Create custom-styled select widgets (neon / customSelect) so dropdown list is styled consistently
+      function normalizeSelectValue(val, opts){
+        if (!val) return (opts[0] && opts[0].value) || '';
+        const raw = String(val).trim();
+        const norm = raw.toLowerCase().replace(/[_\s]+/g, ' ');
+        const match = opts.find(o => String(o.value).toLowerCase().replace(/[_\s]+/g, ' ') === norm)
+          || opts.find(o => String(o.label).toLowerCase().replace(/[_\s]+/g, ' ') === norm);
+        return (match && match.value) || (opts[0] && opts[0].value) || raw;
+      }
+      function createCustomSelect(opts, val, extraClass){
+        const wrap = document.createElement('div'); wrap.className = (extraClass ? extraClass + ' ' : '') + 'customSelect neonSelect';
+        wrap.tabIndex = 0; wrap.setAttribute('role','combobox');
+        const btn = document.createElement('button'); btn.className = 'selectButton'; btn.setAttribute('aria-label','Select'); btn.innerHTML = '<span class="selectedLabel"></span>';
+        const ul = document.createElement('ul'); ul.className = 'selectList'; ul.setAttribute('role','listbox'); ul.tabIndex = -1;
+        for(const o of opts){ const li = document.createElement('li'); li.setAttribute('role','option'); li.dataset.value = o.value; li.textContent = o.label; if(o.value===val) li.setAttribute('aria-selected','true'); ul.appendChild(li); }
+        wrap.appendChild(btn); wrap.appendChild(ul);
+        wrap.value = normalizeSelectValue(val, opts);
+        const setSelected = (v)=>{ const sel = Array.from(ul.children).find(li=>li.dataset.value==v); if(sel){ wrap.querySelector('.selectedLabel').textContent = sel.textContent; wrap.value = v; ul.querySelectorAll('li').forEach(li=> li.setAttribute('aria-selected', li.dataset.value==v ? 'true' : 'false')); }};
+        const labelEl = wrap.querySelector('.selectedLabel'); labelEl.style.color = '#041013'; labelEl.style.fontWeight = '900';
+        btn.style.color = '#041013';
+        setSelected(wrap.value);
+        btn.onclick = (e)=>{ e.stopPropagation(); const open = ul.classList.toggle('open'); wrap.setAttribute('aria-expanded', open? 'true':'false'); if(open) ul.focus(); };
+        ul.querySelectorAll('li').forEach(li=>{ li.tabIndex=0; li.onclick = (ev)=>{ ev.stopPropagation(); setSelected(li.dataset.value); ul.classList.remove('open'); wrap.setAttribute('aria-expanded','false'); wrap.dispatchEvent(new Event('change')); }; li.onkeydown = (ev)=>{ if(ev.key==='Enter' || ev.key===' '){ ev.preventDefault(); li.click(); } }; });
+        wrap._closeList = ()=>{ ul.classList.remove('open'); wrap.setAttribute('aria-expanded','false'); };
+        return wrap;
+      }
       for (const issue of filtered) {
         const item = document.createElement('div'); item.className = 'card issueCard'; item.dataset.issueId = String(issue.id||''); item.setAttribute('role','listitem');
         item.dataset.status = (issue.status || 'Open');
         item.dataset.priority = (issue.priority || 'Medium');
         item.dataset.category = (issue.category || 'Other');
-        const header = document.createElement('div'); header.className = 'issueHeader';
-        const titleWrap = document.createElement('div'); titleWrap.className = 'issueTitleWrap';
+
+        // Three-column grid: [checkbox] [main content] [actions]
+        const inner = document.createElement('div'); inner.className = 'issueCardInner';
+
+        // Column 1: checkbox
         const selectWrap = document.createElement('label'); selectWrap.className = 'issueSelectWrap';
         const selectBox = document.createElement('input'); selectBox.type='checkbox'; selectBox.className='issueSelect'; selectBox.value = String(issue.id||'');
         selectBox.checked = selectedIds.has(selectBox.value);
         selectBox.onchange = ()=>{ if(selectBox.checked) selectedIds.add(selectBox.value); else selectedIds.delete(selectBox.value); updateSelectedUi(); };
         selectWrap.appendChild(selectBox);
-        const dragHandle = document.createElement('button'); dragHandle.className='issueDragHandle'; dragHandle.type='button'; dragHandle.textContent='⋮⋮';
+
+        // Column 2: main content
+        const mainContent = document.createElement('div'); mainContent.className = 'issueMainContent';
+        const titleWrap = document.createElement('div'); titleWrap.className = 'issueTitleWrap';
         const title = document.createElement('div'); title.className = 'issueTitleText'; title.textContent = issue.title || ('Issue #' + issue.id);
         const sub = document.createElement('div'); sub.className = 'issueSubText';
         sub.textContent = `#${issue.id || ''} · Page ${issue.page || ''}`;
         titleWrap.appendChild(title); titleWrap.appendChild(sub);
+
         const badges = document.createElement('div'); badges.className = 'issueBadges';
-        // Create custom-styled select widgets (neon / customSelect) so dropdown list is styled consistently
-        function normalizeSelectValue(val, opts){
-          if (!val) return (opts[0] && opts[0].value) || '';
-          const raw = String(val).trim();
-          const norm = raw.toLowerCase().replace(/[_\s]+/g, ' ');
-          const match = opts.find(o => String(o.value).toLowerCase().replace(/[_\s]+/g, ' ') === norm)
-            || opts.find(o => String(o.label).toLowerCase().replace(/[_\s]+/g, ' ') === norm);
-          return (match && match.value) || (opts[0] && opts[0].value) || raw;
-        }
-        function createCustomSelect(opts, val, extraClass){
-          const wrap = document.createElement('div'); wrap.className = (extraClass ? extraClass + ' ' : '') + 'customSelect neonSelect';
-          wrap.tabIndex = 0; wrap.setAttribute('role','combobox');
-          const btn = document.createElement('button'); btn.className = 'selectButton'; btn.setAttribute('aria-label','Select'); btn.innerHTML = '<span class="selectedLabel"></span>';
-          const ul = document.createElement('ul'); ul.className = 'selectList'; ul.setAttribute('role','listbox'); ul.tabIndex = -1;
-          for(const o of opts){ const li = document.createElement('li'); li.setAttribute('role','option'); li.dataset.value = o.value; li.textContent = o.label; if(o.value===val) li.setAttribute('aria-selected','true'); ul.appendChild(li); }
-          wrap.appendChild(btn); wrap.appendChild(ul);
-          // hidden value storage
-          wrap.value = normalizeSelectValue(val, opts);
-          const setSelected = (v)=>{ const sel = Array.from(ul.children).find(li=>li.dataset.value==v); if(sel){ wrap.querySelector('.selectedLabel').textContent = sel.textContent; wrap.value = v; ul.querySelectorAll('li').forEach(li=> li.setAttribute('aria-selected', li.dataset.value==v ? 'true' : 'false')); }};
-          const labelEl = wrap.querySelector('.selectedLabel'); labelEl.style.color = '#041013'; labelEl.style.fontWeight = '900';
-          btn.style.color = '#041013';
-          setSelected(wrap.value);
-          btn.onclick = (e)=>{ e.stopPropagation(); const open = ul.classList.toggle('open'); wrap.setAttribute('aria-expanded', open? 'true':'false'); if(open) ul.focus(); };
-          ul.querySelectorAll('li').forEach(li=>{ li.tabIndex=0; li.onclick = (ev)=>{ ev.stopPropagation(); setSelected(li.dataset.value); ul.classList.remove('open'); wrap.setAttribute('aria-expanded','false'); wrap.dispatchEvent(new Event('change')); }; li.onkeydown = (ev)=>{ if(ev.key==='Enter' || ev.key===' '){ ev.preventDefault(); li.click(); } }; });
-          wrap._closeList = ()=>{ ul.classList.remove('open'); wrap.setAttribute('aria-expanded','false'); };
-          return wrap;
-        }
         const statusSelect = createCustomSelect([
           {value:'Open',label:'Open'},{value:'In Progress',label:'In Progress'},{value:'Closed',label:'Closed'}
         ], issue.status || 'Open');
@@ -674,10 +681,8 @@ function showIssuesModal(planId) {
         })();
         statusSelect.addEventListener('change', scheduleQuickSave);
         prioSelect.addEventListener('change', scheduleQuickSave);
-
         const catChip = document.createElement('span'); catChip.className='issueChip'; catChip.textContent = issue.category || 'Other';
         badges.appendChild(statusSelect); badges.appendChild(prioSelect); badges.appendChild(catChip);
-        header.appendChild(selectWrap); header.appendChild(dragHandle); header.appendChild(titleWrap); header.appendChild(badges);
 
         const body = document.createElement('div'); body.className = 'issueBody';
         const notes = document.createElement('div'); notes.className = 'issueNotesText'; notes.textContent = issue.notes || issue.description || 'No notes';
@@ -747,12 +752,16 @@ function showIssuesModal(planId) {
           }catch(e){ /* ignore */ }
         })();
 
-        const actions = document.createElement('div'); actions.className = 'issueActions';
-        const primary = document.createElement('div'); primary.className = 'issueActionsPrimary';
-        const secondary = document.createElement('div'); secondary.className = 'issueActionsSecondary';
-        const viewBtn = document.createElement('button'); viewBtn.className='btnPrimary'; viewBtn.textContent='Open';
+        mainContent.appendChild(titleWrap);
+        mainContent.appendChild(badges);
+        mainContent.appendChild(body);
+
+        // Column 3: action buttons + drag handle
+        const actionsCol = document.createElement('div'); actionsCol.className = 'issueActionsCol';
+        const dragHandle = document.createElement('button'); dragHandle.className='issueDragHandle'; dragHandle.type='button'; dragHandle.textContent='⋮⋮';
+        const viewBtn = document.createElement('button'); viewBtn.className='btnPrimary issueActionBtn'; viewBtn.textContent='Open';
         viewBtn.onclick = ()=>{ try{ if(window.showIssueModal) window.showIssueModal(issue); else showToast('Viewer not loaded'); }catch(e){ console.error(e); showToast('Unable to open issue'); } };
-        const jumpBtn = document.createElement('button'); jumpBtn.className='btn'; jumpBtn.textContent='Jump';
+        const jumpBtn = document.createElement('button'); jumpBtn.className='btn issueActionBtn'; jumpBtn.textContent='Jump';
         jumpBtn.onclick = ()=>{ try{
           const u = new URL(window.location.href); u.searchParams.set('plan_id', String(planId)); history.pushState({},'',u.toString());
           if(window.startViewer){
@@ -762,7 +771,7 @@ function showIssuesModal(planId) {
             });
           }
         }catch(e){ console.error(e); } };
-        const exportBtn = document.createElement('button'); exportBtn.className='btn'; exportBtn.textContent='Export';
+        const exportBtn = document.createElement('button'); exportBtn.className='btn issueActionBtn'; exportBtn.textContent='Export';
         exportBtn.onclick = async ()=>{
           exportBtn.disabled = true; addSpinner(exportBtn);
           if (downloadBtn) { downloadBtn.style.display = 'none'; downloadBtn.disabled = true; downloadBtn.onclick = null; }
@@ -790,7 +799,7 @@ function showIssuesModal(planId) {
           }
           removeSpinner(exportBtn); exportBtn.disabled = false;
         };
-        const delIssueBtn = document.createElement('button'); delIssueBtn.className='btn'; delIssueBtn.textContent='Delete';
+        const delIssueBtn = document.createElement('button'); delIssueBtn.className='btn issueActionBtn'; delIssueBtn.textContent='Delete';
         delIssueBtn.onclick = async ()=>{
           if(!confirm(`Delete issue "${issue.title || ('#' + issue.id)}"? This will remove it and its photos.`)) return;
           delIssueBtn.disabled = true;
@@ -805,15 +814,19 @@ function showIssuesModal(planId) {
           }catch(err){ showToast('Delete error: ' + (err.message || err)); console.error('delete issue', err); }
           delIssueBtn.disabled = false;
         };
-        const saveBtn = document.createElement('button'); saveBtn.className='btn'; saveBtn.textContent='Save';
+        const saveBtn = document.createElement('button'); saveBtn.className='btn issueActionBtn'; saveBtn.textContent='Save';
         saveBtn.onclick = async ()=>{ saveBtn.disabled = true; try{ const payload = { id: issue.id, plan_id: planId, title: issue.title, notes: issue.notes, page: issue.page, x_norm: issue.x_norm, y_norm: issue.y_norm, status: statusSelect.value, priority: prioSelect.value }; const r = await fetch('/api/save_issue.php',{method:'POST',headers:{'Content-Type':'application/json'},body: JSON.stringify(payload), credentials:'same-origin'}); const txt = await r.text(); let resp; try{ resp = JSON.parse(txt); }catch(e){ resp = null; } if(!r.ok || !resp || !resp.ok) throw new Error((resp && resp.error) ? resp.error : 'Save failed'); showToast('Saved'); issue.status = statusSelect.value; issue.priority = prioSelect.value; }catch(err){ showToast('Save error: ' + err.message); } saveBtn.disabled = false; };
-        primary.appendChild(viewBtn); primary.appendChild(jumpBtn);
-        secondary.appendChild(exportBtn); secondary.appendChild(saveBtn); secondary.appendChild(delIssueBtn);
-        actions.appendChild(primary); actions.appendChild(secondary);
+        actionsCol.appendChild(dragHandle);
+        actionsCol.appendChild(viewBtn);
+        actionsCol.appendChild(jumpBtn);
+        actionsCol.appendChild(exportBtn);
+        actionsCol.appendChild(saveBtn);
+        actionsCol.appendChild(delIssueBtn);
 
-        item.appendChild(header);
-        item.appendChild(body);
-        item.appendChild(actions);
+        inner.appendChild(selectWrap);
+        inner.appendChild(mainContent);
+        inner.appendChild(actionsCol);
+        item.appendChild(inner);
         container.appendChild(item);
         item.addEventListener('click', (ev)=>{
           if (ev.target && ev.target.closest && (ev.target.closest('button') || ev.target.closest('.customSelect'))) return;
