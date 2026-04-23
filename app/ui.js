@@ -799,7 +799,8 @@ function showIssuesModal(planId) {
             const txt = await res.text(); let data; try{ data = JSON.parse(txt); }catch(e){ data = null; }
             if(!res.ok || !data || !data.ok) throw new Error((data && data.error) ? data.error : ('Delete failed (HTTP ' + res.status + ')'));
             showToast('Issue deleted');
-            await loadIssuesList();
+            modal._issuesCache = null;
+            await loadIssuesList(true);
             try{ document.dispatchEvent(new CustomEvent('issueDeleted',{detail:{issueId: issue.id}})); }catch(e){}
           }catch(err){ showToast('Delete error: ' + (err.message || err)); console.error('delete issue', err); }
           delIssueBtn.disabled = false;
