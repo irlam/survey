@@ -31,12 +31,6 @@ function move_to_trash_file_local($src, $trashDir){
 
 $deleted = ['issue_deleted'=>false, 'photos_deleted'=>0, 'photos'=>[], 'thumbs'=>[], 'exports_deleted'=>[]];
 
-// Write a manifest with issue + photos + intent so undo can restore (now that $photos is known)
-try {
-    $manifest = ['type'=>'issue','issue'=>$issue, 'photos'=>$photos, 'timestamp'=>date('c')];
-    @file_put_contents(rtrim($trashDir, '/') . '/manifest.json', json_encode($manifest, JSON_PRETTY_PRINT));
-} catch (Exception $e) { error_log('delete_issue_with_photos: failed to write manifest: ' . $e->getMessage()); }
-
 try {
   $pdo->beginTransaction();
 
